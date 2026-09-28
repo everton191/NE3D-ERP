@@ -30,6 +30,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SimplificaUpdatePlugin.class);
         registerPlugin(SimplificaBambuLanPlugin.class);
         registerPlugin(SimplificaLocalAiPlugin.class);
+        registerPlugin(SimplificaNeedlePlugin.class);
         registerPlugin(SimplificaVoicePlugin.class);
         registerPlugin(SimplificaSystemUiPlugin.class);
         registerPlugin(SimplificaCarousel3DPlugin.class);

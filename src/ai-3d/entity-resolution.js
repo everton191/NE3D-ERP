@@ -375,6 +375,26 @@ function resolveCandidateEntity(entityType, { refs = null, selectedId = null, ca
   return new EntityResolutionResult(RESOLUTION_STATUS.NOT_FOUND, null, null, [], `${entityType} não encontrado no resultado de ${source}`);
 }
 
+// Canonical contract adapter. It deliberately delegates to the existing resolver
+// above so IDs can only originate from a real candidate returned by the ERP.
+function resolveCanonicalEntity(params = {}) {
+  const entityType = String(params.entityType || "");
+  const resolved = resolveEntity(params);
+  const result = Array.isArray(resolved) ? resolved[0] : resolved;
+  const status = result?.status === RESOLUTION_STATUS.MISSING_INPUT || result?.status === RESOLUTION_STATUS.GAP_BLOCKED ? "INVALID" : (result?.status || "INVALID");
+  const candidates = (result?.matches || []).map(compactCandidate).filter((candidate) => candidate.id);
+  const entity = result?.entity || null;
+  return Object.freeze({
+    status,
+    entityType,
+    entityId: result?.id ? String(result.id) : "",
+    displayName: String(entity?.name || entity?.label || entity?.code || ""),
+    confidence: status === "RESOLVED" ? 1 : 0,
+    candidates: Object.freeze(candidates),
+    reason: String(result?.reason || "")
+  });
+}
+
 // Export
 const entityResolutionApi = Object.freeze({
   RESOLUTION_STATUS,
@@ -382,6 +402,7 @@ const entityResolutionApi = Object.freeze({
   createPendingResolution,
   resumePendingResolution,
   resolveEntity,
+  resolveCanonicalEntity,
   resolveCustomer,
   resolveOrder,
   resolveJob,

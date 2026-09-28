@@ -1,0 +1,6 @@
+set(NEEDLE_DIR ${CMAKE_CURRENT_LIST_DIR}/../../../../../third_party/needle3/android-arm64)
+add_library(needle_jni SHARED needle_jni.cpp)
+add_library(needle_static STATIC IMPORTED)
+set_target_properties(needle_static PROPERTIES IMPORTED_LOCATION ${NEEDLE_DIR}/libneedle.a)
+target_include_directories(needle_jni PRIVATE ${NEEDLE_DIR})
+target_link_libraries(needle_jni needle_static android log)

@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "models": [
+    {
+      "id": "needle3",
+      "displayName": "Needle 3",
+      "provider": "Cactus Compute",
+      "repo": "Cactus-Compute/needle3",
+      "revision": "b274efcb211a9eef48c9a88da4b43bd569696a39",
+      "role": "tool_router",
+      "runtime": "cactus-needle-native",
+      "platform": "android-arm64",
+      "filename": "needle3.cact",
+      "expectedSize": 35335380,
+      "sha256": "c9d915eca282ed42d1a09b143b592adb4cc6744ffe2d294adf5cfc5548170c38",
+      "license": "Apache-2.0",
+      "downloadable": true,
+      "downloadableWeights": true,
+      "bundledRuntime": true,
+      "destinationPath": "ai/models/needle3/needle3.cact",
+      "installedVersion": "",
+      "downloadState": "NOT_INSTALLED",
+      "healthState": "NOT_INSTALLED",
+      "capabilities": ["tool_call", "structured_extraction", "embedding", "confidence"]
+    },
+    {
+      "id": "lfm2.5-1.2b-q4_0",
+      "displayName": "LFM2.5 1.2B Instruct QAD Q4_0",
+      "provider": "Liquid AI",
+      "repo": "LiquidAI/LFM2.5-1.2B-Instruct-GGUF",
+      "revision": "8ed288026e23958ad9dfa92d53ed773a8eee7125",
+      "role": "language_interpreter",
+      "runtime": "llama.cpp",
+      "platform": "android-arm64",
+      "filename": "LFM2.5-1.2B-Instruct-QAD-Q4_0.gguf",
+      "expectedSize": 695755488,
+      "sha256": "bb741ebb106d543e9de114b843a3d3d73d51c74b5801e69da2abde821a0cb3e1",
+      "license": "LFM1.0",
+      "downloadable": false,
+      "downloadableWeights": false,
+      "bundledRuntime": true,
+      "destinationPath": "models/lfm2/LFM2.5-1.2B-Instruct-QAD-Q4_0.gguf",
+      "installedVersion": "",
+      "downloadState": "NOT_INSTALLED",
+      "healthState": "NOT_INSTALLED",
+      "capabilities": ["intent_classification", "context_interpretation", "structured_output", "conversation"]
+    }
+  ]
+}

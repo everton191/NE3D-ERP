@@ -27,7 +27,12 @@
     async converse(text, context) { await this.prewarm(); const deterministic = global.SimplificaDeterministicRouter?.resolve?.(text, context); if (deterministic) return "Entendi o comando seguro do Simplifica."; return "A IA local está preparada. A interpretação por ferramentas permanece bloqueada até a validação do chat template e do schema."; }
   }
   const provider = new LocalToolModelProvider();
-  async function predictTool(text, context = {}, { shadow = false } = {}) { const deterministic = global.SimplificaDeterministicRouter?.resolve?.(text, context); return Object.freeze({ ...(deterministic || { kind: "NO_TOOL", reason: "LOCAL_LLM_TOOL_ADAPTER_NOT_VALIDATED" }), shadow }); }
+  function scheduleNeedleShadow(text, context, currentDecision) {
+    // Explicit opt-in only: shadow must never delay, replace or execute the current route.
+    if (global.SIMPLIFICA_NEEDLE_SHADOW_ENABLED !== true || !global.SimplificaNeedleShadow?.shadow) return;
+    global.setTimeout(() => global.SimplificaNeedleShadow.shadow({ input: text, contextSnapshot: context, currentDecision }).catch(() => {}), 0);
+  }
+  async function predictTool(text, context = {}, { shadow = false } = {}) { const deterministic = global.SimplificaDeterministicRouter?.resolve?.(text, context); const decision = Object.freeze({ ...(deterministic || { kind: "NO_TOOL", reason: "LOCAL_LLM_TOOL_ADAPTER_NOT_VALIDATED" }), shadow }); if (!shadow) scheduleNeedleShadow(text, context, decision); return decision; }
   async function interpret(text, context = {}) { const prediction = await predictTool(text, context); return global.Simplifica3dAiActions.preview(prediction.kind === "TOOL_CALL" ? { type: prediction.tool, payload: prediction.arguments || {} } : { type: "chat", payload: { answer: "Não identifiquei uma função segura para esse pedido." } }); }
   async function execute(preview, confirmed) { if (preview?.requiresConfirmation || confirmed === true) throw new Error("LOCAL_LLM_WRITE_BLOCKED"); return global.Simplifica3dErpBridge.execute(preview); }
   async function cancel() { await plugin()?.cancelLocalModel?.(); return { cancelled: true, writeExposed: 0 }; }

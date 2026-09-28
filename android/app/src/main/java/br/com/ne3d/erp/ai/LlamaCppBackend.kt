@@ -11,7 +11,7 @@ import java.util.concurrent.TimeoutException
 /** Single-owner CPU llama.cpp runtime shared by local model adapters. */
 class LlamaCppBackend(private val context: Context) : AutoCloseable {
     data class ModelConfig(val modelId: String, val modelFile: File, val sha256: String = "", val contextSize: Int = 1024, val threads: Int = 0, val batchSize: Int = 0)
-    data class GenerateRequest(val prompt: String, val maxTokens: Int = 96, val temperature: Float = 0f, val topP: Float = .9f, val grammar: String? = null, val timeoutMs: Long = 20_000)
+    data class GenerateRequest(val prompt: String, val maxTokens: Int = 96, val temperature: Float = 0f, val topP: Float = .9f, val grammar: String? = null, val systemPrompt: String = "", val timeoutMs: Long = 20_000)
     enum class State { UNLOADED, LOADING, LOADED, WARMING, READY, GENERATING, CANCELLING, FAILED }
     private val worker = Executors.newSingleThreadExecutor { Thread(it, "local-llama-cpu").apply { priority = Thread.NORM_PRIORITY - 1 } }
     @Volatile private var closed = false
@@ -46,7 +46,7 @@ class LlamaCppBackend(private val context: Context) : AutoCloseable {
         val task: Future<String> = worker.submit<String> {
             check(!closed && state == State.READY) { "LOCAL_LLAMA_NOT_READY" }; check(!generating) { "LOCAL_LLAMA_BUSY" }
             generating = true; state = State.GENERATING
-            try { nativeGenerate(request.prompt, request.maxTokens, request.temperature, request.topP) }
+            try { nativeGenerate(request.systemPrompt, request.prompt, request.grammar.orEmpty(), request.maxTokens, request.temperature, request.topP) }
             finally { generating = false; if (!closed) state = State.READY }
         }
         return try {
@@ -68,7 +68,7 @@ class LlamaCppBackend(private val context: Context) : AutoCloseable {
     private external fun nativeInit(nativeLibraryDir: String): String
     private external fun nativeLoadModel(path: String, contextSize: Int, batchSize: Int, threads: Int): String
     private external fun nativeWarmup(): String
-    private external fun nativeGenerate(prompt: String, maxTokens: Int, temperature: Float, topP: Float): String
+    private external fun nativeGenerate(systemPrompt: String, prompt: String, grammar: String, maxTokens: Int, temperature: Float, topP: Float): String
     private external fun nativeCancel()
     private external fun nativeUnload()
     external fun nativeGetMetrics(): String

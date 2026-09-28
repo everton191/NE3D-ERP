@@ -38,8 +38,18 @@ object GlassCard {
         content: (Canvas) -> Unit,
     ) {
         val radius = 26f * scale
-        val bounds = RectF(0f, 0f, width, height)
+        // Uma margem mínima transparente permite que a sombra curta se separe
+        // do plano 3D, sem transformar o cartão em uma moldura pesada.
+        val shadowInset = 4f * scale
+        val bounds = RectF(shadowInset, shadowInset, width - shadowInset, height - shadowInset)
         val clip = Path().apply { addRoundRect(bounds, radius, radius, Path.Direction.CW) }
+
+        val shadow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0x16000000
+            setShadowLayer(5f * scale, 0f, 2f * scale, 0x55000000)
+        }
+        canvas.drawRoundRect(bounds, radius, radius, shadow)
+        shadow.clearShadowLayer()
 
         canvas.save()
         canvas.clipPath(clip)
@@ -82,12 +92,12 @@ object GlassCard {
         content(canvas)
         canvas.restore()
 
-        val inset = 1.5f * scale
+        val inset = 1.25f * scale
         val rim = RectF(bounds.left + inset, bounds.top + inset, bounds.right - inset, bounds.bottom - inset)
         val edge = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeWidth = inset
-            color = if (light) 0x8CFFFFFF.toInt() else 0x59FFFFFF.toInt()
+            color = if (light) 0xB8FFFFFF.toInt() else 0x88FFFFFF.toInt()
         }
         canvas.drawRoundRect(rim, radius - inset, radius - inset, edge)
 
@@ -95,7 +105,7 @@ object GlassCard {
             val outline = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 style = Paint.Style.STROKE
                 strokeWidth = scale
-                color = 0x2B0C1118.toInt()
+                color = 0x520C1118.toInt()
             }
             canvas.drawRoundRect(bounds, radius, radius, outline)
         }

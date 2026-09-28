@@ -6,6 +6,7 @@ import br.com.ne3d.erp.carousel3d.CarouselRect
 import br.com.ne3d.erp.carousel3d.HomeCarouselHost
 import br.com.ne3d.erp.carousel3d.NativeCarouselEditorDialog
 import br.com.ne3d.erp.carousel3d.RawCarouselModule
+import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
@@ -133,7 +134,13 @@ class SimplificaCarousel3DPlugin : Plugin() {
     }
 
     private fun notifyEditor() = notifyListeners(EVENT_EDITOR, JSObject(), false)
-    private fun notifyEditorChange(ids: List<String>) = notifyListeners(EVENT_EDITOR_CHANGE, JSObject().apply { put("visibleCardIds", ids) }, false)
+    private fun notifyEditorChange(ids: List<String>) {
+        // `JSObject.put` serializa uma List do Kotlin como texto. O WebView
+        // precisa receber um JSONArray real para aplicar a quantidade e a
+        // ordem dos painéis editados.
+        val visibleCardIds = JSArray().apply { ids.forEach { put(it) } }
+        notifyListeners(EVENT_EDITOR_CHANGE, JSObject().apply { put("visibleCardIds", visibleCardIds) }, false)
+    }
     private fun notifyEditorClose() = notifyListeners(EVENT_EDITOR_CLOSE, JSObject(), false)
 
     private fun readBackground(call: PluginCall): Int {

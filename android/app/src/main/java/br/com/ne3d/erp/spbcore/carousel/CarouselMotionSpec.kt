@@ -11,8 +11,13 @@ data class CarouselMotionSpec(
     val cameraFov: Float = 58f, val cameraZ: Float = 6.9f, val cameraY: Float = 2.2f, val lookAtY: Float = -.5f,
     val entryCameraFov: Float = 54f, val entryCameraZ: Float = 6.42f, val entryCameraY: Float = 1.75f,
     val centerScale: Float = .88f, val sideScale: Float = .88f, val sideAlpha: Float = .72f,
+    // Primeiro toque: a expansão precisa ser inequívoca, sem navegar. O segundo
+    // toque no cartão já ampliado confirma a abertura da tela do módulo.
+    val expandScale: Float = 2f, val expandEase: Float = 14f,
     val depthLift: Float = 0f, val sideFacingFactor: Float = 1f,
     val verticalDragToCameraY: Float = .008f, val minimumCameraY: Float = .6f, val maximumCameraY: Float = 4.2f,
+    // Pinça altera a distância da câmera, preservando a projeção perspectiva.
+    val minimumCameraZ: Float = 5.8f, val maximumCameraZ: Float = 9.8f,
     // One deliberate full-width swipe should expose several faces instead of
     // barely advancing the ring.
     val dragToAngleRatio: Float = .30f, val minimumFlingVelocity: Float = 240f,

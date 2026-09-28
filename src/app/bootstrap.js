@@ -162,6 +162,7 @@
       return true;
     };
     documentRef.addEventListener("DOMContentLoaded", async () => {
+      documentRef.documentElement.dataset.simplificaBootstrap = "restoring";
       if (global.UiV3Dev?.isRoute) {
         global.UiV3Dev.mount();
         return;
@@ -171,6 +172,29 @@
       configurarMonetizacaoAds();
       ensureAppShellLayers();
       iniciarIntroAbertura();
+      // Mesmo com a sessão ainda válida, a abertura passa por uma tela de
+      // verificação. Isso deixa explícito que a identidade foi conferida antes
+      // de liberar a Home e dá uma base visual para o prompt biométrico.
+      const etapasVerificacao = [
+        { title: "Verificando sessão", message: "Conferindo o acesso deste dispositivo...", progress: 16, step: 1 },
+        { title: "Confirmando sua conta", message: "Validando credenciais protegidas...", progress: 38, step: 2 },
+        { title: "Preparando seu espaço", message: "Restaurando suas preferências...", progress: 66, step: 3 },
+        { title: "Quase pronto", message: "Finalizando a entrada com segurança...", progress: 90, step: 4 }
+      ];
+      global.__simplificaSessionCheckVisualState = etapasVerificacao[0];
+      renderApp();
+      [1300, 2800, 4200].forEach((delay, index) => {
+        setTimeoutRef(() => {
+          if (documentRef.documentElement.dataset.simplificaBootstrap !== "restoring") return;
+          global.__simplificaSessionCheckVisualState = etapasVerificacao[index + 1];
+          renderApp();
+        }, delay);
+      });
+      await new Promise((resolve) => {
+        const afterFrame = () => setTimeoutRef(resolve, 5000);
+        if (typeof global.requestAnimationFrame === "function") global.requestAnimationFrame(afterFrame);
+        else afterFrame();
+      });
       configurarEventListenersArquitetura();
       configurarGestosDrawerLateral();
       configurarMenusContextuaisProdutosLoja();
@@ -186,12 +210,17 @@
           processarRotaSuperadminInicial();
           normalizarTelaInicialAndroid();
           if (!getUsuarioAtual() && !getAdminLogado() && getTelaAtual() === "dashboard") setTelaAtual("admin");
-          renderApp();
           if (getUsuarioAtual()) {
             startAuthenticated();
             recuperarPedidoRapidoAposReabertura();
           }
         }
+      }).catch((erro) => {
+        registrarDiagnostico("Bootstrap", "Restauração inicial não concluída", erro?.message || String(erro), { silent: true });
+      }).finally(() => {
+        delete global.__simplificaSessionCheckVisualState;
+        delete documentRef.documentElement.dataset.simplificaBootstrap;
+        renderApp();
       });
       iniciarMonitorAtualizacao();
       documentRef.addEventListener("pointermove", moverJanelaDashboard);

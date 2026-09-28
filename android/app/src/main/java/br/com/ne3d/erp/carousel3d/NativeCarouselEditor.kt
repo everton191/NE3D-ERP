@@ -5,6 +5,7 @@ import android.app.Dialog
 import android.graphics.Color as AndroidColor
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
+import android.view.ViewGroup
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -29,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,13 +48,26 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ViewModelStoreOwner
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.lifecycle.setViewTreeViewModelStoreOwner
+import androidx.savedstate.SavedStateRegistryOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import kotlinx.coroutines.delay
+import br.com.ne3d.erp.spbcore.host.CarouselSurfaceView
+import br.com.ne3d.erp.spbcore.core.ShellRenderer
+import br.com.ne3d.erp.spbcore.scene.Panel3D
+import br.com.ne3d.erp.spbcore.scene.PanelTextureKind
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.roundToInt
 
 /** Organizador nativo: os cartões são os mesmos bitmaps entregues à Home 3D. */
@@ -66,16 +81,46 @@ class NativeCarouselEditorDialog(
 ) : Dialog(activity) {
     private var closed = false
     private val initial = activeIds.filter { id -> catalog.any { it.id == id } }.take(10)
+    private var latestActiveIds = initial
+
+    private fun save(ids: List<String>) {
+        latestActiveIds = ids
+        onChange(ids)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window?.setBackgroundDrawable(ColorDrawable(AndroidColor.TRANSPARENT))
-        setContentView(ComposeView(activity).apply { setContent { Organizer(initial) } })
+        // Dialog tem uma janela própria e não herda automaticamente os donos de
+        // ciclo de vida da BridgeActivity. Sem estes vínculos, o Compose derruba
+        // todo o processo assim que a engrenagem abre o editor.
+        val lifecycleOwner = activity as? LifecycleOwner
+        val viewModelStoreOwner = activity as? ViewModelStoreOwner
+        val savedStateOwner = activity as? SavedStateRegistryOwner
+        setContentView(ComposeView(activity).apply {
+            lifecycleOwner?.let { setViewTreeLifecycleOwner(it) }
+            viewModelStoreOwner?.let { setViewTreeViewModelStoreOwner(it) }
+            savedStateOwner?.let { setViewTreeSavedStateRegistryOwner(it) }
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
+            setContent { Organizer(initial) }
+        })
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // O modal padrão limita a largura e achata a cena 3D. O organizador
+        // ocupa a tela útil para os painéis preservarem a mesma proporção da Home.
+        window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
     }
 
     override fun dismiss() {
         super.dismiss()
-        if (!closed) { closed = true; onClose() }
+        if (!closed) {
+            closed = true
+            // Fecha somente depois de publicar a última configuração confirmada.
+            save(latestActiveIds)
+            onClose()
+        }
     }
 
     @Composable
@@ -85,6 +130,7 @@ class NativeCarouselEditorDialog(
         var activeBounds by remember { mutableStateOf(Rect.Zero) }; var floorBounds by remember { mutableStateOf(Rect.Zero) }
         var rootOrigin by remember { mutableStateOf(Offset.Zero) }; val bounds = remember { mutableStateMapOf<String, Rect>() }
         var dragging by remember { mutableStateOf<CarouselModule?>(null) }; var position by remember { mutableStateOf(Offset.Zero) }
+        var savedNotice by remember { mutableStateOf(false) }
         val haptics = LocalHapticFeedback.current; val density = LocalDensity.current
         val floor = catalog.filterNot { item -> active.contains(item.id) }
         LaunchedEffect(dragging?.id) { while (dragging != null) {
@@ -102,7 +148,7 @@ class NativeCarouselEditorDialog(
                 val insert = ordered.firstOrNull { position.x < it.second.center.x }?.first ?: current.size
                 current.add(insert.coerceIn(0, current.size), item.id)
             }
-            if (current != active) { active = current; onChange(current) }; dragging = null
+            if (current != active) { active = current; save(current); savedNotice = false }; dragging = null
         }
         @Composable fun Tile(item: CarouselModule) {
             val context = LocalContext.current
@@ -119,13 +165,74 @@ class NativeCarouselEditorDialog(
         Box(Modifier.fillMaxSize().background(if (light) Color(0xFFF2F7F8) else Color(0xFF07151B)).padding(14.dp)
             .onGloballyPositioned { rootOrigin = it.boundsInRoot().topLeft }) {
             Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("Editar carrossel", color = if (light) Color(0xFF10242B) else Color.White, fontSize = 20.sp); Text("Fechar", color = Color(0xFF10AAB7), modifier = Modifier.clickable { dismiss() }) }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Editar carrossel", color = if (light) Color(0xFF10242B) else Color.White, fontSize = 20.sp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                        Text(if (savedNotice) "Salvo ✓" else "Salvar", color = Color(0xFF10AAB7), modifier = Modifier.clickable {
+                            save(active)
+                            savedNotice = true
+                        })
+                        Text("Fechar", color = Color(0xFF10AAB7), modifier = Modifier.clickable { dismiss() })
+                    }
+                }
                 Text("Carrossel (${active.size}) · segure e arraste", color = Color(0xFF60AAB1), fontSize = 12.sp)
-                LazyRow(state = activeScroll, modifier = Modifier.fillMaxWidth().height(190.dp).onGloballyPositioned { activeBounds = it.boundsInRoot() }.background(Color(0x2210AAB7)), contentPadding = PaddingValues(10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) { items(active, key = { it }) { id -> catalog.firstOrNull { it.id == id }?.let { Tile(it) } } }
+                EditorCarousel(
+                    items = active.mapNotNull { id -> catalog.firstOrNull { it.id == id } },
+                    light = light,
+                    onMoveToFloor = { item ->
+                        if (active.size > 5) {
+                            val next = active.filterNot { it == item.id }
+                            active = next
+                            save(next)
+                        }
+                    },
+                    onDragChange = { index, x, y, isDragging ->
+                        val item = active.mapNotNull { id -> catalog.firstOrNull { it.id == id } }.getOrNull(index)
+                        if (item != null && isDragging) {
+                            dragging = item
+                            position = activeBounds.topLeft + Offset(x, y)
+                        } else if (!isDragging) {
+                            dragging = null
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(310.dp).onGloballyPositioned { activeBounds = it.boundsInRoot() },
+                )
                 Text(if (dragging != null && floorBounds.contains(position)) "Piso · solte para remover" else "Piso · arraste para o carrossel", color = Color(0xFF60AAB1), fontSize = 12.sp)
                 LazyRow(state = floorScroll, modifier = Modifier.fillMaxWidth().weight(1f).onGloballyPositioned { floorBounds = it.boundsInRoot() }.background(Color(0x33252929)), contentPadding = PaddingValues(10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) { items(floor, key = { it.id }) { Tile(it) } }
             }
             dragging?.let { item -> Box(Modifier.offset { IntOffset((position.x - rootOrigin.x - 50.dp.toPx(density)).roundToInt(), (position.y - rootOrigin.y - 74.dp.toPx(density)).roundToInt()) }.size(100.dp, 148.dp).background(Color(0xEE34585B)).border(2.dp, Color(0xFFFFD36D)), contentAlignment = Alignment.Center) { Text(item.title, color = Color.White) } }
+        }
+    }
+
+    @Composable
+    private fun EditorCarousel(
+        items: List<CarouselModule>,
+        light: Boolean,
+        onMoveToFloor: (CarouselModule) -> Unit,
+        onDragChange: (Int, Float, Float, Boolean) -> Unit,
+        modifier: Modifier,
+    ) {
+        key(items.joinToString(separator = ",") { it.id }) {
+            AndroidView(
+                factory = { viewContext ->
+                    val textures = items.map { item ->
+                        ShellRenderer.PendingTexture(item.id, AtomicReference(CarouselTileBitmap.render(viewContext, item, light)))
+                    }.toTypedArray()
+                    CarouselSurfaceView(
+                        context = viewContext,
+                        pendingTextures = textures,
+                        panels = items.map { item -> Panel3D(item.id, item.title, item.accentColor, PanelTextureKind.REAL_SNAPSHOT) },
+                        onExit = {},
+                        // Toque só fixa a cena. Segure e arraste para baixo até o piso.
+                        onPanelTap = {},
+                        onPanelDropToFloor = { index ->
+                            items.getOrNull(index)?.let(onMoveToFloor)
+                        },
+                        onPanelDrag = onDragChange,
+                    ).apply { applyBackground(if (light) 0xFFF2F7F8.toInt() else 0xFF07151B.toInt()) }
+                },
+                modifier = modifier,
+            )
         }
     }
 }

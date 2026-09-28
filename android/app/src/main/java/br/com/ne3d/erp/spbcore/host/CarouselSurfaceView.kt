@@ -3,6 +3,7 @@ package br.com.ne3d.erp.spbcore.host
 import android.content.Context
 import android.opengl.GLSurfaceView
 import android.view.Choreographer
+import android.view.GestureDetector
 import android.view.View
 import br.com.ne3d.erp.spbcore.core.FrameReason
 import br.com.ne3d.erp.spbcore.core.FrameScheduler
@@ -25,7 +26,11 @@ class CarouselSurfaceView(
     panels: List<Panel3D>,
     private val onExit: (Int) -> Unit,
     private val onSurfaceReady: () -> Unit = {},
+    private val onPinch: () -> Unit = {},
     onFrame: () -> Unit = {},
+    private val onPanelTap: ((Int) -> Unit)? = null,
+    private val onPanelDropToFloor: ((Int) -> Unit)? = null,
+    private val onPanelDrag: ((Int, Float, Float, Boolean) -> Unit)? = null,
 ) : GLSurfaceView(context) {
 
     val engine = ShellEngine(panels = panels)
@@ -72,6 +77,10 @@ class CarouselSurfaceView(
         onEntryFrameReady = { postOnAnimation { if (isAttachedToWindow) scheduler.invalidateOnce() } },
     )
 
+    private var heldPanelIndex: Int? = null
+    private var droppingToFloor = false
+    private val surfaceLocation = IntArray(2)
+
     private val gestures = GestureController(
         engine,
         {
@@ -79,10 +88,32 @@ class CarouselSurfaceView(
             scheduler.invalidateOnce()
         },
         onTap = { x ->
-            engine.beginExitForPanel(engine.panelIndexAt(x, width.toFloat()))
-            scheduler.activate(FrameReason.TRANSITION)
+            val index = engine.panelIndexAt(x, width.toFloat())
+            val callback = onPanelTap
+            if (callback != null) {
+                callback(index)
+            } else {
+                // Primeiro toque fixa e expande o painel. Quando ele já está
+                // ampliado, o segundo toque confirma sua abertura. Usar o
+                // painel já selecionado evita que a perspectiva do anel mapeie
+                // o mesmo toque para uma face lateral e o faça girar de novo.
+                if (engine.cardExpanded) {
+                    engine.beginExitForPanel(engine.selectedIndex)
+                    scheduler.activate(FrameReason.TRANSITION)
+                } else {
+                    engine.focusPanel(index)
+                    scheduler.activate(FrameReason.PHYSICS)
+                }
+                scheduler.invalidateOnce()
+            }
+        },
+        onPinch = { scaleDelta ->
+            clearTapLatch()
+            engine.onPinch(scaleDelta)
+            scheduler.activate(FrameReason.PHYSICS)
             scheduler.invalidateOnce()
         },
+        onDragMoved = { clearTapLatch() },
         onGestureStarted = {
             scheduler.cancelDelayedWake()
             queueEvent { renderer.beginMeasurement() }
@@ -91,12 +122,43 @@ class CarouselSurfaceView(
         onGestureFinished = { scheduler.deactivate(FrameReason.INPUT) },
     )
 
+    private val longPressDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
+        override fun onDown(event: android.view.MotionEvent): Boolean = true
+
+        override fun onLongPress(event: android.view.MotionEvent) {
+            val index = engine.panelIndexAt(event.x, width.toFloat())
+            heldPanelIndex = index
+            onPanelDrag?.invoke(index, event.x, event.y, true)
+        }
+    })
+
     init {
         setEGLContextClientVersion(3)
         setRenderer(renderer)
         renderMode = RENDERMODE_WHEN_DIRTY
         setOnTouchListener { _: View, event ->
-            if (engine.blocksInput()) true else gestures.onTouch(event)
+            if (event.actionMasked == android.view.MotionEvent.ACTION_DOWN) {
+                heldPanelIndex = null
+                droppingToFloor = false
+            }
+            longPressDetector.onTouchEvent(event)
+            if (event.actionMasked == android.view.MotionEvent.ACTION_MOVE && heldPanelIndex != null) {
+                getLocationInWindow(surfaceLocation)
+                // A remoção só é armada quando o dedo atravessa a borda inferior
+                // da cena rumo ao piso. Toque curto e long-press parado não movem.
+                droppingToFloor = event.rawY > surfaceLocation[1] + height + 12
+                onPanelDrag?.invoke(heldPanelIndex!!, event.x, event.y, true)
+            }
+            val shouldDrop = event.actionMasked == android.view.MotionEvent.ACTION_UP && droppingToFloor
+            val indexToDrop = heldPanelIndex
+            val handled = if (engine.blocksInput()) true else gestures.onTouch(event)
+            if (shouldDrop && indexToDrop != null) onPanelDropToFloor?.invoke(indexToDrop)
+            if (event.actionMasked == android.view.MotionEvent.ACTION_UP || event.actionMasked == android.view.MotionEvent.ACTION_CANCEL) {
+                indexToDrop?.let { onPanelDrag?.invoke(it, event.x, event.y, false) }
+                heldPanelIndex = null
+                droppingToFloor = false
+            }
+            handled
         }
         if (engine.entry.active) scheduler.activate(FrameReason.TRANSITION)
         scheduler.invalidateOnce()
@@ -104,6 +166,13 @@ class CarouselSurfaceView(
 
     /** Amostra de frame-time em janelas de 15s (logcat tag Shell3D.Metrics). */
     fun publishMetrics(label: String) = queueEvent { renderer.publishMeasurement(label) }
+
+    fun applyBackground(background: Int) {
+        renderer.clearColor = background
+        requestRender()
+    }
+
+    private fun clearTapLatch() = Unit
 
     fun consumeFrames(): Int = frames.getAndSet(0)
     fun selectedPanelLabel(): String = engine.state.panels.getOrNull(engine.selectedIndex)?.label ?: "-"
@@ -131,4 +200,5 @@ class CarouselSurfaceView(
         stopRenderer()
         super.onDetachedFromWindow()
     }
+
 }

@@ -9,6 +9,9 @@
 [data-ui-version="v3"].ui3-calculator :where(p,small,.muted,.calc-field-hint,.calc-option-description,.calc-result-label){color:var(--ui3-muted)}
 [data-ui-version="v3"].ui3-calculator :where(input,select,textarea){color:var(--ui3-text);background-color:var(--ui3-bg);border-color:var(--ui3-border);color-scheme:light dark}
 [data-ui-version="v3"].ui3-calculator :where(input,textarea)::placeholder{color:var(--ui3-muted);opacity:1}
+/* Valores de exemplo (peso, horas e minutos) devem orientar sem parecer que
+   já foram digitados. Valores reais continuam usando a cor normal do campo. */
+[data-ui-version="v3"].ui3-calculator .calc-field-card input[type="number"]::placeholder{color:var(--ui3-muted);-webkit-text-fill-color:var(--ui3-muted);opacity:.48}
 [data-ui-version="v3"].ui3-calculator select option{color:var(--ui3-text);background:var(--ui3-surface)}
 body.theme-dark.app-shell-ready.mobile-mode .mobile-panel-calculator [data-ui-version="v3"].ui3-calculator :is(.calc-toolbar strong,.calc-active-profile strong,.calc-section-title,.calc-section-title strong,.calc-field-card>span,.calc-field-card>label,.calc-option-header,.calc-option-header span,.calc-option-header strong,.calc-option-fields label,.calc-batch-summary strong,.calc-summary-card strong,.field>span,.field>label,label,strong){color:var(--ui3-text)!important}
 body.theme-dark.app-shell-ready.mobile-mode .mobile-panel-calculator [data-ui-version="v3"].ui3-calculator :is(.calc-section-title svg,.calc-section-title [aria-hidden="true"],.calc-summary-card svg){color:var(--ui3-primary)!important}

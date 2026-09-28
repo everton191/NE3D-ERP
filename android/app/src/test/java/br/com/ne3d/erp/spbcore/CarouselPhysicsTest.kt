@@ -35,6 +35,10 @@ class CarouselPhysicsTest {
         assertTrue(layout.sizeScale(3) > layout.sizeScale(8))
         assertTrue(layout.sizeScale(8) > layout.sizeScale(16))
     }
+    @Test fun `ten enabled panels keep the rear face so the ring has no hole`() {
+        val layout = CarouselLayout(CarouselMotionSpec())
+        assertTrue((0 until 10).all { layout.transform(it, 10, 0f).visible })
+    }
     @Test fun layoutSupportsOneTwoAndRegularPanelCounts() {
         val layout = CarouselLayout(CarouselMotionSpec())
         listOf(1, 2, 3, 6).forEach { count ->

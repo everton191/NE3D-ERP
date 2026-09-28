@@ -88,7 +88,7 @@
       const toque = event.touches[0];
       const dx = toque.clientX - inicioX;
       const dy = toque.clientY - inicioY;
-      if (gestoHorizontalDominante(dx, dy)) {
+      if (event.cancelable && gestoHorizontalDominante(dx, dy)) {
         event.preventDefault();
         event.stopPropagation();
       }
@@ -116,7 +116,7 @@
       if (ponteiroProtegidoId !== event.pointerId || event.pointerType === "mouse" || permiteHorizontal(event.target)) return;
       const dx = event.clientX - ponteiroInicioX;
       const dy = event.clientY - ponteiroInicioY;
-      if (gestoHorizontalDominante(dx, dy, 22)) {
+      if (event.cancelable && gestoHorizontalDominante(dx, dy, 22)) {
         event.preventDefault();
         event.stopPropagation();
       }

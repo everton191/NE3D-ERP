@@ -3,6 +3,7 @@ package br.com.ne3d.erp.carousel3d
 import android.app.Activity
 import android.content.Context
 import android.graphics.Outline
+import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
 import android.view.View
@@ -301,11 +302,21 @@ object HomeCarouselHost {
             }
             AndroidView(
                 factory = { context -> TextView(context).apply {
+                    val density = context.resources.displayMetrics.density
                     text = "⚙"
-                    textSize = 28f
+                    textSize = 24f
                     gravity = android.view.Gravity.CENTER
                     contentDescription = "Configurar carrossel"
-                    setBackgroundColor(0x00000000)
+                    // O TextView usa preto por padrão, que some no palco escuro.
+                    // O disco teal também separa o atalho do último cartão sem
+                    // deixar um bloco opaco atrás dele.
+                    setTextColor(0xFFE4FFFF.toInt())
+                    background = GradientDrawable().apply {
+                        shape = GradientDrawable.OVAL
+                        setColor(0xDE12333B.toInt())
+                        setStroke((density * 1.25f).toInt().coerceAtLeast(1), 0xFF57E3EB.toInt())
+                    }
+                    elevation = density * 6f
                     setOnClickListener { onEditor?.invoke() }
                 } },
                 modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp).size(48.dp),

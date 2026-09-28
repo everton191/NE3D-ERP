@@ -461,7 +461,7 @@ function renderLojaOnlineHub(context = {}) {
           { label: "Produtos visíveis", value: published, description: `${vm.products.length} no catálogo`, tone: "neutral" },
           { label: "Novos contatos", value: novos, description: `${vm.leads.length} recebidos`, tone: novos ? "info" : "neutral" },
           { label: "Visitas", value: visitas, description: `${whatsapp} clique(s) no WhatsApp`, tone: "neutral" }
-        ].map(renderStoreStatusCard).join("")}
+        ].map((card) => renderStoreStatusCard(card, context)).join("")}
       </div>
       <section class="card storefront-hub-card">
         <div class="card-header">

@@ -1,0 +1,7 @@
+(function attachSimplificaModelManifest(global) {
+  "use strict";
+  const URL = "/config/ai/model-manifest.json";
+  const REQUIRED = Object.freeze(["id", "displayName", "provider", "repo", "revision", "role", "runtime", "platform", "filename", "expectedSize", "sha256", "license", "downloadable", "downloadableWeights", "bundledRuntime", "destinationPath", "downloadState", "healthState", "capabilities"]);
+  function validateModelManifest(manifest = {}) { const errors = []; const seen = new Set(); if (!Array.isArray(manifest.models)) errors.push("MODELS_REQUIRED"); for (const model of manifest.models || []) { for (const key of REQUIRED) if (model[key] === undefined || model[key] === null) errors.push(`MISSING_${key}:${model.id || "unknown"}`); if (!model.id || seen.has(model.id)) errors.push(`DUPLICATE_ID:${model.id || "unknown"}`); seen.add(model.id); if (model.id === "needle3" && (!/^[0-9a-f]{40}$/i.test(model.revision || "") || !/^[0-9a-f]{64}$/i.test(model.sha256 || "") || model.filename !== "needle3.cact" || model.platform !== "android-arm64")) errors.push("INVALID_NEEDLE_PIN"); } return Object.freeze({ ok: !errors.length, errors: Object.freeze(errors) }); }
+  const api = Object.freeze({ URL, REQUIRED, validateModelManifest }); global.SimplificaModelManifest = api; if (typeof module !== "undefined" && module.exports) module.exports = api;
+})(typeof window !== "undefined" ? window : globalThis);

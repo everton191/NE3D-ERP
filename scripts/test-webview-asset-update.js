@@ -1,0 +1,16 @@
+"use strict";
+const assert = require("assert");
+const fs = require("fs");
+const path = require("path");
+const root = path.resolve(__dirname, "..");
+const read = (relative) => fs.readFileSync(path.join(root, relative), "utf8");
+const index = read("index.html"); const sw = read("sw.js"); const prepare = read("scripts/prepare-web.js"); const loader = read("src/services/ai-runtime-loader.js");
+assert(index.includes("__SIMPLIFICA_BUILD_ID__"), "index source must receive deterministic build id");
+assert(index.includes("updateViaCache: \"none\""), "web SW registration bypasses HTTP cache during update");
+assert(sw.includes("CACHE_PREFIX") && sw.includes("key.startsWith(CACHE_PREFIX)"), "old cache cleanup must be limited to Simplifica prefix");
+assert(sw.includes("./build-info.json"), "build info must be precached with app shell");
+assert(!sw.includes("needle3.cact"), "native Needle model must not enter SW cache");
+["intent-registry.js", "action-plan.js", "context-snapshot.js", "draft-manager.js", "tool-registry.js", "tool-candidate-retriever.js", "needle-shadow-provider.js", "ptbr-routing-normalizer.js", "deterministic-value-extractor.js", "dynamic-tool-schema.js", "ptbr-evaluation-corpus.js", "needle-persisted-evaluation.js"].forEach((name) => assert(sw.includes(name), `missing precache AI module: ${name}`));
+assert(prepare.includes("buildId") && prepare.includes("build-info.json"), "prepare-web must emit deterministic build info");
+assert(loader.includes("isAiRuntimeReady") && loader.includes("AI_RUNTIME_NOT_READY"), "runtime loader must fail closed on missing dependencies");
+console.log("webview asset update contract: PASS");

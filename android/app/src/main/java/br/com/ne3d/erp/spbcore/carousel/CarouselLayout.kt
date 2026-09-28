@@ -48,6 +48,9 @@ class CarouselLayout(private val spec: CarouselMotionSpec) {
             0 -> PanelRenderQuality.FULL
             1 -> PanelRenderQuality.HIGH
             2, 3, 4 -> PanelRenderQuality.STATIC
+            // Com os dez painéis permitidos, a face oposta fica no rank 5.
+            // Não a descarte: ela fecha o anel e elimina o vazio visto ao fundo.
+            5 -> if (count <= 10) PanelRenderQuality.STATIC else PanelRenderQuality.CULLED
             else -> PanelRenderQuality.CULLED
         }
         val y = (1f - z) * spec.depthLift

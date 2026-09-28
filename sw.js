@@ -1,7 +1,10 @@
-const CACHE_NAME = "simplifica-3d-v1040-workflow-ui3-core-20260914";
+const BUILD_ID = "__SIMPLIFICA_BUILD_ID__";
+const CACHE_NAME = "simplifica-3d-v1041-build-__SIMPLIFICA_BUILD_ID__";
+const CACHE_PREFIX = "simplifica-3d-";
 const APP_FILES = [
   "./",
   "./index.html",
+  "./build-info.json",
   "./style.css",
   "./styles/ui-v3/index.css",
   "./styles/ui-v3/system-tokens.css", "./styles/ui-v3/tokens.css", "./styles/ui-v3/reset.css", "./styles/ui-v3/viewport.css", "./styles/ui-v3/app-shell.css", "./styles/ui-v3/layout.css", "./styles/ui-v3/grid.css", "./styles/ui-v3/spacing.css", "./styles/ui-v3/typography.css", "./styles/ui-v3/surfaces.css", "./styles/ui-v3/cards.css", "./styles/ui-v3/forms.css", "./styles/ui-v3/buttons.css", "./styles/ui-v3/actions.css", "./styles/ui-v3/lists.css", "./styles/ui-v3/navigation.css", "./styles/ui-v3/overlays.css", "./styles/ui-v3/keyboard.css", "./styles/ui-v3/tables.css", "./styles/ui-v3/feedback.css", "./styles/ui-v3/components/onboarding-guide.css", "./styles/ui-v3/utilities.css", "./styles/ui-v3/legacy-bridge.css", "./styles/ui-v3/system-navigation.css", "./styles/ui-v3/system-controls.css", "./styles/ui-v3/system-content.css", "./styles/ui-v3/system-overlays.css", "./styles/ui-v3/system-screens.css",
@@ -54,6 +57,19 @@ const APP_FILES = [
   "./src/assistant-core/engine/assistant-core.js",
   "./apps/simplifica/assistant-pack/index.js",
   "./src/ai/action-registry.js",
+  "./src/ai/intent-registry.js",
+  "./src/ai/action-plan.js",
+  "./src/ai/context-snapshot.js",
+  "./src/ai/tool-registry.js",
+  "./src/ai/tool-candidate-retriever.js",
+  "./src/ai/needle-provider-contract.js",
+  "./src/ai/ptbr-routing-normalizer.js",
+  "./src/ai/deterministic-value-extractor.js",
+  "./src/ai/dynamic-tool-schema.js",
+  "./src/ai/ptbr-evaluation-corpus.js",
+  "./src/ai/needle-persisted-evaluation.js",
+  "./src/ai/model-manifest.js",
+  "./src/ai/needle-shadow-provider.js",
   "./src/ai/action-search.js",
   "./src/ai/workflow-tool-graph.js",
   "./src/ai/deterministic-router.js",
@@ -62,6 +78,9 @@ const APP_FILES = [
   "./src/ai/tool-calling-model.js",
   "./src/ai/local-tool-model-adapter.js",
   "./src/ai-3d/core.js",
+  "./src/ai-3d/entity-resolution.js",
+  "./src/ai/draft-manager.js",
+  "./src/ai/runtime-contract-diagnostics.js",
   "./src/ai-3d/operation-safety.js",
   "./src/ai-3d/canonical-order.js",
   "./src/ai-3d/order-create-preparation.js",
@@ -106,7 +125,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
-      return Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)));
+      return Promise.all(keys.filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME).map((key) => caches.delete(key)));
     })
   );
   self.clients.claim();

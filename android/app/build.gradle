@@ -52,6 +52,8 @@ android {
         // Device smoke tests consume the same immutable PT-BR fixtures used by
         // the desktop evaluator; expected cases are never duplicated in Kotlin.
         androidTest.assets.srcDirs += ['../../training/functiongemma']
+        // Canonical model metadata is read by Kotlin from assets and copied to Web dist.
+        main.assets.srcDirs += ['../../config']
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_21

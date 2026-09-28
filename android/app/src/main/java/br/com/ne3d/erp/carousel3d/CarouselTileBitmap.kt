@@ -33,22 +33,27 @@ object CarouselTileBitmap {
         val scale = width / 384f
 
         GlassCard.draw(canvas, width.toFloat(), height.toFloat(), scale, module.accentColor, light) { body ->
-            val imageBottom = 148f * scale
+            // A foto ocupa uma faixa um pouco maior, como os painéis de
+            // referência, para que não pareça apenas uma tira no topo.
+            val imageBottom = 164f * scale
             sceneFor(context, module.id)?.let { scene ->
-                body.drawBitmap(scene, crop(scene), RectF(0f, 0f, width.toFloat(), imageBottom), Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                body.drawBitmap(scene, crop(scene, module.id), RectF(0f, 0f, width.toFloat(), imageBottom), Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     isFilterBitmap = true
                 })
             }
             val banner = Path().apply {
-                moveTo(0f, 112f * scale)
-                lineTo(width.toFloat(), 112f * scale)
-                lineTo(width.toFloat(), 168f * scale)
-                lineTo(0f, 188f * scale)
+                moveTo(0f, 128f * scale)
+                lineTo(width.toFloat(), 128f * scale)
+                lineTo(width.toFloat(), 184f * scale)
+                lineTo(0f, 204f * scale)
                 close()
             }
             body.drawPath(banner, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xE6007F89.toInt() })
-            body.drawRect(0f, 174f * scale, width.toFloat(), height.toFloat(), Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = if (light) 0xECF7FBFD.toInt() else 0xDD10242C.toInt()
+            body.drawRect(0f, 190f * scale, width.toFloat(), height.toFloat(), Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                // A área de dados era quase opaca no tema claro e criava uma
+                // mancha branca no anel. Esta opacidade mantém a leitura, mas
+                // deixa a base e a luz da cena atravessarem o cartão.
+                color = if (light) 0xA8E7F4F5.toInt() else 0xDD10242C.toInt()
             })
 
             val title = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -56,7 +61,7 @@ object CarouselTileBitmap {
                 textSize = 34f * scale
                 typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             }
-            body.drawText(fit(module.title, 18), 34f * scale, 158f * scale, title)
+            body.drawText(fit(module.title, 18), 34f * scale, 174f * scale, title)
 
             val colors = GlassCard.textColors(light)
 
@@ -64,14 +69,14 @@ object CarouselTileBitmap {
                 color = colors.detail
                 textSize = 24f * scale
             }
-            body.drawText(fit(module.detail, 26), 34f * scale, 220f * scale, detail)
+            body.drawText(fit(module.detail, 26), 34f * scale, 236f * scale, detail)
 
             val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = colors.body
                 textSize = 24f * scale
                 if (!light) setShadowLayer(2f * scale, 0f, scale / 2f, 0x66000000)
             }
-            var y = 270f * scale
+            var y = 286f * scale
             module.live.take(3).forEachIndexed { index, line ->
                 body.drawCircle(47f * scale, (y - 8f * scale), 10f * scale, Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = metricColor(index)
@@ -94,14 +99,9 @@ object CarouselTileBitmap {
         if (text.length <= maxChars) text else text.take(maxChars - 1) + "…"
 
     private fun sceneFor(context: Context, id: String): Bitmap? {
-        val asset = when (id) {
-            "production", "printers" -> "public/assets/storefront-v3/examples/product-vase.jpg"
-            "orders", "inventory" -> "public/assets/storefront-v3/examples/category-utilidades.jpg"
-            "storefront", "sales" -> "public/assets/storefront-v3/examples/hero-3d-products.jpg"
-            "customers" -> "public/assets/storefront-v3/examples/product-dino.jpg"
-            "cash", "calculator", "quotes" -> "public/assets/storefront-v3/examples/product-keychain.jpg"
-            else -> "public/assets/storefront-v3/examples/product-support.jpg"
-        }
+        // Atlas gerado a partir da referência aprovada: cada módulo ocupa uma
+        // célula exclusiva, evitando que dois cards reutilizem a mesma foto.
+        val asset = "public/assets/carousel-cards/module-scenes-atlas.png"
         return synchronized(sceneCache) {
             sceneCache[asset] ?: runCatching {
                 context.assets.open(asset).use { BitmapFactory.decodeStream(it) }
@@ -109,15 +109,30 @@ object CarouselTileBitmap {
         }
     }
 
-    private fun crop(bitmap: Bitmap): Rect {
-        val targetRatio = 384f / 148f
-        val sourceRatio = bitmap.width.toFloat() / bitmap.height.coerceAtLeast(1)
+    private fun crop(bitmap: Bitmap, id: String): Rect {
+        val index = when (id) {
+            "orders" -> 0; "production" -> 1; "cash" -> 2; "storefront" -> 3; "inventory" -> 4
+            "sales" -> 5; "customers" -> 6; "calculator" -> 7; "printers" -> 8; "quotes" -> 9
+            else -> 0
+        }
+        val column = index % 5
+        val row = index / 5
+        // O atlas possui uma margem branca fina entre as células. Retirá-la aqui
+        // preserva a fotografia limpa em todos os tamanhos de painel.
+        val gutter = 7
+        val cellLeft = (column * bitmap.width / 5 + gutter).coerceAtMost(bitmap.width - 1)
+        val cellTop = (row * bitmap.height / 2 + gutter).coerceAtMost(bitmap.height - 1)
+        val cellRight = ((column + 1) * bitmap.width / 5 - gutter).coerceAtLeast(cellLeft + 1)
+        val cellBottom = ((row + 1) * bitmap.height / 2 - gutter).coerceAtLeast(cellTop + 1)
+        val cell = Rect(cellLeft, cellTop, cellRight, cellBottom)
+        val targetRatio = 384f / 164f
+        val sourceRatio = cell.width().toFloat() / cell.height().coerceAtLeast(1)
         return if (sourceRatio > targetRatio) {
-            val width = (bitmap.height * targetRatio).toInt().coerceAtMost(bitmap.width)
-            Rect((bitmap.width - width) / 2, 0, (bitmap.width + width) / 2, bitmap.height)
+            val width = (cell.height() * targetRatio).toInt().coerceAtMost(cell.width())
+            Rect(cell.centerX() - width / 2, cell.top, cell.centerX() + width / 2, cell.bottom)
         } else {
-            val height = (bitmap.width / targetRatio).toInt().coerceAtMost(bitmap.height)
-            Rect(0, (bitmap.height - height) / 2, bitmap.width, (bitmap.height + height) / 2)
+            val height = (cell.width() / targetRatio).toInt().coerceAtMost(cell.height())
+            Rect(cell.left, cell.centerY() - height / 2, cell.right, cell.centerY() + height / 2)
         }
     }
 

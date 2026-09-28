@@ -1,0 +1,18 @@
+"use strict";
+const assert = require("node:assert/strict");
+global.SimplificaIntentRegistry = require("../src/ai/intent-registry.js");
+global.SimplificaPtBrRoutingNormalizer = require("../src/ai/ptbr-routing-normalizer.js");
+const lfm = require("../src/ai/lfm-intent-provider.js");
+const candidates = lfm.plausibleIntents("como tá o pedido da Maria", {}, 8);
+assert(candidates.length > 0 && candidates.length <= 8); assert(candidates.every((item) => item.domain === "orders"));
+const good = lfm.parseOutput('{"intentId":"orders.list","confidence":0.9,"noMatch":false}', candidates);
+assert.equal(good.intentId, "orders.list"); assert.equal(good.noMatch, false);
+const noMatch = lfm.parseOutput('{"intentId":null,"confidence":0.2,"noMatch":true}', candidates);
+assert.equal(noMatch.noMatch, true); assert.equal(noMatch.errorCode, "");
+const invalid = lfm.parseOutput('{"intentId":"stock.check_material","confidence":1,"noMatch":false}', candidates);
+assert.equal(invalid.errorCode, "INVALID_INTENT");
+const outside = lfm.parseOutput('{"intentId":"inventory.search","confidence":1,"noMatch":false}', candidates);
+assert.equal(outside.errorCode, "INTENT_OUTSIDE_CLOSED_SET");
+const grammar = lfm.intentGrammar(candidates);
+assert.match(grammar, /^root ::= /); assert.match(grammar, /orders\.list/); assert.match(grammar, /intent-value/);
+console.log("LFM intent provider closed-set grammar, chat protocol and safety policy: PASS");

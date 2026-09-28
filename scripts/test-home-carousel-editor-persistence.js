@@ -18,6 +18,7 @@ const indexSource = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
 const viewSource = fs.readFileSync(path.join(ROOT, "src/features/home/carousel3d/editor/carousel-editor-view.js"), "utf8");
 const mountSource = fs.readFileSync(path.join(ROOT, "src/features/home/carousel3d/home-carousel-mount.js"), "utf8");
 const renderersSource = fs.readFileSync(path.join(ROOT, "src/features/app-ui/app-ui-renderers.js"), "utf8");
+const nativePluginSource = fs.readFileSync(path.join(ROOT, "android/app/src/main/java/br/com/ne3d/erp/SimplificaCarousel3DPlugin.kt"), "utf8");
 
 function stripComments(source) {
   return source
@@ -190,6 +191,8 @@ assert(/carousel-editor-view\.js\?v=home-carousel-editor-organizer-6/.test(index
 assert(/\?v=home-carousel-editor-organizer-6"/.test(indexSource) && /carousel-editor-styles\.css\?v=home-carousel-editor-organizer-6/.test(indexSource), "cache-bust dos estilos");
 assert(/openEditor\(\{ catalog, visibleCardIds: editor\.getState\(\)\.visibleCardIds/.test(appSource), "APK abre o organizador nativo com os cards ativos");
 assert(/onEditorChange: aplicarEdicaoNativaCarrosselHome/.test(appSource), "mudancas nativas voltam para a persistencia do app");
+assert(/JSArray\(\)\.apply\s*\{\s*ids\.forEach\s*\{\s*put\(it\)\s*}\s*}/.test(nativePluginSource), "bridge nativa envia IDs como array, nao como texto");
+assert(!/put\("visibleCardIds", ids\)/.test(nativePluginSource), "bridge nao serializa a lista Kotlin como string");
 assert(/\?v=home-integration-8-editor-open/.test(indexSource), "cache-bust do mount");
 assert(/\?v=app-js-finalization-owner-7/.test(indexSource), "cache-bust dos renderers");
 assert(/style\.css\?v=home-carousel-editor-organizer-3/.test(indexSource), "cache-bust do style.css");

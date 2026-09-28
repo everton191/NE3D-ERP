@@ -32,6 +32,7 @@ supabase/.env.*
 !assets/
 !assets/project-cover.jpg
 .vercel
+/work/
 .env*
 .models/
 .projeto-ai/logs/*.raw.log

@@ -1,11 +1,14 @@
 (function attachSimplificaDeterministicRouter(global) {
   "use strict";
 
+  const intentRegistry = global.SimplificaIntentRegistry || (typeof require === "function" ? require("./intent-registry.js") : null);
+
   const normalize = (value) => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
   const has = (text, pattern) => pattern.test(text);
   const numberFrom = (match) => match ? Number(String(match[1]).replace(",", ".")) : null;
   const result = (intent, functionId, args = {}, missing = []) => Object.freeze({
     kind: "TOOL_CALL", tool: functionId, arguments: Object.freeze(args), intent,
+    canonicalIntent: intentRegistry?.intentForAction?.(functionId) || intentRegistry?.resolveIntentId?.(intent) || intent,
     confidence: 1, reason: "DETERMINISTIC_INTENT", missing: Object.freeze(missing),
     diagnostics: Object.freeze({ backend: "deterministic-router", modelInvoked: false })
   });

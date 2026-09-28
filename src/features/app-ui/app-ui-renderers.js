@@ -28,7 +28,24 @@
     if (!app) return;
     const stage = deps.window.SimplificaAuthCommands.getLoginStage();
     const preparing = stage === "SESSION_PREPARING" || stage === "PROFILE_READY";
-    if ((!deps.getUsuarioAtual() && !deps.getAdminLogado() && !deps.isTelaPublica(deps.getTelaAtual())) || preparing) {
+    const restoringSession = deps.document.documentElement.dataset.simplificaBootstrap === "restoring";
+    if (restoringSession || preparing) {
+      const awaitingIdentity = Boolean(deps.window.__simplificaLocalLockActive);
+      const visualState = deps.window.__simplificaSessionCheckVisualState || {};
+      const title = awaitingIdentity ? "Confirme sua identidade" : (visualState.title || "Fazendo login");
+      const message = awaitingIdentity
+        ? "Solicitando sua digital para continuar..."
+        : (visualState.message || "Verificando seu usuário com segurança...");
+      const progress = awaitingIdentity ? 96 : Number(visualState.progress || 12);
+      const step = awaitingIdentity ? 5 : Number(visualState.step || 1);
+      deps.document.body.classList.add("auth-screen-active");
+      deps.document.querySelector("[data-ai-assistant-shortcut]")?.remove();
+      deps.atualizarArvoreInterface(app, deps.renderAuthPublica({
+        verificacaoSessao: { title, message, progress, step, biometric: awaitingIdentity },
+      }), { chaveEstrutural: awaitingIdentity ? "session-biometric-check" : "session-restoring" });
+      return;
+    }
+    if (!deps.getUsuarioAtual() && !deps.getAdminLogado() && !deps.isTelaPublica(deps.getTelaAtual())) {
       deps.setTelaAtual("admin");
       deps.aplicarPersonalizacao();
       deps.applyViewportModeClasses(deps.document.body);
@@ -75,9 +92,10 @@
     const modoSuperadminIsolado = deps.isSuperAdmin() && telaAtual === "superadmin";
     const homeDestination = telaAtual === "dashboard" || telaAtual === "superadmin";
     if (homeDestination) deps.window.SimplificaAuthCommands.traceLogin(telaAtual === "dashboard" ? "NAV_HOME" : "NAV_SUPERADMIN");
-    deps.unmountHomeCarousel();
-    deps.atualizarArvoreInterface(app, mobile ? deps.renderMobile() : deps.renderDesktop(), { chaveEstrutural: deps.getChaveEstruturalInterface(mobile) });
-    if (telaAtual === "dashboard") deps.mountHomeCarousel(app.querySelector("[data-home-carousel-host]"));
+    const isDashboard = telaAtual === "dashboard";
+    if (!isDashboard) deps.unmountHomeCarousel();
+    const interfaceChanged = deps.atualizarArvoreInterface(app, mobile ? deps.renderMobile() : deps.renderDesktop(), { chaveEstrutural: deps.getChaveEstruturalInterface(mobile) });
+    if (isDashboard && (interfaceChanged || !app.querySelector("[data-home-carousel-host]"))) deps.mountHomeCarousel(app.querySelector("[data-home-carousel-host]"));
     deps.compactarBarrasAcoesMobile(); deps.sincronizarShellUiV3(); deps.renderizarFabEstoqueGlobal(); deps.renderizarAtalhoSecretariaIaGlobal(); deps.configurarFechamentoMenusEstoque(); deps.configurarAcoesCadastroImpressora(); deps.configurarAcoesPerfil(); deps.atualizarMenu();
     if (!modoSuperadminIsolado) {
       deps.ajustarJanelasDashboardAoWorkspace(false); deps.renderCalculadoraFlutuante(); deps.sincronizarBannersSeNecessario(); deps.hidratarLojaPublicaSeNecessario(); deps.preencherImpressoras(); deps.preencherMateriaisCalculadora();

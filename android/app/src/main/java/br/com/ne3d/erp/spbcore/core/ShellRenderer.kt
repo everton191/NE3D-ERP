@@ -38,6 +38,9 @@ class ShellRenderer(
     private val onEntryFrameReady: () -> Unit = {},
 ) : GLSurfaceView.Renderer {
     data class PendingTexture(val key: String, val bitmap: AtomicReference<Bitmap?>)
+    companion object {
+        private const val DEFAULT_CLEAR_COLOR = 0xFF0C1118.toInt()
+    }
     private val camera = ShellCamera(engine.spec); private val textures = TextureManager(); private val vp = FloatArray(16); private val model = FloatArray(16); private val mvp = FloatArray(16)
     private val layout = CarouselLayout(engine.spec); private val metrics = FrameMetrics()
     private var program = 0; private var width = 1; private var height = 1; private var lastNanos = 0L
@@ -46,9 +49,26 @@ class ShellRenderer(
     private val panelTransform = MutablePanelTransform()
     private val effectInput = EffectInput()
     private var entryFrameDrawn = false
+    @Volatile
+    var clearColor: Int = DEFAULT_CLEAR_COLOR
+    private var appliedClearColor = 0
+
+    private fun applyClearColor() {
+        val clear = clearColor
+        if (clear == appliedClearColor) return
+        appliedClearColor = clear
+        GLES30.glClearColor(
+            (clear shr 16 and 0xff) / 255f,
+            (clear shr 8 and 0xff) / 255f,
+            (clear and 0xff) / 255f,
+            1f,
+        )
+    }
+
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
-        // Fundo igual ao do tema escuro da Home (#0c1118) para o painel não ler como um buraco preto.
-        GLES30.glClearColor(.047f,.067f,.094f,1f)
+        // Fundo igual ao do tema ativo da Home para o painel não ler como um buraco preto.
+        appliedClearColor = 0
+        applyClearColor()
         GLES30.glEnable(GLES30.GL_DEPTH_TEST); GLES30.glEnable(GLES30.GL_BLEND)
         GLES30.glBlendFunc(GLES30.GL_SRC_ALPHA,GLES30.GL_ONE_MINUS_SRC_ALPHA)
         textures.resetForContext()
@@ -100,13 +120,14 @@ class ShellRenderer(
         val active = if (!textureReady) false else engine.tick(if (entryFrameDrawn) dtSeconds else 0f)
         val physicsNanos = Debug.threadCpuTimeNanos() - physicsStart - textureNanos
         val matrixStart = Debug.threadCpuTimeNanos()
+        applyClearColor()
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT or GLES30.GL_DEPTH_BUFFER_BIT)
         val exiting = engine.exit.started
         val morphing = exiting || engine.entry.active
         val focus = if (!morphing) 0f else if (exiting) engine.exit.focusProgress else engine.entry.focusProgress
         val cameraProgress = EffectivePanelRender.smoothstep(focus)
         val morphFov = engine.spec.cameraFov + (engine.spec.entryCameraFov - engine.spec.cameraFov) * cameraProgress
-        val morphCameraZ = engine.spec.cameraZ + (engine.spec.entryCameraZ - engine.spec.cameraZ) * cameraProgress
+        val morphCameraZ = engine.cameraZ + (engine.spec.entryCameraZ - engine.cameraZ) * cameraProgress
         val morphCameraY = engine.cameraY + (engine.spec.lookAtY - engine.cameraY) * cameraProgress
         val focusZ = (layout.closedRadius(engine.state.panels.size) * layout.sizeScale(engine.state.panels.size) + .55f)
             .coerceAtMost(engine.spec.entryCameraZ - 2f)
@@ -123,16 +144,20 @@ class ShellRenderer(
         var layoutNanos = 0L
         var panelMatrixNanos = 0L
         val drawStart = Debug.threadCpuTimeNanos()
-        val count=engine.state.panels.size; engine.state.panels.forEachIndexed { index,panel ->
+        val count=engine.state.panels.size
+        // First tap: the focused card grows on top of its neighbours, mirroring included.
+        val expandScale = 1f + (engine.spec.expandScale - 1f) * engine.expandProgress
+        engine.state.panels.forEachIndexed { index,panel ->
             val layoutStart = Debug.threadCpuTimeNanos()
             layout.transformInto(index, count, engine.carousel.angle, engine.spec.radius, 1f, panelTransform)
+            val expand = if (index == engine.selectedIndex) expandScale else 1f
             panel.baseTransform.x = panelTransform.x
             panel.baseTransform.y = panelTransform.y
             panel.baseTransform.z = panelTransform.z
             panel.baseTransform.rotationY = panelTransform.rotationY
-            panel.baseTransform.scaleX = panelTransform.scale
-            panel.baseTransform.scaleY = panelTransform.scale
-            panel.baseTransform.scaleZ = panelTransform.scale
+            panel.baseTransform.scaleX = panelTransform.scale * expand
+            panel.baseTransform.scaleY = panelTransform.scale * expand
+            panel.baseTransform.scaleZ = panelTransform.scale * expand
             panel.baseTransform.alpha = panelTransform.alpha
             panel.baseTransform.visible = panelTransform.visible
             effectInput.panelIndex = index

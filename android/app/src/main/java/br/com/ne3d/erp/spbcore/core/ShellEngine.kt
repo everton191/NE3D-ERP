@@ -9,6 +9,7 @@ import br.com.ne3d.erp.spbcore.effects.EffectContext
 import br.com.ne3d.erp.spbcore.effects.PanelEffectDebug
 import br.com.ne3d.erp.spbcore.effects.configureEffect
 import kotlin.math.abs
+import kotlin.math.exp
 import kotlin.math.sin
 import kotlin.math.PI
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -26,7 +27,15 @@ class ShellEngine(
     val idle = CarouselIdleController()
     @Volatile var selectedIndex = 0
         private set
+    /** True while the first tap holds a card focused and the ring must not auto-wake. */
+    @Volatile var cardExpanded = false
+        private set
+    /** 0..1 ease applied by the renderer as an extra scale on the focused card. */
+    @Volatile var expandProgress = 0f
+        private set
     var cameraY = spec.cameraY
+        private set
+    var cameraZ = spec.cameraZ
         private set
     private var autoRotationRequested = false
     private var autoWakePending = false
@@ -64,8 +73,11 @@ class ShellEngine(
     fun onGestureStart() = commands.add(Command.GestureStart)
     fun onGestureEnd() = commands.add(Command.GestureEnd)
     fun onVerticalDrag(dy: Float) = accumulate(pendingDyBits, dy)
+    fun onPinch(scaleDelta: Float) = commands.add(Command.Pinch(scaleDelta))
     fun onFling(velocityX: Float) = commands.add(Command.Fling(velocityX))
     fun beginExitForPanel(index: Int) = commands.add(Command.ExitPanel(index))
+    /** First tap: turn the card to the front and hold it there without leaving the ring. */
+    fun focusPanel(index: Int) = commands.add(Command.FocusPanel(index))
     fun panelIndexAt(tapX: Float, surfaceWidth: Float): Int {
         if (state.panels.isEmpty()) return 0
         val targetX = (tapX / surfaceWidth.coerceAtLeast(1f) - .5f) * 2f
@@ -89,15 +101,38 @@ class ShellEngine(
         if (blocksInput() || state.panels.isEmpty()) return
         selectedIndex = index.coerceIn(state.panels.indices)
         state.panels[selectedIndex].configureEffect(PanelEffectDebug.mode)
-        autoRotationRequested = false; autoWakePending = false
+        autoRotationRequested = false; autoWakePending = false; cardExpanded = false
         // Stop physics at its current angle so a lateral card does not teleport.
         carousel.setAngle(carousel.angle)
         exit.begin()
+    }
+    private fun applyFocusForPanel(index: Int) {
+        if (blocksInput() || state.panels.isEmpty()) return
+        val count = state.panels.size
+        val target = index.coerceIn(0 until count)
+        selectedIndex = target
+        autoRotationRequested = false; autoWakePending = false; cardExpanded = true
+        idle.onInteraction()
+        val step = 360f / count
+        val front = Math.floorMod(Math.round(-carousel.angle / step), count)
+        // The ring only turns when the tapped card is not the one already facing us.
+        if (front != target) carousel.snapToIndex(target, count)
+    }
+    /** Eases expandProgress toward its target; reports true while it still moves. */
+    private fun tickExpand(dt: Float): Boolean {
+        val target = if (cardExpanded) 1f else 0f
+        if (expandProgress == target) return false
+        if (dt > 0f) {
+            expandProgress += (target - expandProgress) * (1f - exp(-spec.expandEase * dt))
+            if (abs(target - expandProgress) < .004f) expandProgress = target
+        }
+        return expandProgress != target
     }
     fun tick(dt: Float): Boolean {
         val wasExiting = exit.started
         drainCommands()
         if (exit.started && !wasExiting) return true
+        val expanding = tickExpand(dt)
         val entering = entry.tick(dt)
         if (entering) return true
         if (exit.active) return exit.tick(dt)
@@ -109,8 +144,9 @@ class ShellEngine(
             carousel.autoRotate(dt * AUTO_ROTATE_DEGREES_PER_SECOND)
             return true
         }
+        if (expanding) return true
         idle.onIdle()
-        autoWakePending = true
+        autoWakePending = !cardExpanded
         return false
     }
     fun consumeExitCompleted() = exit.consumeCompleted()
@@ -129,8 +165,10 @@ class ShellEngine(
             when (command) {
             Command.GestureStart -> Unit
             Command.GestureEnd -> { carousel.endDrag(); idle.onSettling() }
-            is Command.Fling -> { autoRotationRequested = false; autoWakePending = false; idle.onSettling(); carousel.fling(command.velocityX) }
+            is Command.Fling -> { autoRotationRequested = false; autoWakePending = false; cardExpanded = false; idle.onSettling(); carousel.fling(command.velocityX) }
+            is Command.Pinch -> { if (command.scaleDelta > .01f) cameraZ = (cameraZ / command.scaleDelta).coerceIn(spec.minimumCameraZ, spec.maximumCameraZ) }
             is Command.ExitPanel -> applyExitForPanel(command.index)
+            is Command.FocusPanel -> applyFocusForPanel(command.index)
             Command.AutoRotate -> { if (!carousel.dragging && !exit.active) autoRotationRequested = true }
             }
         }
@@ -141,7 +179,7 @@ class ShellEngine(
         val dx = Float.fromBits(pendingDxBits.getAndSet(0))
         val dy = Float.fromBits(pendingDyBits.getAndSet(0))
         if (blocksInput()) return
-        if (dx != 0f) { autoRotationRequested = false; autoWakePending = false; idle.onInteraction(); carousel.dragBy(dx) }
+        if (dx != 0f) { autoRotationRequested = false; autoWakePending = false; cardExpanded = false; idle.onInteraction(); carousel.dragBy(dx) }
         if (dy != 0f) { autoRotationRequested = false; autoWakePending = false; idle.onInteraction(); applyVerticalDrag(dy) }
     }
     private fun accumulate(target: AtomicInteger, delta: Float) {
@@ -157,7 +195,9 @@ class ShellEngine(
         data object GestureEnd : Command
         data object AutoRotate : Command
         data class Fling(val velocityX: Float) : Command
+        data class Pinch(val scaleDelta: Float) : Command
         data class ExitPanel(val index: Int) : Command
+        data class FocusPanel(val index: Int) : Command
     }
     companion object { const val AUTO_ROTATE_DELAY_MILLIS = 5_000L; private const val AUTO_ROTATE_DEGREES_PER_SECOND = 18f }
 }

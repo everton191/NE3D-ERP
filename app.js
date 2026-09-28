@@ -3905,6 +3905,13 @@ async function exigirDesbloqueioLocalSeNecessario(motivo = "restore") {
   ativarTravaLocal(motivo);
   debugInfo("[Auth][local-lock]", { motivo, auth_uid: syncConfig.supabaseUserId || "", last_unlock_at: localStorage.getItem(LOCAL_UNLOCK_KEY) || "" });
   if (appConfig.biometricEnabled && isAndroid()) {
+    // A tela de verificação precisa estar visível antes do prompt nativo; sem
+    // isso a biometria parecia abrir diretamente sobre a Home.
+    renderApp();
+    await new Promise((resolve) => {
+      if (typeof requestAnimationFrame === "function") requestAnimationFrame(resolve);
+      else setTimeout(resolve, 0);
+    });
     const desbloqueado = await tentarDesbloqueioLocalComBiometria({ silencioso: true });
     if (desbloqueado) return true;
   }
@@ -18221,6 +18228,7 @@ function renderDashboardMobileAdvancedPanel(stats = getDashboardStats(), totaisC
 
 let editorCarrosselHomeAberto = false;
 let editorCarrosselHomeAlterado = false;
+let bridgeEditorCarrosselHomeRegistrado = false;
 
 function mountHomeCarousel(container) {
   return window.SimplificaHomeCarouselMount.mount(container, { canAccessScreen, onNavigate: trocarTela, onEdit: abrirEditorCarrosselHome, onEditorChange: aplicarEdicaoNativaCarrosselHome, onEditorClose: () => fecharEditorCarrosselHome(true), isEditorOpen: () => editorCarrosselHomeAberto, getPreferences: () => appConfig.homeCarouselPreferences });
@@ -18237,10 +18245,27 @@ function lerPreviewsCarrosselHome() {
 }
 
 function persistirEditorCarrosselHome(estado) {
+  const anterior = appConfig.homeCarouselPreferences || {};
+  const idsAtuais = Array.isArray(anterior.visibleCardIds) ? anterior.visibleCardIds : [];
+  const proximosIds = Array.isArray(estado?.visibleCardIds) ? estado.visibleCardIds : [];
+  // O bridge nativo e a superfície montada podem receber o mesmo evento no
+  // mesmo ciclo. Não remonte a Home nem grave duas vezes quando nada mudou.
+  if (idsAtuais.length === proximosIds.length && idsAtuais.every((id, index) => id === proximosIds[index])) return;
   appConfig.homeCarouselPreferences = estado;
   editorCarrosselHomeAlterado = true;
   salvarDados();
   window.SimplificaHomeCarouselMount?.remount?.();
+}
+
+function registrarBridgeEditorCarrosselHome() {
+  if (bridgeEditorCarrosselHomeRegistrado) return;
+  const bridge = getBridgeEditorCarrosselHome();
+  if (typeof bridge?.addListener !== "function") return;
+  bridgeEditorCarrosselHomeRegistrado = true;
+  Promise.resolve(bridge.addListener("editorChange", aplicarEdicaoNativaCarrosselHome)).catch(() => {
+    bridgeEditorCarrosselHomeRegistrado = false;
+  });
+  Promise.resolve(bridge.addListener("editorClose", () => fecharEditorCarrosselHome(true))).catch(() => {});
 }
 
 function abrirEditorCarrosselHome() {
@@ -18259,6 +18284,9 @@ function abrirEditorCarrosselHome() {
   editorCarrosselHomeAlterado = false;
   const nativeBridge = getBridgeEditorCarrosselHome();
   if (typeof nativeBridge?.openEditor === "function") {
+    // O listener precisa existir mesmo se a superfície 3D foi remontada ou
+    // escondida antes do usuário tocar em "Salvar" no editor nativo.
+    registrarBridgeEditorCarrosselHome();
     const previews = lerPreviewsCarrosselHome();
     const catalog = registry.all.filter((item) => !item.future && item.available !== false).map((item) => ({
       id: item.id, title: item.title, targetScreen: item.targetScreen || "", detail: previews[item.id]?.detail || "Abrir recurso", live: Array.isArray(previews[item.id]?.live) ? previews[item.id].live : []
@@ -23283,10 +23311,15 @@ function trocarAbaAuth(tab) {
   }, 0);
 }
 
-function renderAuthPublica() {
+function renderAuthPublica({ verificacaoSessao = null } = {}) {
   const tab = getAuthTabAtual();
+  const verificandoSessao = Boolean(verificacaoSessao);
+  const tituloVerificacao = verificacaoSessao?.title || "Fazendo login";
+  const mensagemVerificacao = verificacaoSessao?.message || "Verificando seu usuário com segurança...";
+  const progressoVerificacao = Math.min(100, Math.max(0, Number(verificacaoSessao?.progress) || 0));
+  const etapaVerificacao = Math.min(5, Math.max(1, Number(verificacaoSessao?.step) || 1));
   return `
-    <section class="auth-page" aria-label="Acesso ao Simplifica 3D">
+    <section class="auth-page${verificandoSessao ? " auth-session-check" : ""}" aria-label="Acesso ao Simplifica 3D"${verificandoSessao ? ' data-auth-session-check role="status" aria-live="polite" aria-busy="true"' : ""}>
       <div class="auth-card card">
         <div class="auth-brand">
           ${renderMarcaOficialProjeto("auth-logo", "Simplifica 3D", "icon")}
@@ -23296,7 +23329,21 @@ function renderAuthPublica() {
           </div>
         </div>
 
-        <div class="auth-tabs" role="tablist" aria-label="Escolha o fluxo de autenticação">
+        ${verificandoSessao ? `
+          <div class="auth-session-status" aria-hidden="true">
+            <span class="sync-spinner"></span>
+            <div>
+              <strong>${escaparHtml(tituloVerificacao)}</strong>
+              <p>${escaparHtml(mensagemVerificacao)}</p>
+            </div>
+          </div>
+          <div class="auth-session-progress" role="progressbar" aria-label="Progresso da verificação de login" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressoVerificacao}">
+            <div><span>Etapa ${etapaVerificacao} de 5</span><strong>${progressoVerificacao}%</strong></div>
+            <i><b style="width:${progressoVerificacao}%"></b></i>
+          </div>
+        ` : ""}
+
+        <div class="auth-tabs${verificandoSessao ? " is-verifying" : ""}" role="tablist" aria-label="Escolha o fluxo de autenticação">
           <button type="button" class="${tab === "signin" ? "active" : ""}" role="tab" aria-selected="${tab === "signin"}" onclick="trocarAbaAuth('signin')">Entrar</button>
           <button type="button" class="${tab === "signup" ? "active" : ""}" role="tab" aria-selected="${tab === "signup"}" onclick="trocarAbaAuth('signup')">Criar conta</button>
         </div>
