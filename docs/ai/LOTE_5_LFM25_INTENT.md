@@ -2,7 +2,7 @@
 
 ## Estado
 
-Classificação: **A — LFM_NOT_USEFUL neste runtime/contrato atual**.
+Classificação: **B — contrato estruturado aprovado; avaliação 65/15 pendente**.
 
 O Lote 5 preserva Needle em shadow e não altera `WRITE`, ActionPlan, UI, calculadora, Supabase, carrossel ou `apps/opticore`.
 
@@ -16,22 +16,33 @@ O provider em shadow reduz o conjunto de intents por domínio/contexto, limita a
 - Importação privada com `.part` + SHA-256 + rename atômico: PASS.
 - Load: PASS.
 - Health/chat template do GGUF: PASS.
-- Smoke estruturado: **0/5**.
+- Smoke estruturado inicial: **0/5**.
+- Smoke estruturado após a correção do sampler: **5/5**.
 
-Os cinco casos (`abre estoque`, `qnt tem de pla preto`, pedido, cálculo e compartilhamento contextual) chegaram ao runtime e receberam geração curta, mas todos falharam no parse estruturado: o modelo retornou `allowedIntents` em vez de JSON com `intentId`. A latência ficou entre 2.169 e 3.087 ms; a geração não é usável como classificador nesse contrato.
+Os cinco casos (`abre estoque`, `qnt tem de pla preto`, pedido, cálculo e compartilhamento contextual) chegaram ao runtime com duas mensagens (`system` + `user`), chat template oficial do GGUF e grammar ativa. Todos retornaram o JSON fechado aceito pelo parser, sem texto extra, com `writeExposed: 0`. O ciclo unload/reload também voltou de `INSTALLED` para `READY`.
+
+A causa-raiz do 0/5 era o aceite duplicado do token no JNI. Nesta revisão do llama.cpp, `llama_sampler_sample()` já chama `llama_sampler_accept()`; o segundo aceite manual quebrava o estado da grammar no primeiro token (`{`) e terminava em `NATIVE_EXCEPTION`. A correção remove somente o segundo aceite.
+
+O smoke estrutural não é uma métrica de acurácia. Nesta amostra exploratória, 3/5 intents coincidiram com o esperado; os dois erros foram `abre estoque` e `qnt tem de pla preto`. Esses resultados devem ser medidos no corpus completo, sem promover o provider antes das métricas separadas.
+
+## Gate de cold start
+
+O plugin agora diferencia runtime alocado de runtime realmente `READY`. Uma geração recebida em `UNLOADED` prepara o QAD no worker dedicado, aguarda load/warmup com prazo limitado e executa a solicitação uma única vez após `READY`. Não há espera ativa nem bloqueio da UI thread.
+
+No ASUS, o teste físico partiu de `UNLOADED`, recebeu imediatamente `generateLocal`, fez uma carga, um warmup e uma geração, retornou `OK` e terminou em `READY`, sem `LOCAL_LLAMA_NOT_READY`. O smoke estruturado permaneceu 5/5 e `writeExposed` permaneceu 0.
 
 ## Corpus e comparação
 
-O corpus 80/80 **não foi executado**. A condição para executá-lo era um health/smoke funcional; rodá-lo após 0/5 mascararia uma falha estrutural como métrica de intent. Não houve tuning por holdout e não houve novo sublote.
+O corpus 80/80 **ainda não foi executado**. O gate estrutural agora está aprovado. A próxima execução deve usar o corpus existente em `src/ai/ptbr-evaluation-corpus.js`, persistir o resultado individual de cada caso e publicar métricas separadas para 65 tuning e 15 holdout. Não usar holdout para ajustar prompt, candidatos ou heurísticas.
 
 Comparação preservada:
 
 | Provider | Holdout intent | Holdout tool |
 | --- | ---: | ---: |
 | Needle pós-tuning | 46,67% | 60,00% |
-| LFM2.5 QAD-Q4_0 | Não aplicável: 0/5 no contrato estruturado |
+| LFM2.5 QAD-Q4_0 | Pendente: contrato estruturado 5/5, corpus ainda não executado |
 | Híbrido | Não aplicável: LFM não promovido para simulação |
 
 ## Próximo passo
 
-Não baixar Q4_K_M automaticamente e não iniciar tuning infinito. Antes de uma nova avaliação, investigar uma integração de mensagens system/user com o template oficial exposto pelo GGUF (ou suporte a grammar JSON no backend) e provar 5/5 no smoke. Só então repetir exatamente o corpus 65/15 em shadow.
+Executar exatamente o corpus 65/15 em shadow, com resultados por caso e métricas separadas. Manter `writeExposed: 0`, não executar tools e não promover o LFM para roteamento até revisar tuning e holdout. Não trocar modelo/quantização e não usar o holdout para tuning.

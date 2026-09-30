@@ -182,11 +182,9 @@ extern "C" JNIEXPORT jstring JNICALL Java_br_com_ne3d_erp_ai_LlamaCppBackend_nat
             if (llama_vocab_is_eog(vocab, token)) break;
             char piece[256]; const int32_t size = llama_token_to_piece(vocab, token, piece, sizeof(piece), 0, true); if (size < 0 || size > static_cast<int32_t>(sizeof(piece))) { llama_sampler_free(sampler); return result(env, errorResult("TOKEN_TO_PIECE_FAILED")); } output.append(piece, size);
             ++lastTokens;
-            // The bundled llama.cpp revision throws after accepting a token that
-            // completes a grammar. LFM uses grammar only for one closed JSON
-            // object, so stop at its final delimiter before that broken accept.
+            // llama_sampler_sample() already accepts the selected token in the
+            // bundled llama.cpp revision. Do not accept it a second time.
             if (!grammar.empty() && !output.empty() && output.back() == '}') break;
-            llama_sampler_accept(sampler, token);
             const size_t functionStop = output.find("<end_function_call>");
             const size_t turnStop = output.find("<end_of_turn>");
             if (functionStop != std::string::npos || turnStop != std::string::npos) {

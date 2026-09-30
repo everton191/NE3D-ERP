@@ -12,6 +12,8 @@ import com.getcapacitor.annotation.CapacitorPlugin
 import java.io.File
 import java.security.MessageDigest
 import java.util.concurrent.Executors
+import java.util.concurrent.Future
+import java.util.concurrent.TimeUnit
 
 /** Generic CPU-only bridge for verified local GGUF artifacts; it never executes ERP actions. */
 @CapacitorPlugin(name = "SimplificaLocalAi")
@@ -27,6 +29,23 @@ class SimplificaLocalAiPlugin : Plugin() {
     private fun model(id: String) = catalog.firstOrNull { it.id == id } ?: error("LOCAL_MODEL_UNSUPPORTED")
     private fun location(item: Model) = File(File(context.filesDir, "models/lfm2"), item.fileName)
     private fun engine() = synchronized(this) { runtime ?: LlamaCppBackend(context).also { runtime = it } }
+    private fun remainingMs(deadlineNanos: Long): Long = TimeUnit.NANOSECONDS.toMillis(deadlineNanos - System.nanoTime()).coerceAtLeast(1)
+    private fun <T> awaitReadyStep(task: Future<T>, deadlineNanos: Long): T = task.get(remainingMs(deadlineNanos), TimeUnit.MILLISECONDS)
+    private fun ensureRuntimeReady(item: Model, timeoutMs: Long): LlamaCppBackend {
+        val backend = engine()
+        if (backend.currentState() == LlamaCppBackend.State.READY && backend.currentModelId() == item.id) return backend
+        val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs)
+        val alreadyLoaded = backend.currentModelId() == item.id && backend.currentState() in setOf(LlamaCppBackend.State.LOADED, LlamaCppBackend.State.READY)
+        if (!alreadyLoaded) {
+            val file = location(item)
+            check(verified(item, file)) { "LOCAL_MODEL_NOT_VERIFIED" }
+            awaitReadyStep(backend.loadModel(LlamaCppBackend.ModelConfig(item.id, file, item.sha, 2048, 4, 64)), deadline)
+        }
+        if (backend.currentState() != LlamaCppBackend.State.READY) awaitReadyStep(backend.warmup(), deadline)
+        check(backend.currentState() == LlamaCppBackend.State.READY) { "LOCAL_LLAMA_NOT_READY" }
+        active = item
+        return backend
+    }
 
     @PluginMethod fun status(call: PluginCall) = localLlmStatus(call)
     @PluginMethod fun ensureModel(call: PluginCall) = localLlmStatus(call)
@@ -43,14 +62,14 @@ class SimplificaLocalAiPlugin : Plugin() {
             call.resolve(JSObject().put("ok", true).put("modelId", item.id).put("path", target.absolutePath).put("bytes", target.length()).put("sha256", item.sha).put("writeExposed", 0))
         } catch (error: Exception) { call.reject("Não foi possível verificar o modelo local.", error.message ?: "LOCAL_MODEL_IMPORT_FAILED", error) }
     }
-    @PluginMethod fun localLlmStatus(call: PluginCall) = worker.execute { val item = active ?: catalog.first(); call.resolve(JSObject().put("ok", true).put("modelId", item.id).put("installed", verified(item, location(item))).put("loaded", runtime != null).put("writeExposed", 0)) }
+    @PluginMethod fun localLlmStatus(call: PluginCall) = worker.execute { val item = active ?: catalog.first(); val backend = runtime; call.resolve(JSObject().put("ok", true).put("modelId", item.id).put("installed", verified(item, location(item))).put("loaded", backend?.currentState() == LlamaCppBackend.State.READY).put("runtimeState", backend?.currentState()?.name ?: LlamaCppBackend.State.UNLOADED.name).put("writeExposed", 0)) }
     @PluginMethod fun loadLocalModel(call: PluginCall) = worker.execute {
         try { val item = model(call.getString("modelId", catalog.first().id) ?: catalog.first().id); val file = location(item); check(verified(item, file)) { "LOCAL_MODEL_NOT_VERIFIED" }; engine().loadModel(LlamaCppBackend.ModelConfig(item.id, file, item.sha, 2048, 4, 64)).get(); active = item; call.resolve(JSObject().put("ok", true).put("modelId", item.id).put("writeExposed", 0)) }
         catch (error: Exception) { call.reject("Não foi possível carregar o modelo local.", error.message ?: "LOCAL_MODEL_LOAD_FAILED", error) }
     }
     @PluginMethod fun warmupLocalModel(call: PluginCall) = worker.execute { try { engine().warmup().get(); call.resolve(JSObject().put("ok", true).put("metrics", engine().status()).put("writeExposed", 0)) } catch (error: Exception) { call.reject("Não foi possível aquecer o modelo local.", error.message ?: "LOCAL_MODEL_WARMUP_FAILED", error) } }
     @PluginMethod fun generateLocal(call: PluginCall) = worker.execute {
-        try { val prompt = call.getString("prompt", "")?.trim().orEmpty(); val systemPrompt = call.getString("systemPrompt", "")?.trim().orEmpty(); val grammar = call.getString("grammar", "")?.takeIf { it.isNotBlank() }; require(prompt.isNotEmpty()) { "LOCAL_PROMPT_REQUIRED" }; val result = engine().generate(LlamaCppBackend.GenerateRequest(prompt, (call.getInt("maxTokens", 96) ?: 96).coerceIn(1, 128), call.getFloat("temperature", 0f) ?: 0f, call.getFloat("topP", .9f) ?: .9f, grammar = grammar, systemPrompt = systemPrompt, timeoutMs = (call.getLong("timeoutMs", 30000) ?: 30000).coerceIn(1000, 60000))); call.resolve(JSObject().put("ok", true).put("result", result).put("writeExposed", 0)) }
+        try { val prompt = call.getString("prompt", "")?.trim().orEmpty(); val systemPrompt = call.getString("systemPrompt", "")?.trim().orEmpty(); val grammar = call.getString("grammar", "")?.takeIf { it.isNotBlank() }; require(prompt.isNotEmpty()) { "LOCAL_PROMPT_REQUIRED" }; val timeoutMs = (call.getLong("timeoutMs", 30000) ?: 30000).coerceIn(1000, 60000); val item = active ?: catalog.first(); val backend = ensureRuntimeReady(item, timeoutMs); val result = backend.generate(LlamaCppBackend.GenerateRequest(prompt, (call.getInt("maxTokens", 96) ?: 96).coerceIn(1, 128), call.getFloat("temperature", 0f) ?: 0f, call.getFloat("topP", .9f) ?: .9f, grammar = grammar, systemPrompt = systemPrompt, timeoutMs = timeoutMs)); call.resolve(JSObject().put("ok", true).put("result", result).put("writeExposed", 0)) }
         catch (error: Exception) { call.reject("Não foi possível gerar texto localmente.", error.message ?: "LOCAL_GENERATION_FAILED", error) }
     }
     @PluginMethod fun cancelLocalModel(call: PluginCall) { runtime?.cancel(); call.resolve(JSObject().put("ok", true).put("cancelled", true).put("writeExposed", 0)) }

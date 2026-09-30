@@ -59,6 +59,8 @@ class LlamaCppBackend(private val context: Context) : AutoCloseable {
     }
     fun generate(prompt: String, maxTokens: Int = 96, temperature: Float = 0f, topP: Float = 0.9f, timeoutMs: Long = 20_000) = generate(GenerateRequest(prompt, maxTokens, temperature, topP, timeoutMs = timeoutMs))
     fun cancel() { nativeCancel() }
+    fun currentState(): State = state
+    fun currentModelId(): String = activeModelId
     fun status(): String = "{\"modelId\":\"$activeModelId\",\"state\":\"$state\",\"metrics\":${nativeGetMetrics()}}"
     override fun close() { if (!closed) { closed = true; state = State.CANCELLING; nativeCancel(); worker.submit { nativeUnload(); state = State.UNLOADED }.get(); worker.shutdown() } }
     private fun checkNative(envelope: String): String {

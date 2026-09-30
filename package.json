@@ -194,6 +194,7 @@
     "test:needle-lote4": "node scripts/test-needle-lote4.js",
     "test:needle-ptbr-hardening": "node scripts/test-needle-ptbr-hardening.js",
     "test:lfm-intent-provider": "node scripts/test-lfm-intent-provider.js",
+    "test:lfm-cold-start": "node scripts/test-lfm-cold-start-contract.js",
     "test:needle-ptbr-expanded": "node scripts/test-needle-ptbr-expanded.js",
     "test:needle-persisted-evaluation": "node scripts/test-needle-persisted-evaluation.js",
     "test:webview-asset-update": "node scripts/test-webview-asset-update.js",
