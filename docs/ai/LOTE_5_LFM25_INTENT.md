@@ -54,3 +54,25 @@ Comparação preservada:
 ## Conclusão
 
 Classificação: **AINDA NÃO APTO**. O contrato estrutural e o cold start estão aprovados, mas o holdout não sustenta promoção para roteamento de produção: há perda relevante de intent/tool e dois casos com conflito de schema. Manter shadow, `writeExposed: 0` e WRITE bloqueado. Uma próxima fase deve ampliar cobertura determinística e de entidades usando um novo conjunto de desenvolvimento, sem reutilizar estes 15 casos como tuning.
+
+## Desenvolvimento v1 e comparação A/B/C
+
+Foi criado um conjunto independente de 42 casos, seis por família (`customers.search`, `printers.list`, `production.list`, `reports.sales`, `reports.financial`, `cash.get_status` e `NO_MATCH`). Nenhuma entrada repete o holdout histórico.
+
+No baseline, os modos A/B/C obtiveram respectivamente 14,29%, 26,19% e 26,19% de intent. A auditoria mostrou lacunas de domínio e ausência de sinais semânticos no CandidateRetriever. Após adicionar descrições e sinais gerais, sem regras por frase, a comparação ficou:
+
+| Modo | Intent | Tool | Schema | Média | P50 | P95 | LFM calls |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| A — deterministic + retriever | 61,90% | 69,05% | 100% | 616 ms | 2 ms | 2.925 ms | 0 |
+| B — LFM reranker restrito | 50,00% | 78,57% | 71,43% | 6.190 ms | 8.039 ms | 10.689 ms | 29 |
+| C — pipeline atual | 47,62% | 78,57% | 76,19% | 5.850 ms | 7.975 ms | 9.634 ms | 29 |
+
+O modo A venceu em intent, schema e latência. B e C ganharam em tool, mas perderam qualidade estrutural e adicionaram aproximadamente 29 chamadas ao LFM. Por evidência, o tuning final foi congelado no modo A para avaliação, sem promoção do comportamento de produção. A rodada final do dev atingiu 100% intent, 97,62% tool, 100% schema, média 312 ms, P50 237 ms e P95 991 ms.
+
+As métricas de campos foram ampliadas com numeradores e denominadores. No dev final: coverage 26/42 (61,90%), exact 0/26, precision 0/2, recall 0/26, unexpected 4/4 e missing 26/26. Isso confirma que roteamento e extração de entidades continuam sendo gates separados.
+
+## Validação v1 congelada
+
+Após o congelamento, 21 casos inéditos (três por família) foram executados uma única vez no modo A. Resultado: 80,95% intent, 80,95% tool, 100% schema, média 273 ms, P50 1 ms, P95 870 ms e zero chamada ao LFM. NO_MATCH teve precision 3/7 (42,86%) e recall 3/3 (100%). Campos: coverage 12/21 (57,14%), exact 0/12, precision 0/0, recall 0/12, unexpected 1/1 e missing 12/12.
+
+O resultado preserva a classificação **AINDA NÃO APTO**. A arquitetura A é a melhor base de avaliação, mas quatro intents válidos caíram em fallback e a extração de campos permaneceu insuficiente. Nenhuma alteração foi feita após observar a validação.

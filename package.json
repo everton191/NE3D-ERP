@@ -202,6 +202,7 @@
     "eval:lfm-dev-a": "node scripts/run-lfm-device-evaluation.js --dataset=src/ai/lfm-development-corpus.js --split=dev --mode=A",
     "eval:lfm-dev-b": "node scripts/run-lfm-device-evaluation.js --dataset=src/ai/lfm-development-corpus.js --split=dev --mode=B",
     "eval:lfm-dev-c": "node scripts/run-lfm-device-evaluation.js --dataset=src/ai/lfm-development-corpus.js --split=dev --mode=C",
+    "eval:lfm-validation": "node scripts/run-lfm-device-evaluation.js --dataset=src/ai/lfm-validation-corpus.js --split=validation --mode=A",
     "test:lfm-evaluation-metrics": "node scripts/test-lfm-evaluation-metrics.js",
     "test:needle-ptbr-expanded": "node scripts/test-needle-ptbr-expanded.js",
     "test:needle-persisted-evaluation": "node scripts/test-needle-persisted-evaluation.js",
