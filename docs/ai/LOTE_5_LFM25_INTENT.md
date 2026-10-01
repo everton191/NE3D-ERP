@@ -33,16 +33,22 @@ No ASUS, o teste físico partiu de `UNLOADED`, recebeu imediatamente `generateLo
 
 ## Corpus e comparação
 
-O corpus 80/80 **ainda não foi executado**. O gate estrutural agora está aprovado. A próxima execução deve usar o corpus existente em `src/ai/ptbr-evaluation-corpus.js`, persistir o resultado individual de cada caso e publicar métricas separadas para 65 tuning e 15 holdout. Não usar holdout para ajustar prompt, candidatos ou heurísticas.
+O corpus de tuning foi executado no ASUS com persistência por caso. O baseline de 65 casos ficou em 38,46% de intent, 49,23% de tool, 93,85% de schema e 62,07% de campos. Após ajustes somente no conjunto de tuning, a rodada congelada ficou em 98,46% de intent, 87,69% de tool, 100% de schema e 62,07% de campos, com 13 campos obrigatórios ausentes, 42 inesperados e zero falha técnica. A única confusão de intent restante foi um `NO_MATCH` esperado classificado como `calculator.calculate` (`2 horas e meia`).
+
+Os artefatos completos ficam em `reports/ai/lfm25-evaluation/`: baseline `lfm25-tuning-2026-09-30T23-47-26-089Z.json` e tuning congelado `lfm25-tuning-2026-10-01T00-03-58-053Z.json`. O evaluator grava cada caso imediatamente antes de avançar e mantém métricas, matriz de confusão, latência, saída bruta segura e categorias de erro.
+
+O ajuste preservou o LFM2.5 QAD-Q4_0, a quantização, o chat template e a grammar. Ele passou a priorizar as regras semânticas determinísticas já existentes para padrões inequívocos, a respeitar continuação de `activeWorkflow`, e a falhar fechado quando não há intent plausível. O provider continua em shadow, sem executar tools e com `writeExposed: 0`.
+
+O gate estrutural foi repetido após o tuning: **5/5**, com grammar ativa, duas mensagens de chat e `writeExposed: 0` em todos os casos. O holdout de 15 casos permanece intocado até o checkpoint desta fase.
 
 Comparação preservada:
 
 | Provider | Holdout intent | Holdout tool |
 | --- | ---: | ---: |
 | Needle pós-tuning | 46,67% | 60,00% |
-| LFM2.5 QAD-Q4_0 | Pendente: contrato estruturado 5/5, corpus ainda não executado |
+| LFM2.5 QAD-Q4_0 | Tuning 98,46% intent / 87,69% tool; holdout pendente |
 | Híbrido | Não aplicável: LFM não promovido para simulação |
 
 ## Próximo passo
 
-Executar exatamente o corpus 65/15 em shadow, com resultados por caso e métricas separadas. Manter `writeExposed: 0`, não executar tools e não promover o LFM para roteamento até revisar tuning e holdout. Não trocar modelo/quantização e não usar o holdout para tuning.
+Congelar este tuning e executar uma única vez os 15 casos de holdout em shadow. Manter `writeExposed: 0`, não executar tools e não promover o LFM para roteamento. Não trocar modelo/quantização e não usar o holdout para tuning posterior.

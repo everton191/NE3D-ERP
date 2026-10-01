@@ -2,8 +2,11 @@
 const assert = require("node:assert/strict");
 global.SimplificaIntentRegistry = require("../src/ai/intent-registry.js");
 global.SimplificaPtBrRoutingNormalizer = require("../src/ai/ptbr-routing-normalizer.js");
+global.SimplificaActionRegistry = require("../src/ai/action-registry.js");
+global.SimplificaToolRegistry = require("../src/ai/tool-registry.js");
+global.SimplificaToolCandidateRetriever = require("../src/ai/tool-candidate-retriever.js");
 const lfm = require("../src/ai/lfm-intent-provider.js");
-const candidates = lfm.plausibleIntents("como tá o pedido da Maria", {}, 8);
+const candidates = [global.SimplificaIntentRegistry.get("orders.list"), global.SimplificaIntentRegistry.get("orders.get")];
 assert(candidates.length > 0 && candidates.length <= 8); assert(candidates.every((item) => item.domain === "orders"));
 const good = lfm.parseOutput('{"intentId":"orders.list","confidence":0.9,"noMatch":false}', candidates);
 assert.equal(good.intentId, "orders.list"); assert.equal(good.noMatch, false);
@@ -15,4 +18,11 @@ const outside = lfm.parseOutput('{"intentId":"inventory.search","confidence":1,"
 assert.equal(outside.errorCode, "INTENT_OUTSIDE_CLOSED_SET");
 const grammar = lfm.intentGrammar(candidates);
 assert.match(grammar, /^root ::= /); assert.match(grammar, /orders\.list/); assert.match(grammar, /intent-value/);
+assert.equal(lfm.plausibleIntents("abre estoque", {})[0].id, "navigation.open");
+assert.equal(lfm.plausibleIntents("qnt tem de pla preto", {})[0].id, "inventory.get_stock");
+assert.equal(lfm.plausibleIntents("tem pla branco ai", {})[0].id, "inventory.search");
+assert.equal(lfm.plausibleIntents("120g por 2h30", {})[0].id, "calculator.calculate");
+assert.equal(lfm.plausibleIntents("pedido pra Roberta com 2 porta escovinha de 18", {})[0].id, "orders.create");
+assert.equal(lfm.plausibleIntents("adiciona mais 2 nesse pedido", { activeWorkflow: "orders.create" })[0].id, "orders.create");
+assert.equal(lfm.plausibleIntents("qual a capital da França", {}).length, 0);
 console.log("LFM intent provider closed-set grammar, chat protocol and safety policy: PASS");

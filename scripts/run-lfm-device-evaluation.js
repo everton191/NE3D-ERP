@@ -1,0 +1,168 @@
+"use strict";
+
+const fs = require("node:fs");
+const path = require("node:path");
+const { execFileSync } = require("node:child_process");
+const corpus = require("../src/ai/ptbr-evaluation-corpus.js");
+
+const PACKAGE = "br.com.ne3d.erp";
+const splitArg = process.argv.find((value) => value.startsWith("--split="));
+const split = splitArg ? splitArg.slice("--split=".length) : "tuning";
+if (!new Set(["tuning", "holdout"]).has(split)) throw new Error("LFM_EVALUATION_SPLIT_INVALID");
+const cases = corpus.cases.filter((item) => item.split === split);
+const adbPath = process.env.ANDROID_ADB || `${process.env.LOCALAPPDATA || ""}\\Android\\Sdk\\platform-tools\\adb.exe`;
+const outputDir = path.resolve(__dirname, "..", "reports", "ai", "lfm25-evaluation");
+const runId = `lfm25-${split}-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+const outputPath = path.join(outputDir, `${runId}.json`);
+
+function adb(...args) { return execFileSync(adbPath, args, { encoding: "utf8" }).trim(); }
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function evaluate(url, expression, timeoutMs = 90000) {
+  const socket = new WebSocket(url);
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("CDP_CONNECT_TIMEOUT")), 5000);
+    socket.addEventListener("open", () => { clearTimeout(timer); resolve(); }, { once: true });
+    socket.addEventListener("error", () => { clearTimeout(timer); reject(new Error("CDP_CONNECT_FAILED")); }, { once: true });
+  });
+  const value = await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("CDP_EVALUATION_TIMEOUT")), timeoutMs);
+    socket.addEventListener("message", (event) => {
+      const message = JSON.parse(String(event.data));
+      if (message.id !== 1) return;
+      clearTimeout(timer);
+      if (message.result?.exceptionDetails) reject(new Error(message.result.exceptionDetails.exception?.description || message.result.exceptionDetails.text));
+      else resolve(message.result?.result?.value);
+    });
+    socket.send(JSON.stringify({ id: 1, method: "Runtime.evaluate", params: { expression, awaitPromise: true, returnByValue: true } }));
+  });
+  socket.close();
+  return value;
+}
+
+function percentile(values, quantile) {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.min(sorted.length - 1, Math.max(0, Math.ceil(sorted.length * quantile) - 1))];
+}
+
+function matrix(records) {
+  const result = {};
+  for (const item of records) {
+    const expected = item.expectedIntent || "NO_MATCH";
+    const predicted = item.predictedIntent || "NO_MATCH";
+    result[expected] ||= {};
+    result[expected][predicted] = (result[expected][predicted] || 0) + 1;
+  }
+  return result;
+}
+
+function percentage(numerator, denominator) { return denominator ? Number(((numerator / denominator) * 100).toFixed(2)) : 0; }
+
+function summarize(records) {
+  const fieldCases = records.filter((item) => Object.keys(item.expectedFields || {}).length > 0);
+  const latencies = records.filter((item) => !item.errorType).map((item) => item.latencyMs);
+  const categories = {};
+  for (const item of records) for (const category of item.errorCategories || []) categories[category] = (categories[category] || 0) + 1;
+  return {
+    total: records.length,
+    intentAccuracy: percentage(records.filter((item) => item.intentCorrect).length, records.length),
+    toolAccuracy: percentage(records.filter((item) => item.toolCorrect).length, records.length),
+    schemaValidity: percentage(records.filter((item) => item.schemaValid).length, records.length),
+    fieldExtractionAccuracy: percentage(fieldCases.filter((item) => item.fieldCorrect).length, fieldCases.length),
+    missingRequiredFields: records.reduce((sum, item) => sum + item.missingFields.length, 0),
+    unexpectedFields: records.reduce((sum, item) => sum + item.unexpectedFields.length, 0),
+    technicalFailures: records.filter((item) => item.errorCategories?.includes("I_RUNTIME")).length,
+    averageLatencyMs: latencies.length ? Math.round(latencies.reduce((sum, value) => sum + value, 0) / latencies.length) : 0,
+    p50LatencyMs: percentile(latencies, 0.5),
+    p95LatencyMs: percentile(latencies, 0.95),
+    confusionMatrix: matrix(records),
+    errorCategories: categories
+  };
+}
+
+function save(report) {
+  fs.mkdirSync(outputDir, { recursive: true });
+  fs.writeFileSync(outputPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+}
+
+async function targetForApp() {
+  const pid = adb("shell", "pidof", PACKAGE).split(/\s+/)[0];
+  if (!/^\d+$/.test(pid)) throw new Error("LFM_APP_NOT_RUNNING");
+  adb("forward", "tcp:9223", `localabstract:webview_devtools_remote_${pid}`);
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const targets = await fetch("http://127.0.0.1:9223/json").then((response) => response.json()).catch(() => []);
+    const target = targets.find((item) => item.type === "page" && item.webSocketDebuggerUrl);
+    if (target) return target;
+    await sleep(250);
+  }
+  throw new Error("LFM_WEBVIEW_NOT_FOUND");
+}
+
+async function runCase(socketUrl, item) {
+  const expression = `(async () => {
+    await window.SimplificaAiRuntimeLoader.ensureAiRuntimeLoaded();
+    const item = ${JSON.stringify(item)};
+    const lfm = window.SimplificaLfmIntent;
+    const started = performance.now();
+    const provider = new lfm.LfmIntentProvider();
+    const contextSnapshot = { ...(item.context || {}), ...(item.activeWorkflow ? { activeWorkflow: item.activeWorkflow } : {}) };
+    const parsed = await provider.interpretIntent({ input: item.rawInput, contextSnapshot });
+    const candidates = parsed.candidateIntents || [];
+    const generated = { grammarApplied: parsed.grammarApplied, error: parsed.errorCode || "" };
+    const rawModelOutput = parsed.rawModelOutput || "";
+    const actionPlan = parsed.intentId ? { intent: parsed.intentId } : null;
+    const retrieval = window.SimplificaToolCandidateRetriever.retrieveToolCandidates({ input: item.rawInput, actionPlan, contextSnapshot, workflowState: item.activeWorkflow ? { intent: item.activeWorkflow } : {}, limit: 3 });
+    const deterministic = window.SimplificaDeterministicValueExtractor.extractDeterministicValues(item.rawInput);
+    let needle = null;
+    try { needle = await window.SimplificaNeedleShadow.shadow({ input: item.rawInput, actionPlan, contextSnapshot, workflowState: item.activeWorkflow ? { intent: item.activeWorkflow } : {}, currentDecision: {} }); } catch (error) { needle = { skipped: true, reason: "NEEDLE_RUNTIME_ERROR", error: String(error?.message || error) }; }
+    const merged = needle?.mergedArguments?.fields || deterministic || {};
+    const extractedFields = Object.fromEntries(Object.entries(merged).map(([key, value]) => [key, value && typeof value === "object" && "value" in value ? value.value : value]));
+    return { candidates: candidates.map((candidate) => candidate.id), generated, parsed, rawModelOutput, retrieval: { status: retrieval.status, candidateTools: retrieval.candidates.map((candidate) => candidate.toolId), availableTools: retrieval.candidates.filter((candidate) => candidate.available).map((candidate) => candidate.toolId), diagnostics: retrieval.diagnostics }, needle: { skipped: needle?.skipped === true, reason: needle?.reason || "", selectedTool: needle?.comparison?.needleDecision?.toolId || "", rawModelOutput: needle?.comparison?.needleDecision?.raw || needle?.result?.result || "", conflicts: needle?.mergedArguments?.conflicts || [] }, deterministic, extractedFields, latencyMs: Math.round(performance.now() - started), writeExposed: parsed.writeExposed };
+  })()`;
+  return evaluate(socketUrl, expression, 90000);
+}
+
+function createRecord(item, result, error = null) {
+  if (error) return { caseId: item.id, datasetSplit: item.split, input: item.rawInput, expectedIntent: item.expectedIntent, predictedIntent: "", intentCorrect: false, expectedTool: item.expectedTool || "", candidateTools: [], selectedTool: "", toolCorrect: false, schemaValid: false, parsedOutput: null, expectedFields: item.expectedFields || {}, extractedFields: {}, missingFields: Object.keys(item.expectedFields || {}), unexpectedFields: [], confidence: null, latencyMs: 0, errorType: String(error.message || error), rawModelOutput: "", deterministicNotes: [], errorCategories: ["I_RUNTIME"] };
+  const expectedFields = item.expectedFields || {};
+  const extractedFields = result.extractedFields || {};
+  const missingFields = Object.keys(expectedFields).filter((key) => !(key in extractedFields) || String(extractedFields[key]) !== String(expectedFields[key]));
+  const unexpectedFields = Object.keys(extractedFields).filter((key) => !(key in expectedFields));
+  const predictedIntent = result.parsed?.intentId || "";
+  const selectedTool = result.needle?.selectedTool || "";
+  const intentCorrect = predictedIntent === (item.expectedIntent || "");
+  const toolCorrect = selectedTool === (item.expectedTool || "");
+  const schemaValid = result.parsed?.deterministic === true || result.parsed?.errorCode === "NO_PLAUSIBLE_INTENTS" || (!result.parsed?.errorCode && result.generated?.grammarApplied === true);
+  const categories = [];
+  if (!schemaValid) categories.push("F_SCHEMA_OUTPUT");
+  if (!intentCorrect) categories.push(result.candidates.includes(item.expectedIntent) ? (result.candidates.length > 1 ? "B_AMBIGUOUS_INTENT" : "A_SEMANTIC") : "C_CANDIDATE_RETRIEVAL");
+  if (!toolCorrect) categories.push("D_TOOL_SELECTION");
+  if (missingFields.length || unexpectedFields.length) categories.push("E_ENTITY_EXTRACTION");
+  if (["NO_MATCH", "MISSING_CONTEXT", "BLOCKED", "UNAVAILABLE"].includes(result.retrieval?.status)) categories.push("G_INSUFFICIENT_CONTEXT");
+  return {
+    caseId: item.id, datasetSplit: item.split, input: item.rawInput,
+    expectedIntent: item.expectedIntent, predictedIntent, intentCorrect,
+    expectedTool: item.expectedTool || "", candidateTools: result.retrieval?.candidateTools || [], selectedTool, toolCorrect,
+    schemaValid, parsedOutput: result.parsed, expectedFields, extractedFields, missingFields, unexpectedFields,
+    confidence: result.parsed?.confidence ?? null, latencyMs: result.latencyMs, errorType: result.generated?.error || "",
+    rawModelOutput: result.rawModelOutput, rawNeedleOutput: result.needle?.rawModelOutput || "",
+    deterministicNotes: [`retrieval=${result.retrieval?.status || ""}`, `lfmCandidates=${result.candidates.join(",")}`, `needle=${result.needle?.reason || "executed"}`, ...(result.needle?.conflicts || [])],
+    fieldCorrect: missingFields.length === 0, errorCategories: [...new Set(categories)], writeExposed: result.writeExposed
+  };
+}
+
+(async () => {
+  const target = await targetForApp();
+  const report = { schemaVersion: 1, runId, modelId: "lfm2.5-1.2b-q4_0", split, startedAt: new Date().toISOString(), completedAt: null, frozenRuntimeCommit: adb("shell", "dumpsys", "package", PACKAGE).match(/versionName=([^\s]+)/)?.[1] || "", writeExposed: 0, records: [], metrics: null };
+  save(report);
+  for (const [index, item] of cases.entries()) {
+    let result; let error;
+    try { result = await runCase(target.webSocketDebuggerUrl, item); } catch (caught) { error = caught; }
+    const record = createRecord(item, result, error);
+    report.records.push(record); report.metrics = summarize(report.records); save(report);
+    console.log(`[${index + 1}/${cases.length}] ${record.caseId} intent=${record.predictedIntent || "NO_MATCH"} schema=${record.schemaValid ? "ok" : "fail"} error=${record.errorType || "none"}`);
+  }
+  report.completedAt = new Date().toISOString(); report.metrics = summarize(report.records); save(report);
+  console.log(JSON.stringify({ outputPath, split, metrics: report.metrics }, null, 2));
+})().catch((error) => { console.error(error.stack || error.message); process.exitCode = 1; });
