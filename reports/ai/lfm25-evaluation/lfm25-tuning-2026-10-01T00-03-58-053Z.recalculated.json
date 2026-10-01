@@ -1,0 +1,5244 @@
+{
+  "schemaVersion": 1,
+  "runId": "lfm25-tuning-2026-10-01T00-03-58-053Z",
+  "modelId": "lfm2.5-1.2b-q4_0",
+  "split": "tuning",
+  "startedAt": "2026-10-01T00:03:58.399Z",
+  "completedAt": "2026-10-01T00:04:49.571Z",
+  "frozenRuntimeCommit": "1.0.39",
+  "writeExposed": 0,
+  "records": [
+    {
+      "caseId": "nav-001",
+      "datasetSplit": "tuning",
+      "input": "abre estoque",
+      "expectedIntent": "navigation.open",
+      "predictedIntent": "navigation.open",
+      "intentCorrect": true,
+      "expectedTool": "navigation.open",
+      "candidateTools": [
+        "navigation.open"
+      ],
+      "selectedTool": "navigation.open",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "navigation.open",
+        "domain": "navigation",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "navigation.open",
+            "domain": "navigation",
+            "description": "navigation.open",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "tela"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "navigation.open",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "navigation.open"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 278,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"navigation.open\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'abre estoque' means open navigation. No arguments needed.\",\"confidence\":0.8866,\"prefill_tps\":859.7,\"decode_tps\":429.1,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=navigation.open",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "nav-002",
+      "datasetSplit": "tuning",
+      "input": "abre caixa",
+      "expectedIntent": "navigation.open",
+      "predictedIntent": "navigation.open",
+      "intentCorrect": true,
+      "expectedTool": "navigation.open",
+      "candidateTools": [
+        "navigation.open"
+      ],
+      "selectedTool": "navigation.open",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "navigation.open",
+        "domain": "navigation",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "navigation.open",
+            "domain": "navigation",
+            "description": "navigation.open",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "tela"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "navigation.open",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "navigation.open"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {
+        "target": "caixa"
+      },
+      "missingFields": [],
+      "unexpectedFields": [
+        "target"
+      ],
+      "confidence": 1,
+      "latencyMs": 167,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"navigation.open\",\"arguments\":{\"target\":\"caixa\"}}],\"suppressed_calls\":[],\"reasoning\":\"'caixa' -> target 'caixa'.\",\"confidence\":1.0000,\"prefill_tps\":424.1,\"decode_tps\":402.6,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=navigation.open",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "nav-003",
+      "datasetSplit": "tuning",
+      "input": "abre producao",
+      "expectedIntent": "navigation.open",
+      "predictedIntent": "navigation.open",
+      "intentCorrect": true,
+      "expectedTool": "navigation.open",
+      "candidateTools": [
+        "navigation.open"
+      ],
+      "selectedTool": "navigation.open",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "navigation.open",
+        "domain": "navigation",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "navigation.open",
+            "domain": "navigation",
+            "description": "navigation.open",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "tela"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "navigation.open",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "navigation.open"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {
+        "target": "producao"
+      },
+      "missingFields": [],
+      "unexpectedFields": [
+        "target"
+      ],
+      "confidence": 1,
+      "latencyMs": 173,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"navigation.open\",\"arguments\":{\"target\":\"producao\"}}],\"suppressed_calls\":[],\"reasoning\":\"'producao' -> target 'producao'.\",\"confidence\":1.0000,\"prefill_tps\":439.8,\"decode_tps\":386.2,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=navigation.open",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "nav-004",
+      "datasetSplit": "tuning",
+      "input": "abrir pedidos",
+      "expectedIntent": "navigation.open",
+      "predictedIntent": "navigation.open",
+      "intentCorrect": true,
+      "expectedTool": "navigation.open",
+      "candidateTools": [
+        "navigation.open"
+      ],
+      "selectedTool": "navigation.open",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "navigation.open",
+        "domain": "navigation",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "navigation.open",
+            "domain": "navigation",
+            "description": "navigation.open",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "tela"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "navigation.open",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "navigation.open"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 155,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"navigation.open\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'abrir pedidos' -> navigation_open with no arguments.\",\"confidence\":0.8705,\"prefill_tps\":554.0,\"decode_tps\":415.5,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=navigation.open",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "nav-005",
+      "datasetSplit": "tuning",
+      "input": "abre o caixa pra começar o dia",
+      "expectedIntent": "cash.open",
+      "predictedIntent": "cash.open",
+      "intentCorrect": true,
+      "expectedTool": "cash.open",
+      "candidateTools": [
+        "cash.open"
+      ],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "cash.open",
+        "domain": "cash",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "cash.open",
+            "domain": "cash",
+            "description": "cash.open",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "openingAmount"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "cash.open",
+            "screenRoute": "",
+            "mode": "WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "cash.open_session"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {
+        "customerName": "começar"
+      },
+      "missingFields": [],
+      "unexpectedFields": [
+        "customerName"
+      ],
+      "confidence": 1,
+      "latencyMs": 1,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=UNAVAILABLE",
+        "lfmCandidates=cash.open",
+        "needle=UNAVAILABLE"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "D_TOOL_SELECTION",
+        "E_ENTITY_EXTRACTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "nav-006",
+      "datasetSplit": "tuning",
+      "input": "começa a produção",
+      "expectedIntent": "production.start",
+      "predictedIntent": "production.start",
+      "intentCorrect": true,
+      "expectedTool": "production.start",
+      "candidateTools": [
+        "production.start"
+      ],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "production.start",
+        "domain": "production",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "lfm2.5",
+        "candidateIntents": [
+          {
+            "id": "production.list",
+            "domain": "production",
+            "description": "production.list"
+          },
+          {
+            "id": "production.get",
+            "domain": "production",
+            "description": "production.get"
+          },
+          {
+            "id": "production.start",
+            "domain": "production",
+            "description": "production.start"
+          },
+          {
+            "id": "production.change_status",
+            "domain": "production",
+            "description": "production.change_status"
+          }
+        ],
+        "latencyMs": 2770,
+        "grammarApplied": true,
+        "chatMessages": 2,
+        "rawModelOutput": "{\"intentId\":\"production.start\" , \"confidence\":1, \"noMatch\":false}",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 5583,
+      "errorType": "",
+      "rawModelOutput": "{\"intentId\":\"production.start\" , \"confidence\":1, \"noMatch\":false}",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=UNAVAILABLE",
+        "lfmCandidates=production.list,production.get,production.start,production.change_status",
+        "needle=UNAVAILABLE"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "D_TOOL_SELECTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "nav-007",
+      "datasetSplit": "tuning",
+      "input": "abre admin",
+      "expectedIntent": "admin.open",
+      "predictedIntent": "admin.open",
+      "intentCorrect": true,
+      "expectedTool": "",
+      "candidateTools": [
+        "admin.open"
+      ],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "admin.open",
+        "domain": "admin",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "admin.open",
+            "domain": "admin",
+            "description": "admin.open",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "admin.open",
+            "screenRoute": "admin",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "NOT_IMPLEMENTED",
+            "actionIds": []
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 0,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=BLOCKED",
+        "lfmCandidates=admin.open",
+        "needle=BLOCKED"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "nav-008",
+      "datasetSplit": "tuning",
+      "input": "abre os pedidos",
+      "expectedIntent": "navigation.open",
+      "predictedIntent": "navigation.open",
+      "intentCorrect": true,
+      "expectedTool": "navigation.open",
+      "candidateTools": [
+        "navigation.open"
+      ],
+      "selectedTool": "navigation.open",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "navigation.open",
+        "domain": "navigation",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "navigation.open",
+            "domain": "navigation",
+            "description": "navigation.open",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "tela"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "navigation.open",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "navigation.open"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 195,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"navigation.open\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'abre os pedidos' -> navigation_open with no arguments.\",\"confidence\":0.8614,\"prefill_tps\":493.5,\"decode_tps\":337.0,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=navigation.open",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "order-001",
+      "datasetSplit": "tuning",
+      "input": "pedido 123",
+      "expectedIntent": "orders.get",
+      "predictedIntent": "orders.get",
+      "intentCorrect": true,
+      "expectedTool": "orders.get",
+      "candidateTools": [
+        "orders.get"
+      ],
+      "selectedTool": "orders.get",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "orders.get",
+        "domain": "orders",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "orders.get",
+            "domain": "orders",
+            "description": "orders.get",
+            "aliases": [
+              "ORDER.HISTORY"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "order"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "orderId"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "orders.get",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "orders.get"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "orderNumber": "123"
+      },
+      "extractedFields": {
+        "orderNumber": "123"
+      },
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 344,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"orders.get\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'pedido 123' -> orderNumber 123.\",\"confidence\":0.9891,\"prefill_tps\":645.9,\"decode_tps\":295.0,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=orders.get",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "order-002",
+      "datasetSplit": "tuning",
+      "input": "pedido #44",
+      "expectedIntent": "orders.get",
+      "predictedIntent": "orders.get",
+      "intentCorrect": true,
+      "expectedTool": "orders.get",
+      "candidateTools": [
+        "orders.get"
+      ],
+      "selectedTool": "orders.get",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "orders.get",
+        "domain": "orders",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "orders.get",
+            "domain": "orders",
+            "description": "orders.get",
+            "aliases": [
+              "ORDER.HISTORY"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "order"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "orderId"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "orders.get",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "orders.get"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "orderNumber": "44"
+      },
+      "extractedFields": {
+        "orderNumber": "44"
+      },
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 177,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"orders.get\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'pedido #44' -> orderNumber. No modelArgs or entityType.\",\"confidence\":1.0000,\"prefill_tps\":600.1,\"decode_tps\":395.0,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=orders.get",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "order-003",
+      "datasetSplit": "tuning",
+      "input": "mostra meus pedidos",
+      "expectedIntent": "orders.list",
+      "predictedIntent": "orders.list",
+      "intentCorrect": true,
+      "expectedTool": "orders.list",
+      "candidateTools": [
+        "orders.list"
+      ],
+      "selectedTool": "orders.list",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "orders.list",
+        "domain": "orders",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "orders.list",
+            "domain": "orders",
+            "description": "orders.list",
+            "aliases": [
+              "ORDER.SEARCH"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [],
+            "optionalFields": [
+              "query",
+              "status",
+              "customer"
+            ],
+            "availableWhen": "always",
+            "workflowId": "orders.list",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "orders.search"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 288,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"orders.list\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'mostra meus pedidos' -> order_list. No parameters.\",\"confidence\":0.9840,\"prefill_tps\":783.1,\"decode_tps\":318.6,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=orders.list",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "order-004",
+      "datasetSplit": "tuning",
+      "input": "lista pedidos",
+      "expectedIntent": "orders.list",
+      "predictedIntent": "orders.list",
+      "intentCorrect": true,
+      "expectedTool": "orders.list",
+      "candidateTools": [
+        "orders.list"
+      ],
+      "selectedTool": "orders.list",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "orders.list",
+        "domain": "orders",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "orders.list",
+            "domain": "orders",
+            "description": "orders.list",
+            "aliases": [
+              "ORDER.SEARCH"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [],
+            "optionalFields": [
+              "query",
+              "status",
+              "customer"
+            ],
+            "availableWhen": "always",
+            "workflowId": "orders.list",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "orders.search"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 223,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"orders.list\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'lista pedidos' -> order_list tool. No parameters.\",\"confidence\":0.9830,\"prefill_tps\":495.4,\"decode_tps\":234.9,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=orders.list",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "order-005",
+      "datasetSplit": "tuning",
+      "input": "faz pedido pra Maria",
+      "expectedIntent": "orders.create",
+      "predictedIntent": "orders.create",
+      "intentCorrect": true,
+      "expectedTool": "orders.create",
+      "candidateTools": [
+        "orders.create"
+      ],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "orders.create",
+        "domain": "orders",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "orders.create",
+            "domain": "orders",
+            "description": "orders.create",
+            "aliases": [
+              "ORDER.CREATE"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "customer"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "customerId",
+              "description",
+              "quantity",
+              "unitPrice"
+            ],
+            "optionalFields": [
+              "weightGrams",
+              "notes"
+            ],
+            "availableWhen": "always",
+            "workflowId": "orders.create",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "PARTIAL",
+            "actionIds": [
+              "orders.prepare_create",
+              "orders.commit_create"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "customerName": "Maria"
+      },
+      "extractedFields": {
+        "customerName": "Maria"
+      },
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 552,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[],\"suppressed_calls\":[{\"name\":\"orders.create\",\"arguments\":{\"description\":\"faz pedido\"}}],\"reasoning\":\"'faz pedido' -> description 'faz pedido'; 'pedido' -> quantity 1; 'Maria' -> additionalProperties 'customerName'\",\"confidence\":0.0347,\"prefill_tps\":886.9,\"decode_tps\":265.9,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=orders.create",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "D_TOOL_SELECTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "order-006",
+      "datasetSplit": "tuning",
+      "input": "faz 3 chaveiros pra Maria",
+      "expectedIntent": "orders.create",
+      "predictedIntent": "orders.create",
+      "intentCorrect": true,
+      "expectedTool": "orders.create",
+      "candidateTools": [
+        "orders.create"
+      ],
+      "selectedTool": "orders.create",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "orders.create",
+        "domain": "orders",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "orders.create",
+            "domain": "orders",
+            "description": "orders.create",
+            "aliases": [
+              "ORDER.CREATE"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "customer"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "customerId",
+              "description",
+              "quantity",
+              "unitPrice"
+            ],
+            "optionalFields": [
+              "weightGrams",
+              "notes"
+            ],
+            "availableWhen": "always",
+            "workflowId": "orders.create",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "PARTIAL",
+            "actionIds": [
+              "orders.prepare_create",
+              "orders.commit_create"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "quantity": 3,
+        "customerName": "Maria",
+        "description": "chaveiro"
+      },
+      "extractedFields": {
+        "quantity": 3,
+        "description": "chaveiro",
+        "customerName": "Maria"
+      },
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 452,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"orders.create\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'3 chaveiros' -> quantity 3; 'Maria' -> additionalProperties=['Maria']; no unitPrice or modelArgs.\",\"confidence\":0.2290,\"prefill_tps\":707.8,\"decode_tps\":292.6,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=orders.create",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "order-007",
+      "datasetSplit": "tuning",
+      "input": "faz 3 chaveiros pra Maria 12 cada",
+      "expectedIntent": "orders.create",
+      "predictedIntent": "orders.create",
+      "intentCorrect": true,
+      "expectedTool": "orders.create",
+      "candidateTools": [
+        "orders.create"
+      ],
+      "selectedTool": "orders.create",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "orders.create",
+        "domain": "orders",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "orders.create",
+            "domain": "orders",
+            "description": "orders.create",
+            "aliases": [
+              "ORDER.CREATE"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "customer"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "customerId",
+              "description",
+              "quantity",
+              "unitPrice"
+            ],
+            "optionalFields": [
+              "weightGrams",
+              "notes"
+            ],
+            "availableWhen": "always",
+            "workflowId": "orders.create",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "PARTIAL",
+            "actionIds": [
+              "orders.prepare_create",
+              "orders.commit_create"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "quantity": 3,
+        "unitPrice": 12,
+        "customerName": "Maria",
+        "description": "chaveiro"
+      },
+      "extractedFields": {
+        "unitPrice": 12,
+        "quantity": 3,
+        "description": "chaveiro",
+        "customerName": "Maria"
+      },
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 971,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"orders.create\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'3 chavei' -> modelArgs 'customerName' (cada); '12' -> modelArgs 'quantity' (cada); 'Maria 12' -> modelArgs 'customerName' (cada); '12' -> modelArgs 'quantity'\",\"confidence\":0.9687,\"prefill_tps\":220.5,\"decode_tps\":259.9,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=orders.create",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "order-008",
+      "datasetSplit": "tuning",
+      "input": "faz 3 chaveiros a 12 pra Maria",
+      "expectedIntent": "orders.create",
+      "predictedIntent": "orders.create",
+      "intentCorrect": true,
+      "expectedTool": "orders.create",
+      "candidateTools": [
+        "orders.create"
+      ],
+      "selectedTool": "orders.create",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "orders.create",
+        "domain": "orders",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "orders.create",
+            "domain": "orders",
+            "description": "orders.create",
+            "aliases": [
+              "ORDER.CREATE"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "customer"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "customerId",
+              "description",
+              "quantity",
+              "unitPrice"
+            ],
+            "optionalFields": [
+              "weightGrams",
+              "notes"
+            ],
+            "availableWhen": "always",
+            "workflowId": "orders.create",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "PARTIAL",
+            "actionIds": [
+              "orders.prepare_create",
+              "orders.commit_create"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "quantity": 3,
+        "unitPrice": 12,
+        "customerName": "Maria",
+        "description": "chaveiro"
+      },
+      "extractedFields": {
+        "quantity": 3,
+        "description": "chaveiro",
+        "customerName": "Maria"
+      },
+      "missingFields": [
+        "unitPrice"
+      ],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 619,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"orders.create\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'3 chaveiros' -> quantity 3; '12 pra' -> modelArgs; 'Maria' -> additionalProperties.\",\"confidence\":0.1828,\"prefill_tps\":855.7,\"decode_tps\":278.3,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=orders.create",
+        "needle=executed"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "order-009",
+      "datasetSplit": "tuning",
+      "input": "quero 5 suportes pra João a 15",
+      "expectedIntent": "orders.create",
+      "predictedIntent": "orders.create",
+      "intentCorrect": true,
+      "expectedTool": "orders.create",
+      "candidateTools": [
+        "orders.create"
+      ],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "orders.create",
+        "domain": "orders",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "orders.create",
+            "domain": "orders",
+            "description": "orders.create",
+            "aliases": [
+              "ORDER.CREATE"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "customer"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "customerId",
+              "description",
+              "quantity",
+              "unitPrice"
+            ],
+            "optionalFields": [
+              "weightGrams",
+              "notes"
+            ],
+            "availableWhen": "always",
+            "workflowId": "orders.create",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "PARTIAL",
+            "actionIds": [
+              "orders.prepare_create",
+              "orders.commit_create"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "quantity": 5,
+        "unitPrice": 15,
+        "customerName": "João",
+        "description": "suporte"
+      },
+      "extractedFields": {
+        "quantity": 5,
+        "description": "suporte",
+        "customerName": "João"
+      },
+      "missingFields": [
+        "unitPrice"
+      ],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 727,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[],\"suppressed_calls\":[{\"name\":\"orders.create\",\"arguments\":{\"unitPrice\":15.00}},{\"name\":\"orders.create\",\"arguments\":{}}],\"reasoning\":\"'quero 5' -> quantity 5; 'suportes' -> entityType 'customerName'; 'joão' -> customerName 'João'; '15' -> resolvesTo '15'\",\"confidence\":0.0052,\"prefill_tps\":615.9,\"decode_tps\":145.7,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=orders.create",
+        "needle=executed"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "D_TOOL_SELECTION",
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "order-010",
+      "datasetSplit": "tuning",
+      "input": "novo pedido Maria 4 chaveiros 10 reais",
+      "expectedIntent": "orders.create",
+      "predictedIntent": "orders.create",
+      "intentCorrect": true,
+      "expectedTool": "orders.create",
+      "candidateTools": [
+        "orders.create"
+      ],
+      "selectedTool": "orders.create",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "orders.create",
+        "domain": "orders",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "orders.create",
+            "domain": "orders",
+            "description": "orders.create",
+            "aliases": [
+              "ORDER.CREATE"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "customer"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "customerId",
+              "description",
+              "quantity",
+              "unitPrice"
+            ],
+            "optionalFields": [
+              "weightGrams",
+              "notes"
+            ],
+            "availableWhen": "always",
+            "workflowId": "orders.create",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "PARTIAL",
+            "actionIds": [
+              "orders.prepare_create",
+              "orders.commit_create"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "quantity": 4,
+        "unitPrice": 10,
+        "customerName": "Maria",
+        "description": "chaveiro"
+      },
+      "extractedFields": {
+        "unitPrice": 10,
+        "quantity": 10,
+        "description": "reai",
+        "customerName": "Maria"
+      },
+      "missingFields": [
+        "quantity",
+        "description"
+      ],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 573,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"orders.create\",\"arguments\":{\"customerName\":\"Maria\"}},{\"name\":\"orders.create\",\"arguments\":{\"customerName\":\"Maria 4 chaveiros 10 reais\"}}],\"suppressed_calls\":[],\"reasoning\":\"'Maria' -> customer_name 'Maria'; '4 chavei' -> quantity 4; '10 reais' -> unitPrice; no entityType.\",\"confidence\":0.2576,\"prefill_tps\":779.8,\"decode_tps\":275.7,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=orders.create",
+        "needle=executed"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "order-011",
+      "datasetSplit": "tuning",
+      "input": "pedido pra Roberta com 2 porta escovinha de 18",
+      "expectedIntent": "orders.create",
+      "predictedIntent": "orders.create",
+      "intentCorrect": true,
+      "expectedTool": "orders.create",
+      "candidateTools": [
+        "orders.create"
+      ],
+      "selectedTool": "orders.create",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "orders.create",
+        "domain": "orders",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "orders.create",
+            "domain": "orders",
+            "description": "orders.create",
+            "aliases": [
+              "ORDER.CREATE"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "customer"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "customerId",
+              "description",
+              "quantity",
+              "unitPrice"
+            ],
+            "optionalFields": [
+              "weightGrams",
+              "notes"
+            ],
+            "availableWhen": "always",
+            "workflowId": "orders.create",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "PARTIAL",
+            "actionIds": [
+              "orders.prepare_create",
+              "orders.commit_create"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "quantity": 2,
+        "unitPrice": 18,
+        "customerName": "Roberta",
+        "description": "porta escovinha"
+      },
+      "extractedFields": {
+        "customerName": "Roberta",
+        "description": "Roberta",
+        "quantity": 2
+      },
+      "missingFields": [
+        "unitPrice",
+        "description"
+      ],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 1055,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"orders.create\",\"arguments\":{\"description\":\"Roberta\",\"quantity\":2.0,\"unitPrice\":18.0}}],\"suppressed_calls\":[],\"reasoning\":\"'pedido' -> order_create; 'Roberta' -> description; 'com 2' -> quantity 2; 'escovinha de 18' -> modelArgs\",\"confidence\":0.4164,\"prefill_tps\":234.6,\"decode_tps\":205.8,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=orders.create",
+        "needle=executed",
+        "FINANCIAL_VALUE_WITHOUT_PROVENANCE:unitPrice"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "order-012",
+      "datasetSplit": "tuning",
+      "input": "3 chaveiros pra Maria a 12",
+      "expectedIntent": "orders.create",
+      "predictedIntent": "orders.create",
+      "intentCorrect": true,
+      "expectedTool": "orders.create",
+      "candidateTools": [
+        "orders.create"
+      ],
+      "selectedTool": "orders.create",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "orders.create",
+        "domain": "orders",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "orders.create",
+            "domain": "orders",
+            "description": "orders.create",
+            "aliases": [
+              "ORDER.CREATE"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "customer"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "customerId",
+              "description",
+              "quantity",
+              "unitPrice"
+            ],
+            "optionalFields": [
+              "weightGrams",
+              "notes"
+            ],
+            "availableWhen": "always",
+            "workflowId": "orders.create",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "PARTIAL",
+            "actionIds": [
+              "orders.prepare_create",
+              "orders.commit_create"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "quantity": 3,
+        "unitPrice": 12,
+        "customerName": "Maria",
+        "description": "chaveiro"
+      },
+      "extractedFields": {
+        "quantity": 3,
+        "description": "chaveiro",
+        "customerName": "Maria"
+      },
+      "missingFields": [
+        "unitPrice"
+      ],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 590,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"orders.create\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'3 chaveiros' -> quantity 3; 'Maria' -> customerName; '12' -> additionalProperties.\",\"confidence\":0.1676,\"prefill_tps\":761.0,\"decode_tps\":277.0,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=orders.create",
+        "needle=executed"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "order-013",
+      "datasetSplit": "tuning",
+      "input": "cria pedido usando esse cálculo",
+      "expectedIntent": "calculator.create_order",
+      "predictedIntent": "calculator.create_order",
+      "intentCorrect": true,
+      "expectedTool": "",
+      "candidateTools": [
+        "calculator.create_order"
+      ],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "calculator.create_order",
+        "domain": "calculator",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "calculator.create_order",
+            "domain": "calculator",
+            "description": "calculator.create_order",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [
+              "customer"
+            ],
+            "requiredFields": [
+              "currentCalculation"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "calculator.create_order",
+            "screenRoute": "",
+            "mode": "PREPARE",
+            "requiresConfirmation": true,
+            "status": "PARTIAL",
+            "actionIds": [
+              "orders.prepare_create"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 0,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=MISSING_CONTEXT",
+        "lfmCandidates=calculator.create_order",
+        "needle=MISSING_CONTEXT"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "order-014",
+      "datasetSplit": "tuning",
+      "input": "cria pedido usando esse cálculo",
+      "expectedIntent": "calculator.create_order",
+      "predictedIntent": "calculator.create_order",
+      "intentCorrect": true,
+      "expectedTool": "calculator.create_order",
+      "candidateTools": [
+        "calculator.create_order"
+      ],
+      "selectedTool": "calculator.create_order",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "calculator.create_order",
+        "domain": "calculator",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "calculator.create_order",
+            "domain": "calculator",
+            "description": "calculator.create_order",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [
+              "customer"
+            ],
+            "requiredFields": [
+              "currentCalculation"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "calculator.create_order",
+            "screenRoute": "",
+            "mode": "PREPARE",
+            "requiresConfirmation": true,
+            "status": "PARTIAL",
+            "actionIds": [
+              "orders.prepare_create"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 440,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"calculator.create_order\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'cria pedido usando esse' -> modelArgs ['esse']; modelArgs empty; no entityBindings\",\"confidence\":1.0000,\"prefill_tps\":806.0,\"decode_tps\":265.1,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=calculator.create_order",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "order-015",
+      "datasetSplit": "tuning",
+      "input": "adiciona mais 2 nesse pedido",
+      "expectedIntent": "orders.create",
+      "predictedIntent": "orders.create",
+      "intentCorrect": true,
+      "expectedTool": "orders.create",
+      "candidateTools": [
+        "orders.create"
+      ],
+      "selectedTool": "orders.create",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "orders.create",
+        "domain": "orders",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "orders.create",
+            "domain": "orders",
+            "description": "orders.create",
+            "aliases": [
+              "ORDER.CREATE"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "customer"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "customerId",
+              "description",
+              "quantity",
+              "unitPrice"
+            ],
+            "optionalFields": [
+              "weightGrams",
+              "notes"
+            ],
+            "availableWhen": "always",
+            "workflowId": "orders.create",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "PARTIAL",
+            "actionIds": [
+              "orders.prepare_create",
+              "orders.commit_create"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "quantity": 2
+      },
+      "extractedFields": {
+        "quantity": 2,
+        "description": "nesse pedido",
+        "customerName": "Adiciona"
+      },
+      "missingFields": [],
+      "unexpectedFields": [
+        "description",
+        "customerName"
+      ],
+      "confidence": 1,
+      "latencyMs": 488,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"orders.create\",\"arguments\":{\"customerName\":\"Adiciona\",\"unitPrice\":2.0}}],\"suppressed_calls\":[],\"reasoning\":\"'adiciona' -> customerName 'Adiciona', '2 nesse' -> quantity 2; no unitPrice or modelArgs.\",\"confidence\":0.3841,\"prefill_tps\":879.9,\"decode_tps\":305.6,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=orders.create",
+        "needle=executed",
+        "FINANCIAL_VALUE_WITHOUT_PROVENANCE:unitPrice"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "order-016",
+      "datasetSplit": "tuning",
+      "input": "faz igual o último da Maria",
+      "expectedIntent": "orders.create",
+      "predictedIntent": "orders.create",
+      "intentCorrect": true,
+      "expectedTool": "orders.create",
+      "candidateTools": [
+        "orders.create"
+      ],
+      "selectedTool": "orders.create",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "orders.create",
+        "domain": "orders",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "orders.create",
+            "domain": "orders",
+            "description": "orders.create",
+            "aliases": [
+              "ORDER.CREATE"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "customer"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "customerId",
+              "description",
+              "quantity",
+              "unitPrice"
+            ],
+            "optionalFields": [
+              "weightGrams",
+              "notes"
+            ],
+            "availableWhen": "always",
+            "workflowId": "orders.create",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "PARTIAL",
+            "actionIds": [
+              "orders.prepare_create",
+              "orders.commit_create"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "customerName": "Maria"
+      },
+      "extractedFields": {
+        "customerName": "Maria"
+      },
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 499,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"orders.create\",\"arguments\":{\"customerName\":\"Maria\"}}],\"suppressed_calls\":[],\"reasoning\":\"'faz igual' -> quantity 1; 'o último da Maria' -> customername 'Maria'; no other params\",\"confidence\":1.0000,\"prefill_tps\":740.7,\"decode_tps\":294.7,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=orders.create",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "order-017",
+      "datasetSplit": "tuning",
+      "input": "cancela pedido",
+      "expectedIntent": "orders.cancel",
+      "predictedIntent": "orders.cancel",
+      "intentCorrect": true,
+      "expectedTool": "",
+      "candidateTools": [
+        "orders.cancel"
+      ],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "orders.cancel",
+        "domain": "orders",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "orders.cancel",
+            "domain": "orders",
+            "description": "orders.cancel",
+            "aliases": [
+              "ORDER.CANCEL"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "order"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "orderId",
+              "reason",
+              "idempotencyKey"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "orders.cancel",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "orders.prepare_cancel",
+              "orders.cancel"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 0,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=UNAVAILABLE",
+        "lfmCandidates=orders.cancel",
+        "needle=UNAVAILABLE"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "order-018",
+      "datasetSplit": "tuning",
+      "input": "pedido da Maria",
+      "expectedIntent": "orders.get",
+      "predictedIntent": "orders.get",
+      "intentCorrect": true,
+      "expectedTool": "orders.get",
+      "candidateTools": [
+        "orders.get"
+      ],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "orders.get",
+        "domain": "orders",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "orders.get",
+            "domain": "orders",
+            "description": "orders.get",
+            "aliases": [
+              "ORDER.HISTORY"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "order"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "orderId"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "orders.get",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "orders.get"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "customerName": "Maria"
+      },
+      "extractedFields": {},
+      "missingFields": [
+        "customerName"
+      ],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 814,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[],\"suppressed_calls\":[],\"reasoning\":\"No hay herramienta de pedidos. 'pedido' es una consulta de pedidos, no una herramienta de pedido.\",\"confidence\":0.9204,\"prefill_tps\":230.4,\"decode_tps\":193.9,\"peak_ram_mb\":1727.1}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=orders.get",
+        "needle=executed"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "D_TOOL_SELECTION",
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "inv-001",
+      "datasetSplit": "tuning",
+      "input": "qnt tem de pla preto",
+      "expectedIntent": "inventory.get_stock",
+      "predictedIntent": "inventory.get_stock",
+      "intentCorrect": true,
+      "expectedTool": "inventory.get_stock",
+      "candidateTools": [
+        "inventory.get_stock"
+      ],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "inventory.get_stock",
+        "domain": "inventory",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "inventory.get_stock",
+            "domain": "inventory",
+            "description": "inventory.get_stock",
+            "aliases": [
+              "STOCK.SUMMARY"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "material"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "materialId"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "inventory.get_stock",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "PARTIAL",
+            "actionIds": [
+              "inventory.search"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "materialName": "pla preto"
+      },
+      "extractedFields": {
+        "materialName": "pla preto"
+      },
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 293,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[],\"suppressed_calls\":[],\"reasoning\":\"No tool available for templating or queries.\",\"confidence\":1.0000,\"prefill_tps\":763.9,\"decode_tps\":291.5,\"peak_ram_mb\":1727.1}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=inventory.get_stock",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "D_TOOL_SELECTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "inv-002",
+      "datasetSplit": "tuning",
+      "input": "quanto tenho de PETG branco",
+      "expectedIntent": "inventory.get_stock",
+      "predictedIntent": "inventory.get_stock",
+      "intentCorrect": true,
+      "expectedTool": "inventory.get_stock",
+      "candidateTools": [
+        "inventory.get_stock"
+      ],
+      "selectedTool": "inventory.get_stock",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "inventory.get_stock",
+        "domain": "inventory",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "inventory.get_stock",
+            "domain": "inventory",
+            "description": "inventory.get_stock",
+            "aliases": [
+              "STOCK.SUMMARY"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "material"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "materialId"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "inventory.get_stock",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "PARTIAL",
+            "actionIds": [
+              "inventory.search"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "materialName": "PETG branco"
+      },
+      "extractedFields": {
+        "materialName": "PETG branco"
+      },
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 279,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"inventory.get_stock\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'quanto tenho' -> stock query; 'PETG branco' -> modelName 'PETG branco'.\",\"confidence\":1.0000,\"prefill_tps\":580.9,\"decode_tps\":274.9,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=inventory.get_stock",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "inv-003",
+      "datasetSplit": "tuning",
+      "input": "tem pla branco ai",
+      "expectedIntent": "inventory.search",
+      "predictedIntent": "inventory.search",
+      "intentCorrect": true,
+      "expectedTool": "inventory.search",
+      "candidateTools": [
+        "inventory.search"
+      ],
+      "selectedTool": "inventory.search",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "inventory.search",
+        "domain": "inventory",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "inventory.search",
+            "domain": "inventory",
+            "description": "inventory.search",
+            "aliases": [
+              "STOCK.SEARCH"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "query"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "inventory.search",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "inventory.search"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {
+        "materialName": "pla branco ai",
+        "query": "tem pla branco"
+      },
+      "missingFields": [],
+      "unexpectedFields": [
+        "materialName",
+        "query"
+      ],
+      "confidence": 1,
+      "latencyMs": 431,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"inventory.search\",\"arguments\":{\"query\":\"tem pla branco\"}}],\"suppressed_calls\":[],\"reasoning\":\"'tem pla branco' -> query 'tem pla branco'; no modelArgs or other params.\",\"confidence\":1.0000,\"prefill_tps\":737.8,\"decode_tps\":241.9,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=inventory.search",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "inv-004",
+      "datasetSplit": "tuning",
+      "input": "procura abs vermelho",
+      "expectedIntent": "inventory.search",
+      "predictedIntent": "inventory.search",
+      "intentCorrect": true,
+      "expectedTool": "inventory.search",
+      "candidateTools": [
+        "inventory.search"
+      ],
+      "selectedTool": "inventory.search",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "inventory.search",
+        "domain": "inventory",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "inventory.search",
+            "domain": "inventory",
+            "description": "inventory.search",
+            "aliases": [
+              "STOCK.SEARCH"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "query"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "inventory.search",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "inventory.search"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {
+        "query": "procura abs"
+      },
+      "missingFields": [],
+      "unexpectedFields": [
+        "query"
+      ],
+      "confidence": 1,
+      "latencyMs": 285,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"inventory.search\",\"arguments\":{\"query\":\"procura abs\"}}],\"suppressed_calls\":[],\"reasoning\":\"'procura abs' -> query 'procura abs'; 'vermelho' -> modelArgs 'vermelho'.\",\"confidence\":0.8611,\"prefill_tps\":460.9,\"decode_tps\":301.0,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=inventory.search",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "inv-005",
+      "datasetSplit": "tuning",
+      "input": "ache petg",
+      "expectedIntent": "inventory.search",
+      "predictedIntent": "inventory.search",
+      "intentCorrect": true,
+      "expectedTool": "inventory.search",
+      "candidateTools": [
+        "inventory.search"
+      ],
+      "selectedTool": "inventory.search",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "inventory.search",
+        "domain": "inventory",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "lfm2.5",
+        "candidateIntents": [
+          {
+            "id": "inventory.search",
+            "domain": "inventory",
+            "description": "inventory.search"
+          },
+          {
+            "id": "inventory.get_stock",
+            "domain": "inventory",
+            "description": "inventory.get_stock"
+          },
+          {
+            "id": "inventory.low_stock",
+            "domain": "inventory",
+            "description": "inventory.low_stock"
+          },
+          {
+            "id": "inventory.adjust",
+            "domain": "inventory",
+            "description": "inventory.adjust"
+          }
+        ],
+        "latencyMs": 3086,
+        "grammarApplied": true,
+        "chatMessages": 2,
+        "rawModelOutput": "{ \"intentId\": \"inventory.search\" , \"confidence\": 1, \"noMatch\": false }",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {
+        "query": "ache petg"
+      },
+      "missingFields": [],
+      "unexpectedFields": [
+        "query"
+      ],
+      "confidence": 1,
+      "latencyMs": 6674,
+      "errorType": "",
+      "rawModelOutput": "{ \"intentId\": \"inventory.search\" , \"confidence\": 1, \"noMatch\": false }",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"inventory.search\",\"arguments\":{\"query\":\"ache petg\"}}],\"suppressed_calls\":[],\"reasoning\":\"Query 'ache petg' -> query 'ache petg'. No modelArgs or other params.\",\"confidence\":1.0000,\"prefill_tps\":410.3,\"decode_tps\":288.3,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=inventory.search,inventory.get_stock,inventory.low_stock,inventory.adjust",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "inv-006",
+      "datasetSplit": "tuning",
+      "input": "o pla preto ta acabando",
+      "expectedIntent": "inventory.low_stock",
+      "predictedIntent": "inventory.low_stock",
+      "intentCorrect": true,
+      "expectedTool": "",
+      "candidateTools": [
+        "inventory.low_stock"
+      ],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "inventory.low_stock",
+        "domain": "inventory",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "inventory.low_stock",
+            "domain": "inventory",
+            "description": "inventory.low_stock",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [],
+            "optionalFields": [
+              "status"
+            ],
+            "availableWhen": "always",
+            "workflowId": "inventory.low_stock",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "PARTIAL",
+            "actionIds": [
+              "inventory.search"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 0,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=BLOCKED",
+        "lfmCandidates=inventory.low_stock",
+        "needle=BLOCKED"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "inv-007",
+      "datasetSplit": "tuning",
+      "input": "quais material ta acabando",
+      "expectedIntent": "inventory.low_stock",
+      "predictedIntent": "inventory.low_stock",
+      "intentCorrect": true,
+      "expectedTool": "",
+      "candidateTools": [
+        "inventory.low_stock"
+      ],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "inventory.low_stock",
+        "domain": "inventory",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "inventory.low_stock",
+            "domain": "inventory",
+            "description": "inventory.low_stock",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [],
+            "optionalFields": [
+              "status"
+            ],
+            "availableWhen": "always",
+            "workflowId": "inventory.low_stock",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "PARTIAL",
+            "actionIds": [
+              "inventory.search"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 0,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=BLOCKED",
+        "lfmCandidates=inventory.low_stock",
+        "needle=BLOCKED"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "inv-008",
+      "datasetSplit": "tuning",
+      "input": "adiciona 1kg de PLA",
+      "expectedIntent": "inventory.entry",
+      "predictedIntent": "inventory.entry",
+      "intentCorrect": true,
+      "expectedTool": "",
+      "candidateTools": [
+        "inventory.entry"
+      ],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "inventory.entry",
+        "domain": "inventory",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "inventory.entry",
+            "domain": "inventory",
+            "description": "inventory.entry",
+            "aliases": [
+              "STOCK.ADD"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "material"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "materialId",
+              "quantity"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "inventory.entry",
+            "screenRoute": "",
+            "mode": "WRITE",
+            "requiresConfirmation": true,
+            "status": "NOT_IMPLEMENTED",
+            "actionIds": []
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "weightGrams": 1000
+      },
+      "extractedFields": {
+        "weightGrams": 1000,
+        "materialName": "PLA"
+      },
+      "missingFields": [],
+      "unexpectedFields": [
+        "materialName"
+      ],
+      "confidence": 1,
+      "latencyMs": 0,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=BLOCKED",
+        "lfmCandidates=inventory.entry",
+        "needle=BLOCKED"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "inv-009",
+      "datasetSplit": "tuning",
+      "input": "de PLA preto tem quanto",
+      "expectedIntent": "inventory.get_stock",
+      "predictedIntent": "inventory.get_stock",
+      "intentCorrect": true,
+      "expectedTool": "inventory.get_stock",
+      "candidateTools": [
+        "inventory.get_stock"
+      ],
+      "selectedTool": "inventory.get_stock",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "inventory.get_stock",
+        "domain": "inventory",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "inventory.get_stock",
+            "domain": "inventory",
+            "description": "inventory.get_stock",
+            "aliases": [
+              "STOCK.SUMMARY"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "material"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "materialId"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "inventory.get_stock",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "PARTIAL",
+            "actionIds": [
+              "inventory.search"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "materialName": "PLA preto"
+      },
+      "extractedFields": {
+        "materialName": "PLA preto tem quanto"
+      },
+      "missingFields": [
+        "materialName"
+      ],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 557,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"inventory.get_stock\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'preto tem' -> modelName 'preto tem'; 'de PLA' -> modelName 'preto tem'; 'quanto' -> stock\",\"confidence\":1.0000,\"prefill_tps\":766.5,\"decode_tps\":326.7,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=inventory.get_stock",
+        "needle=executed"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "inv-010",
+      "datasetSplit": "tuning",
+      "input": "qunto tem de pla preto",
+      "expectedIntent": "inventory.get_stock",
+      "predictedIntent": "inventory.get_stock",
+      "intentCorrect": true,
+      "expectedTool": "inventory.get_stock",
+      "candidateTools": [
+        "inventory.get_stock"
+      ],
+      "selectedTool": "inventory.get_stock",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "inventory.get_stock",
+        "domain": "inventory",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "inventory.get_stock",
+            "domain": "inventory",
+            "description": "inventory.get_stock",
+            "aliases": [
+              "STOCK.SUMMARY"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "material"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "materialId"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "inventory.get_stock",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "PARTIAL",
+            "actionIds": [
+              "inventory.search"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "materialName": "pla preto"
+      },
+      "extractedFields": {
+        "materialName": "pla preto"
+      },
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 229,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"inventory.get_stock\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'qunto tem' -> stock tool; 'pla preto' -> modelName 'pla'\",\"confidence\":1.0000,\"prefill_tps\":493.4,\"decode_tps\":306.2,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=inventory.get_stock",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "inv-011",
+      "datasetSplit": "tuning",
+      "input": "buscar PLA preto",
+      "expectedIntent": "inventory.search",
+      "predictedIntent": "inventory.search",
+      "intentCorrect": true,
+      "expectedTool": "inventory.search",
+      "candidateTools": [
+        "inventory.search"
+      ],
+      "selectedTool": "inventory.search",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "inventory.search",
+        "domain": "inventory",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "inventory.search",
+            "domain": "inventory",
+            "description": "inventory.search",
+            "aliases": [
+              "STOCK.SEARCH"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "query"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "inventory.search",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "inventory.search"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {
+        "query": "PLA preto"
+      },
+      "missingFields": [],
+      "unexpectedFields": [
+        "query"
+      ],
+      "confidence": 1,
+      "latencyMs": 381,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"inventory.search\",\"arguments\":{\"query\":\"PLA preto\"}}],\"suppressed_calls\":[],\"reasoning\":\"Query 'buscar PLA preto' -> query 'PLA preto'. No modelArgs or other params.\",\"confidence\":1.0000,\"prefill_tps\":719.1,\"decode_tps\":306.8,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=inventory.search",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "inv-012",
+      "datasetSplit": "tuning",
+      "input": "procura material PETG",
+      "expectedIntent": "inventory.search",
+      "predictedIntent": "inventory.search",
+      "intentCorrect": true,
+      "expectedTool": "inventory.search",
+      "candidateTools": [
+        "inventory.search"
+      ],
+      "selectedTool": "inventory.search",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "inventory.search",
+        "domain": "inventory",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "inventory.search",
+            "domain": "inventory",
+            "description": "inventory.search",
+            "aliases": [
+              "STOCK.SEARCH"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "query"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "inventory.search",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "inventory.search"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {
+        "query": "procura material PETG"
+      },
+      "missingFields": [],
+      "unexpectedFields": [
+        "query"
+      ],
+      "confidence": 1,
+      "latencyMs": 316,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"inventory.search\",\"arguments\":{\"query\":\"procura material PETG\"}}],\"suppressed_calls\":[],\"reasoning\":\"query 'procura material PETG' -> query 'procura material PETG'; no modelArgs or other params\",\"confidence\":1.0000,\"prefill_tps\":583.9,\"decode_tps\":248.0,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=inventory.search",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "inv-013",
+      "datasetSplit": "tuning",
+      "input": "tem quanto de ABS",
+      "expectedIntent": "inventory.get_stock",
+      "predictedIntent": "inventory.get_stock",
+      "intentCorrect": true,
+      "expectedTool": "inventory.get_stock",
+      "candidateTools": [
+        "inventory.get_stock"
+      ],
+      "selectedTool": "inventory.get_stock",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "inventory.get_stock",
+        "domain": "inventory",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "inventory.get_stock",
+            "domain": "inventory",
+            "description": "inventory.get_stock",
+            "aliases": [
+              "STOCK.SUMMARY"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "material"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "materialId"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "inventory.get_stock",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "PARTIAL",
+            "actionIds": [
+              "inventory.search"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {
+        "materialName": "ABS"
+      },
+      "missingFields": [],
+      "unexpectedFields": [
+        "materialName"
+      ],
+      "confidence": 1,
+      "latencyMs": 362,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"inventory.get_stock\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'tem quanto de ABS' -> stock query for ABS material name.\",\"confidence\":1.0000,\"prefill_tps\":741.2,\"decode_tps\":331.5,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=inventory.get_stock",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "inv-014",
+      "datasetSplit": "tuning",
+      "input": "estoque baixo",
+      "expectedIntent": "inventory.low_stock",
+      "predictedIntent": "inventory.low_stock",
+      "intentCorrect": true,
+      "expectedTool": "",
+      "candidateTools": [
+        "inventory.low_stock"
+      ],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "inventory.low_stock",
+        "domain": "inventory",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "inventory.low_stock",
+            "domain": "inventory",
+            "description": "inventory.low_stock",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [],
+            "optionalFields": [
+              "status"
+            ],
+            "availableWhen": "always",
+            "workflowId": "inventory.low_stock",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "PARTIAL",
+            "actionIds": [
+              "inventory.search"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 0,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=BLOCKED",
+        "lfmCandidates=inventory.low_stock",
+        "needle=BLOCKED"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "calc-001",
+      "datasetSplit": "tuning",
+      "input": "calcula 120g 2h",
+      "expectedIntent": "calculator.calculate",
+      "predictedIntent": "calculator.calculate",
+      "intentCorrect": true,
+      "expectedTool": "calculator.calculate",
+      "candidateTools": [
+        "calculator.calculate"
+      ],
+      "selectedTool": "calculator.calculate",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "calculator.calculate",
+        "domain": "calculator",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "calculator.calculate",
+            "domain": "calculator",
+            "description": "calculator.calculate",
+            "aliases": [
+              "PRICE.CALCULATE"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "weightGrams",
+              "timeMinutes",
+              "quantity"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "calculator.calculate",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "calculator.quote"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "weightGrams": 120,
+        "timeMinutes": 120
+      },
+      "extractedFields": {
+        "weightGrams": 120,
+        "timeMinutes": 120,
+        "hours": 2,
+        "minutes": 0
+      },
+      "missingFields": [],
+      "unexpectedFields": [
+        "hours",
+        "minutes"
+      ],
+      "confidence": 1,
+      "latencyMs": 745,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"calculator.calculate\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'120g' -> modelArgs '120g'; '2h' -> modelArgs '2h'; two calculate calls.\",\"confidence\":1.0000,\"prefill_tps\":252.9,\"decode_tps\":256.8,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=calculator.calculate",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "calc-002",
+      "datasetSplit": "tuning",
+      "input": "calcula 150 gramas e 45 minutos",
+      "expectedIntent": "calculator.calculate",
+      "predictedIntent": "calculator.calculate",
+      "intentCorrect": true,
+      "expectedTool": "calculator.calculate",
+      "candidateTools": [
+        "calculator.calculate"
+      ],
+      "selectedTool": "calculator.calculate",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "calculator.calculate",
+        "domain": "calculator",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "calculator.calculate",
+            "domain": "calculator",
+            "description": "calculator.calculate",
+            "aliases": [
+              "PRICE.CALCULATE"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "weightGrams",
+              "timeMinutes",
+              "quantity"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "calculator.calculate",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "calculator.quote"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "weightGrams": 150,
+        "timeMinutes": 45
+      },
+      "extractedFields": {
+        "weightGrams": 150,
+        "timeMinutes": 45,
+        "hours": 0,
+        "minutes": 45,
+        "quantity": 45,
+        "description": "minuto"
+      },
+      "missingFields": [],
+      "unexpectedFields": [
+        "hours",
+        "minutes",
+        "quantity",
+        "description"
+      ],
+      "confidence": 1,
+      "latencyMs": 306,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"calculator.calculate\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'150 gramas e 45 minutos' -> calculate with modelArgs [150, 45]; no entityBindings.\",\"confidence\":1.0000,\"prefill_tps\":393.1,\"decode_tps\":264.1,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=calculator.calculate",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "calc-003",
+      "datasetSplit": "tuning",
+      "input": "120g por 2h30",
+      "expectedIntent": "calculator.calculate",
+      "predictedIntent": "calculator.calculate",
+      "intentCorrect": true,
+      "expectedTool": "calculator.calculate",
+      "candidateTools": [
+        "calculator.calculate"
+      ],
+      "selectedTool": "calculator.calculate",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "calculator.calculate",
+        "domain": "calculator",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "calculator.calculate",
+            "domain": "calculator",
+            "description": "calculator.calculate",
+            "aliases": [
+              "PRICE.CALCULATE"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "weightGrams",
+              "timeMinutes",
+              "quantity"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "calculator.calculate",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "calculator.quote"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "weightGrams": 120,
+        "timeMinutes": 150
+      },
+      "extractedFields": {
+        "weightGrams": 120,
+        "timeMinutes": 150,
+        "hours": 2,
+        "minutes": 30
+      },
+      "missingFields": [],
+      "unexpectedFields": [
+        "hours",
+        "minutes"
+      ],
+      "confidence": 1,
+      "latencyMs": 223,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"calculator.calculate\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'120g' -> 120. '2h30' -> 120 minutes. Calculate tool.\",\"confidence\":1.0000,\"prefill_tps\":437.9,\"decode_tps\":307.5,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=calculator.calculate",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "calc-004",
+      "datasetSplit": "tuning",
+      "input": "1kg 3 horas",
+      "expectedIntent": "calculator.calculate",
+      "predictedIntent": "calculator.calculate",
+      "intentCorrect": true,
+      "expectedTool": "calculator.calculate",
+      "candidateTools": [
+        "calculator.calculate"
+      ],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "calculator.calculate",
+        "domain": "calculator",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "calculator.calculate",
+            "domain": "calculator",
+            "description": "calculator.calculate",
+            "aliases": [
+              "PRICE.CALCULATE"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "weightGrams",
+              "timeMinutes",
+              "quantity"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "calculator.calculate",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "calculator.quote"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "weightGrams": 1000,
+        "timeMinutes": 180
+      },
+      "extractedFields": {
+        "weightGrams": 1000,
+        "timeMinutes": 180,
+        "hours": 3,
+        "minutes": 0,
+        "quantity": 3,
+        "description": "hora"
+      },
+      "missingFields": [],
+      "unexpectedFields": [
+        "hours",
+        "minutes",
+        "quantity",
+        "description"
+      ],
+      "confidence": 1,
+      "latencyMs": 144,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[],\"suppressed_calls\":[],\"reasoning\":\"No calculator or math tool available.\",\"confidence\":1.0000,\"prefill_tps\":413.1,\"decode_tps\":305.7,\"peak_ram_mb\":1727.1}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=calculator.calculate",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "D_TOOL_SELECTION",
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "calc-005",
+      "datasetSplit": "tuning",
+      "input": "faz o cálculo com 200g e 1h",
+      "expectedIntent": "calculator.calculate",
+      "predictedIntent": "calculator.calculate",
+      "intentCorrect": true,
+      "expectedTool": "calculator.calculate",
+      "candidateTools": [
+        "calculator.calculate"
+      ],
+      "selectedTool": "calculator.calculate",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "calculator.calculate",
+        "domain": "calculator",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "calculator.calculate",
+            "domain": "calculator",
+            "description": "calculator.calculate",
+            "aliases": [
+              "PRICE.CALCULATE"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "weightGrams",
+              "timeMinutes",
+              "quantity"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "calculator.calculate",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "calculator.quote"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "weightGrams": 200,
+        "timeMinutes": 60
+      },
+      "extractedFields": {
+        "weightGrams": 200,
+        "timeMinutes": 60,
+        "hours": 1,
+        "minutes": 0
+      },
+      "missingFields": [],
+      "unexpectedFields": [
+        "hours",
+        "minutes"
+      ],
+      "confidence": 1,
+      "latencyMs": 236,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"calculator.calculate\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'200g e 1h' -> modelArgs 'weightGrams' and 'timeMinutes'\",\"confidence\":1.0000,\"prefill_tps\":508.0,\"decode_tps\":308.2,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=calculator.calculate",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "calc-006",
+      "datasetSplit": "tuning",
+      "input": "30min",
+      "expectedIntent": "",
+      "predictedIntent": "",
+      "intentCorrect": true,
+      "expectedTool": "",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "lfm2.5",
+        "candidateIntents": [],
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "timeMinutes": 30
+      },
+      "extractedFields": {
+        "timeMinutes": 30,
+        "hours": 0,
+        "minutes": 30
+      },
+      "missingFields": [],
+      "unexpectedFields": [
+        "hours",
+        "minutes"
+      ],
+      "confidence": 0,
+      "latencyMs": 1,
+      "errorType": "NO_PLAUSIBLE_INTENTS",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "calc-007",
+      "datasetSplit": "tuning",
+      "input": "2 horas e meia",
+      "expectedIntent": "",
+      "predictedIntent": "calculator.calculate",
+      "intentCorrect": false,
+      "expectedTool": "",
+      "candidateTools": [
+        "calculator.calculate"
+      ],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "calculator.calculate",
+        "domain": "calculator",
+        "confidence": 0.5,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "lfm2.5",
+        "candidateIntents": [
+          {
+            "id": "calculator.calculate",
+            "domain": "calculator",
+            "description": "calculator.calculate"
+          },
+          {
+            "id": "calculator.create_order",
+            "domain": "calculator",
+            "description": "calculator.create_order"
+          }
+        ],
+        "latencyMs": 3273,
+        "grammarApplied": true,
+        "chatMessages": 2,
+        "rawModelOutput": "{ \"intentId\": \"calculator.calculate\" , \"confidence\": 0.5 , \"noMatch\": false }",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "timeMinutes": 150
+      },
+      "extractedFields": {
+        "timeMinutes": 120,
+        "hours": 2,
+        "minutes": 0,
+        "quantity": 2,
+        "description": "horas e meia"
+      },
+      "missingFields": [
+        "timeMinutes"
+      ],
+      "unexpectedFields": [
+        "hours",
+        "minutes",
+        "quantity",
+        "description"
+      ],
+      "confidence": 0.5,
+      "latencyMs": 6820,
+      "errorType": "",
+      "rawModelOutput": "{ \"intentId\": \"calculator.calculate\" , \"confidence\": 0.5 , \"noMatch\": false }",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[],\"suppressed_calls\":[],\"reasoning\":\"No tool available for time calculation.\",\"confidence\":1.0000,\"prefill_tps\":765.9,\"decode_tps\":329.3,\"peak_ram_mb\":1727.1}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=calculator.calculate,calculator.create_order",
+        "needle=executed"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "calc-008",
+      "datasetSplit": "tuning",
+      "input": "1h15",
+      "expectedIntent": "",
+      "predictedIntent": "",
+      "intentCorrect": true,
+      "expectedTool": "",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "lfm2.5",
+        "candidateIntents": [],
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "timeMinutes": 75
+      },
+      "extractedFields": {
+        "timeMinutes": 75,
+        "hours": 1,
+        "minutes": 15
+      },
+      "missingFields": [],
+      "unexpectedFields": [
+        "hours",
+        "minutes"
+      ],
+      "confidence": 0,
+      "latencyMs": 1,
+      "errorType": "NO_PLAUSIBLE_INTENTS",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "calc-009",
+      "datasetSplit": "tuning",
+      "input": "R$ 12,50",
+      "expectedIntent": "",
+      "predictedIntent": "",
+      "intentCorrect": true,
+      "expectedTool": "",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "lfm2.5",
+        "candidateIntents": [],
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "unitPrice": 12.5
+      },
+      "extractedFields": {},
+      "missingFields": [
+        "unitPrice"
+      ],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 1,
+      "errorType": "NO_PLAUSIBLE_INTENTS",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "calc-010",
+      "datasetSplit": "tuning",
+      "input": "15 por unidade",
+      "expectedIntent": "",
+      "predictedIntent": "",
+      "intentCorrect": true,
+      "expectedTool": "",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "lfm2.5",
+        "candidateIntents": [],
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "unitPrice": 15
+      },
+      "extractedFields": {
+        "quantity": 15,
+        "description": "por unidade"
+      },
+      "missingFields": [
+        "unitPrice"
+      ],
+      "unexpectedFields": [
+        "quantity",
+        "description"
+      ],
+      "confidence": 0,
+      "latencyMs": 1,
+      "errorType": "NO_PLAUSIBLE_INTENTS",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "cash-001",
+      "datasetSplit": "tuning",
+      "input": "saldo do caixa",
+      "expectedIntent": "cash.get_status",
+      "predictedIntent": "cash.get_status",
+      "intentCorrect": true,
+      "expectedTool": "cash.get_status",
+      "candidateTools": [
+        "cash.get_status"
+      ],
+      "selectedTool": "cash.get_status",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "cash.get_status",
+        "domain": "cash",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "cash.get_status",
+            "domain": "cash",
+            "description": "cash.get_status",
+            "aliases": [
+              "CASH.SUMMARY"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [],
+            "optionalFields": [
+              "period"
+            ],
+            "availableWhen": "always",
+            "workflowId": "cash.get_status",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "cash.get_summary"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 370,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"cash.get_status\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'saldo do caixa' -> cash_get_status. No arguments.\",\"confidence\":1.0000,\"prefill_tps\":606.5,\"decode_tps\":327.6,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=cash.get_status",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "cash-002",
+      "datasetSplit": "tuning",
+      "input": "caixa ta aberto",
+      "expectedIntent": "cash.get_status",
+      "predictedIntent": "cash.get_status",
+      "intentCorrect": true,
+      "expectedTool": "cash.get_status",
+      "candidateTools": [
+        "cash.get_status"
+      ],
+      "selectedTool": "cash.get_status",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "cash.get_status",
+        "domain": "cash",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "cash.get_status",
+            "domain": "cash",
+            "description": "cash.get_status",
+            "aliases": [
+              "CASH.SUMMARY"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [],
+            "optionalFields": [
+              "period"
+            ],
+            "availableWhen": "always",
+            "workflowId": "cash.get_status",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "cash.get_summary"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 223,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"cash.get_status\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"User wants to fill a caixa. Calls fill only tool.\",\"confidence\":0.9885,\"prefill_tps\":523.1,\"decode_tps\":263.2,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=cash.get_status",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "cash-003",
+      "datasetSplit": "tuning",
+      "input": "abre o caixa",
+      "expectedIntent": "navigation.open",
+      "predictedIntent": "navigation.open",
+      "intentCorrect": true,
+      "expectedTool": "navigation.open",
+      "candidateTools": [
+        "navigation.open"
+      ],
+      "selectedTool": "navigation.open",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "navigation.open",
+        "domain": "navigation",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "navigation.open",
+            "domain": "navigation",
+            "description": "navigation.open",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "tela"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "navigation.open",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "navigation.open"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {
+        "target": "caixa"
+      },
+      "missingFields": [],
+      "unexpectedFields": [
+        "target"
+      ],
+      "confidence": 1,
+      "latencyMs": 670,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"navigation.open\",\"arguments\":{\"target\":\"caixa\"}}],\"suppressed_calls\":[],\"reasoning\":\"'caixa' -> target 'caixa'.\",\"confidence\":1.0000,\"prefill_tps\":224.8,\"decode_tps\":192.3,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=navigation.open",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "cash-004",
+      "datasetSplit": "tuning",
+      "input": "abre caixa para começar o dia",
+      "expectedIntent": "cash.open",
+      "predictedIntent": "cash.open",
+      "intentCorrect": true,
+      "expectedTool": "",
+      "candidateTools": [
+        "cash.open"
+      ],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "cash.open",
+        "domain": "cash",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "cash.open",
+            "domain": "cash",
+            "description": "cash.open",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "openingAmount"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "cash.open",
+            "screenRoute": "",
+            "mode": "WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "cash.open_session"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {
+        "customerName": "começar"
+      },
+      "missingFields": [],
+      "unexpectedFields": [
+        "customerName"
+      ],
+      "confidence": 1,
+      "latencyMs": 0,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=UNAVAILABLE",
+        "lfmCandidates=cash.open",
+        "needle=UNAVAILABLE"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "cash-005",
+      "datasetSplit": "tuning",
+      "input": "fecha o caixa",
+      "expectedIntent": "cash.close",
+      "predictedIntent": "cash.close",
+      "intentCorrect": true,
+      "expectedTool": "",
+      "candidateTools": [
+        "cash.close"
+      ],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "cash.close",
+        "domain": "cash",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "cash.close",
+            "domain": "cash",
+            "description": "cash.close",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "sessionId",
+              "countedAmount"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "cash.close",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "cash.prepare_close_session",
+              "cash.close_session"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 0,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=UNAVAILABLE",
+        "lfmCandidates=cash.close",
+        "needle=UNAVAILABLE"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "cash-006",
+      "datasetSplit": "tuning",
+      "input": "sacar 20 do caixa",
+      "expectedIntent": "cash.withdraw",
+      "predictedIntent": "cash.withdraw",
+      "intentCorrect": true,
+      "expectedTool": "",
+      "candidateTools": [
+        "cash.withdraw"
+      ],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "cash.withdraw",
+        "domain": "cash",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "lfm2.5",
+        "candidateIntents": [
+          {
+            "id": "cash.get_status",
+            "domain": "cash",
+            "description": "cash.get_status"
+          },
+          {
+            "id": "cash.withdraw",
+            "domain": "cash",
+            "description": "cash.withdraw"
+          },
+          {
+            "id": "cash.close",
+            "domain": "cash",
+            "description": "cash.close"
+          }
+        ],
+        "latencyMs": 3245,
+        "grammarApplied": true,
+        "chatMessages": 2,
+        "rawModelOutput": "{\"intentId\": \"cash.withdraw\" , \"confidence\": 1, \"noMatch\": false}",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "amount": 20
+      },
+      "extractedFields": {
+        "quantity": 20,
+        "description": "do caixa"
+      },
+      "missingFields": [
+        "amount"
+      ],
+      "unexpectedFields": [
+        "quantity",
+        "description"
+      ],
+      "confidence": 1,
+      "latencyMs": 6427,
+      "errorType": "",
+      "rawModelOutput": "{\"intentId\": \"cash.withdraw\" , \"confidence\": 1, \"noMatch\": false}",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=UNAVAILABLE",
+        "lfmCandidates=cash.get_status,cash.withdraw,cash.close",
+        "needle=UNAVAILABLE"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "cash-007",
+      "datasetSplit": "tuning",
+      "input": "resumo do caixa",
+      "expectedIntent": "cash.get_status",
+      "predictedIntent": "cash.get_status",
+      "intentCorrect": true,
+      "expectedTool": "cash.get_status",
+      "candidateTools": [
+        "cash.get_status"
+      ],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "cash.get_status",
+        "domain": "cash",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "cash.get_status",
+            "domain": "cash",
+            "description": "cash.get_status",
+            "aliases": [
+              "CASH.SUMMARY"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [],
+            "optionalFields": [
+              "period"
+            ],
+            "availableWhen": "always",
+            "workflowId": "cash.get_status",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "cash.get_summary"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 277,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[],\"suppressed_calls\":[],\"reasoning\":\"'resumo' means resume; no resume tool available.\",\"confidence\":0.6012,\"prefill_tps\":783.1,\"decode_tps\":340.5,\"peak_ram_mb\":1727.1}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=cash.get_status",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "D_TOOL_SELECTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "cash-008",
+      "datasetSplit": "tuning",
+      "input": "caixa hoje",
+      "expectedIntent": "cash.get_status",
+      "predictedIntent": "cash.get_status",
+      "intentCorrect": true,
+      "expectedTool": "cash.get_status",
+      "candidateTools": [
+        "cash.get_status"
+      ],
+      "selectedTool": "cash.get_status",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "cash.get_status",
+        "domain": "cash",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "lfm2.5",
+        "candidateIntents": [
+          {
+            "id": "cash.get_status",
+            "domain": "cash",
+            "description": "cash.get_status"
+          },
+          {
+            "id": "cash.withdraw",
+            "domain": "cash",
+            "description": "cash.withdraw"
+          },
+          {
+            "id": "cash.close",
+            "domain": "cash",
+            "description": "cash.close"
+          }
+        ],
+        "latencyMs": 3245,
+        "grammarApplied": true,
+        "chatMessages": 2,
+        "rawModelOutput": "{\"intentId\": \"cash.get_status\" , \"confidence\": 1, \"noMatch\": false}",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 6772,
+      "errorType": "",
+      "rawModelOutput": "{\"intentId\": \"cash.get_status\" , \"confidence\": 1, \"noMatch\": false}",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"cash.get_status\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'caixa hoje' -> modelArgs 'caixa hoje'. Calls cash_get_status.\",\"confidence\":0.9682,\"prefill_tps\":542.4,\"decode_tps\":251.9,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=cash.get_status,cash.withdraw,cash.close",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "prod-001",
+      "datasetSplit": "tuning",
+      "input": "mostra fila de produção",
+      "expectedIntent": "production.list",
+      "predictedIntent": "production.list",
+      "intentCorrect": true,
+      "expectedTool": "production.list",
+      "candidateTools": [
+        "production.list"
+      ],
+      "selectedTool": "production.list",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "production.list",
+        "domain": "production",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "production.list",
+            "domain": "production",
+            "description": "production.list",
+            "aliases": [
+              "PRODUCTION.SEARCH"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [],
+            "optionalFields": [
+              "status"
+            ],
+            "availableWhen": "always",
+            "workflowId": "production.list",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "production.list_queue"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 343,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"production.list\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'filta de produção' -> modelArgs []; no tool for filtering.\",\"confidence\":0.7140,\"prefill_tps\":843.4,\"decode_tps\":322.9,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=production.list",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "prod-002",
+      "datasetSplit": "tuning",
+      "input": "mostra producao",
+      "expectedIntent": "production.list",
+      "predictedIntent": "production.list",
+      "intentCorrect": true,
+      "expectedTool": "production.list",
+      "candidateTools": [
+        "production.list"
+      ],
+      "selectedTool": "production.list",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "production.list",
+        "domain": "production",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "production.list",
+            "domain": "production",
+            "description": "production.list",
+            "aliases": [
+              "PRODUCTION.SEARCH"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [],
+            "optionalFields": [
+              "status"
+            ],
+            "availableWhen": "always",
+            "workflowId": "production.list",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "production.list_queue"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 186,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"production.list\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'mostra producao' -> production_list.\",\"confidence\":1.0000,\"prefill_tps\":419.6,\"decode_tps\":312.3,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=production.list",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "prod-003",
+      "datasetSplit": "tuning",
+      "input": "fila de producao",
+      "expectedIntent": "production.list",
+      "predictedIntent": "production.list",
+      "intentCorrect": true,
+      "expectedTool": "production.list",
+      "candidateTools": [
+        "production.list"
+      ],
+      "selectedTool": "production.list",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "production.list",
+        "domain": "production",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "production.list",
+            "domain": "production",
+            "description": "production.list",
+            "aliases": [
+              "PRODUCTION.SEARCH"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [],
+            "optionalFields": [
+              "status"
+            ],
+            "availableWhen": "always",
+            "workflowId": "production.list",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "production.list_queue"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 228,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"production.list\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'fila de producao' -> product_name 'fila de producao'.\",\"confidence\":1.0000,\"prefill_tps\":459.2,\"decode_tps\":272.6,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=production.list",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "prod-004",
+      "datasetSplit": "tuning",
+      "input": "começa produção",
+      "expectedIntent": "production.start",
+      "predictedIntent": "production.start",
+      "intentCorrect": true,
+      "expectedTool": "",
+      "candidateTools": [
+        "production.start"
+      ],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "production.start",
+        "domain": "production",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "production.start",
+            "domain": "production",
+            "description": "production.start",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "jobId",
+              "printerId"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "production.start",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "production.prepare_job",
+              "production.commit_job"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 0,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=UNAVAILABLE",
+        "lfmCandidates=production.start",
+        "needle=UNAVAILABLE"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "prod-005",
+      "datasetSplit": "tuning",
+      "input": "bota pra produzir",
+      "expectedIntent": "production.start",
+      "predictedIntent": "production.start",
+      "intentCorrect": true,
+      "expectedTool": "",
+      "candidateTools": [
+        "production.start"
+      ],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "production.start",
+        "domain": "production",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "production.start",
+            "domain": "production",
+            "description": "production.start",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "jobId",
+              "printerId"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "production.start",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "production.prepare_job",
+              "production.commit_job"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {
+        "customerName": "produzir"
+      },
+      "missingFields": [],
+      "unexpectedFields": [
+        "customerName"
+      ],
+      "confidence": 1,
+      "latencyMs": 0,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=UNAVAILABLE",
+        "lfmCandidates=production.start",
+        "needle=UNAVAILABLE"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "prod-006",
+      "datasetSplit": "tuning",
+      "input": "produção pendente",
+      "expectedIntent": "production.list",
+      "predictedIntent": "production.list",
+      "intentCorrect": true,
+      "expectedTool": "production.list",
+      "candidateTools": [
+        "production.list"
+      ],
+      "selectedTool": "production.list",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "production.list",
+        "domain": "production",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "production.list",
+            "domain": "production",
+            "description": "production.list",
+            "aliases": [
+              "PRODUCTION.SEARCH"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [],
+            "optionalFields": [
+              "status"
+            ],
+            "availableWhen": "always",
+            "workflowId": "production.list",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "production.list_queue"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 295,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"production.list\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'produção pendente' -> product_list tool.\",\"confidence\":1.0000,\"prefill_tps\":230.9,\"decode_tps\":202.5,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=production.list",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "prod-007",
+      "datasetSplit": "tuning",
+      "input": "status da produção",
+      "expectedIntent": "production.list",
+      "predictedIntent": "production.list",
+      "intentCorrect": true,
+      "expectedTool": "production.list",
+      "candidateTools": [
+        "production.list"
+      ],
+      "selectedTool": "production.list",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "production.list",
+        "domain": "production",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "production.list",
+            "domain": "production",
+            "description": "production.list",
+            "aliases": [
+              "PRODUCTION.SEARCH"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [],
+            "optionalFields": [
+              "status"
+            ],
+            "availableWhen": "always",
+            "workflowId": "production.list",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "production.list_queue"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 224,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"production.list\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'status da produção' -> product_list tool.\",\"confidence\":1.0000,\"prefill_tps\":505.2,\"decode_tps\":257.9,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=production.list",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [],
+      "writeExposed": 0
+    }
+  ],
+  "metrics": {
+    "total": 65,
+    "intentAccuracy": 98.46,
+    "toolAccuracy": 87.69,
+    "schemaValidity": 100,
+    "fieldExtractionAccuracy": 62.07,
+    "fieldCaseCoverage": {
+      "numerator": 29,
+      "denominator": 65,
+      "percentage": 44.62
+    },
+    "fieldExactCaseAccuracy": {
+      "numerator": 18,
+      "denominator": 29,
+      "percentage": 62.07
+    },
+    "fieldPrecision": {
+      "numerator": 41,
+      "denominator": 75,
+      "percentage": 54.67
+    },
+    "fieldRecall": {
+      "numerator": 41,
+      "denominator": 54,
+      "percentage": 75.93
+    },
+    "unexpectedFieldRate": {
+      "numerator": 42,
+      "denominator": 88,
+      "percentage": 47.73
+    },
+    "missingFieldRate": {
+      "numerator": 13,
+      "denominator": 54,
+      "percentage": 24.07
+    },
+    "missingRequiredFields": 13,
+    "unexpectedFields": 42,
+    "technicalFailures": 0,
+    "averageLatencyMs": 814,
+    "p50LatencyMs": 288,
+    "p95LatencyMs": 6427,
+    "confusionMatrix": {
+      "navigation.open": {
+        "navigation.open": 6
+      },
+      "cash.open": {
+        "cash.open": 2
+      },
+      "production.start": {
+        "production.start": 3
+      },
+      "admin.open": {
+        "admin.open": 1
+      },
+      "orders.get": {
+        "orders.get": 3
+      },
+      "orders.list": {
+        "orders.list": 2
+      },
+      "orders.create": {
+        "orders.create": 10
+      },
+      "calculator.create_order": {
+        "calculator.create_order": 2
+      },
+      "orders.cancel": {
+        "orders.cancel": 1
+      },
+      "inventory.get_stock": {
+        "inventory.get_stock": 5
+      },
+      "inventory.search": {
+        "inventory.search": 5
+      },
+      "inventory.low_stock": {
+        "inventory.low_stock": 3
+      },
+      "inventory.entry": {
+        "inventory.entry": 1
+      },
+      "calculator.calculate": {
+        "calculator.calculate": 5
+      },
+      "NO_MATCH": {
+        "NO_MATCH": 4,
+        "calculator.calculate": 1
+      },
+      "cash.get_status": {
+        "cash.get_status": 4
+      },
+      "cash.close": {
+        "cash.close": 1
+      },
+      "cash.withdraw": {
+        "cash.withdraw": 1
+      },
+      "production.list": {
+        "production.list": 5
+      }
+    },
+    "errorCategories": {
+      "E_ENTITY_EXTRACTION": 32,
+      "D_TOOL_SELECTION": 8,
+      "G_INSUFFICIENT_CONTEXT": 18,
+      "C_CANDIDATE_RETRIEVAL": 1
+    },
+    "byResolutionSource": {
+      "deterministic": {
+        "count": 56,
+        "intentAccuracy": 100,
+        "toolAccuracy": 87.5,
+        "schemaValidity": 100,
+        "averageLatencyMs": 310,
+        "p50LatencyMs": 278,
+        "p95LatencyMs": 814,
+        "lfmCalls": 0
+      },
+      "retriever": {
+        "count": 0,
+        "intentAccuracy": 0,
+        "toolAccuracy": 0,
+        "schemaValidity": 0,
+        "averageLatencyMs": 0,
+        "p50LatencyMs": 0,
+        "p95LatencyMs": 0,
+        "lfmCalls": 0
+      },
+      "lfm": {
+        "count": 5,
+        "intentAccuracy": 80,
+        "toolAccuracy": 80,
+        "schemaValidity": 100,
+        "averageLatencyMs": 6455,
+        "p50LatencyMs": 6674,
+        "p95LatencyMs": 6820,
+        "lfmCalls": 5
+      },
+      "fallback": {
+        "count": 4,
+        "intentAccuracy": 100,
+        "toolAccuracy": 100,
+        "schemaValidity": 100,
+        "averageLatencyMs": 1,
+        "p50LatencyMs": 1,
+        "p95LatencyMs": 1,
+        "lfmCalls": 0
+      }
+    }
+  },
+  "recalculatedFrom": "lfm25-tuning-2026-10-01T00-03-58-053Z.json",
+  "recalculatedAt": "2026-10-01T23:00:20.141Z"
+}

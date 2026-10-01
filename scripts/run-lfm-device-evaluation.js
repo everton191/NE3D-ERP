@@ -59,8 +59,41 @@ function matrix(records) {
 
 function percentage(numerator, denominator) { return denominator ? Number(((numerator / denominator) * 100).toFixed(2)) : 0; }
 
+function ratioMetric(numerator, denominator) { return { numerator, denominator, percentage: percentage(numerator, denominator) }; }
+
+function resolutionSourceFor(item) {
+  if (item.resolutionSource) return item.resolutionSource;
+  if (item.parsedOutput?.provider === "deterministic") return "deterministic";
+  if (item.parsedOutput?.errorCode === "NO_PLAUSIBLE_INTENTS") return "fallback";
+  if (item.parsedOutput?.provider === "lfm2.5") return "lfm";
+  return "fallback";
+}
+
+function sourceMetrics(records) {
+  return Object.fromEntries(["deterministic", "retriever", "lfm", "fallback"].map((source) => {
+    const selected = records.filter((item) => resolutionSourceFor(item) === source);
+    const latencies = selected.map((item) => item.totalLatencyMs ?? item.latencyMs ?? 0);
+    return [source, {
+      count: selected.length,
+      intentAccuracy: percentage(selected.filter((item) => item.intentCorrect).length, selected.length),
+      toolAccuracy: percentage(selected.filter((item) => item.toolCorrect).length, selected.length),
+      schemaValidity: percentage(selected.filter((item) => item.schemaValid).length, selected.length),
+      averageLatencyMs: latencies.length ? Math.round(latencies.reduce((sum, value) => sum + value, 0) / latencies.length) : 0,
+      p50LatencyMs: percentile(latencies, 0.5),
+      p95LatencyMs: percentile(latencies, 0.95),
+      lfmCalls: selected.filter((item) => item.lfmInvoked === true || (!Object.hasOwn(item, "lfmInvoked") && item.parsedOutput?.provider === "lfm2.5" && item.parsedOutput?.errorCode !== "NO_PLAUSIBLE_INTENTS")).length
+    }];
+  }));
+}
+
 function summarize(records) {
   const fieldCases = records.filter((item) => Object.keys(item.expectedFields || {}).length > 0);
+  const expectedFieldCount = fieldCases.reduce((sum, item) => sum + Object.keys(item.expectedFields || {}).length, 0);
+  const correctFieldCount = fieldCases.reduce((sum, item) => sum + Object.keys(item.expectedFields || {}).filter((key) => key in (item.extractedFields || {}) && String(item.extractedFields[key]) === String(item.expectedFields[key])).length, 0);
+  const extractedRelevantCount = fieldCases.reduce((sum, item) => sum + Object.keys(item.extractedFields || {}).length, 0);
+  const extractedFieldCount = records.reduce((sum, item) => sum + Object.keys(item.extractedFields || {}).length, 0);
+  const unexpectedFieldCount = records.reduce((sum, item) => sum + item.unexpectedFields.length, 0);
+  const missingFieldCount = records.reduce((sum, item) => sum + item.missingFields.length, 0);
   const latencies = records.filter((item) => !item.errorType).map((item) => item.latencyMs);
   const categories = {};
   for (const item of records) for (const category of item.errorCategories || []) categories[category] = (categories[category] || 0) + 1;
@@ -70,14 +103,21 @@ function summarize(records) {
     toolAccuracy: percentage(records.filter((item) => item.toolCorrect).length, records.length),
     schemaValidity: percentage(records.filter((item) => item.schemaValid).length, records.length),
     fieldExtractionAccuracy: percentage(fieldCases.filter((item) => item.fieldCorrect).length, fieldCases.length),
-    missingRequiredFields: records.reduce((sum, item) => sum + item.missingFields.length, 0),
-    unexpectedFields: records.reduce((sum, item) => sum + item.unexpectedFields.length, 0),
+    fieldCaseCoverage: ratioMetric(fieldCases.length, records.length),
+    fieldExactCaseAccuracy: ratioMetric(fieldCases.filter((item) => item.fieldCorrect).length, fieldCases.length),
+    fieldPrecision: ratioMetric(correctFieldCount, extractedRelevantCount),
+    fieldRecall: ratioMetric(correctFieldCount, expectedFieldCount),
+    unexpectedFieldRate: ratioMetric(unexpectedFieldCount, extractedFieldCount),
+    missingFieldRate: ratioMetric(missingFieldCount, expectedFieldCount),
+    missingRequiredFields: missingFieldCount,
+    unexpectedFields: unexpectedFieldCount,
     technicalFailures: records.filter((item) => item.errorCategories?.includes("I_RUNTIME")).length,
     averageLatencyMs: latencies.length ? Math.round(latencies.reduce((sum, value) => sum + value, 0) / latencies.length) : 0,
     p50LatencyMs: percentile(latencies, 0.5),
     p95LatencyMs: percentile(latencies, 0.95),
     confusionMatrix: matrix(records),
-    errorCategories: categories
+    errorCategories: categories,
+    byResolutionSource: sourceMetrics(records)
   };
 }
 
@@ -107,18 +147,26 @@ async function runCase(socketUrl, item) {
     const started = performance.now();
     const provider = new lfm.LfmIntentProvider();
     const contextSnapshot = { ...(item.context || {}), ...(item.activeWorkflow ? { activeWorkflow: item.activeWorkflow } : {}) };
+    const deterministicIntent = window.SimplificaToolCandidateRetriever.semanticIntent(item.rawInput, contextSnapshot) || "";
     const parsed = await provider.interpretIntent({ input: item.rawInput, contextSnapshot });
     const candidates = parsed.candidateIntents || [];
     const generated = { grammarApplied: parsed.grammarApplied, error: parsed.errorCode || "" };
     const rawModelOutput = parsed.rawModelOutput || "";
+    const resolutionSource = parsed.provider === "deterministic" ? "deterministic" : parsed.errorCode === "NO_PLAUSIBLE_INTENTS" ? "fallback" : "lfm";
+    const candidateSource = deterministicIntent ? "deterministic-rule" : item.activeWorkflow ? "active-workflow" : candidates.length ? "domain-heuristic" : "none";
+    const promptApproxChars = resolutionSource === "lfm" ? lfm.promptFor(item.rawInput, candidates, contextSnapshot).length + lfm.systemPromptFor().length : 0;
     const actionPlan = parsed.intentId ? { intent: parsed.intentId } : null;
+    const retrieverStarted = performance.now();
     const retrieval = window.SimplificaToolCandidateRetriever.retrieveToolCandidates({ input: item.rawInput, actionPlan, contextSnapshot, workflowState: item.activeWorkflow ? { intent: item.activeWorkflow } : {}, limit: 3 });
+    const retrieverLatencyMs = Math.round((performance.now() - retrieverStarted) * 1000) / 1000;
+    const extractorStarted = performance.now();
     const deterministic = window.SimplificaDeterministicValueExtractor.extractDeterministicValues(item.rawInput);
+    const extractorLatencyMs = Math.round((performance.now() - extractorStarted) * 1000) / 1000;
     let needle = null;
     try { needle = await window.SimplificaNeedleShadow.shadow({ input: item.rawInput, actionPlan, contextSnapshot, workflowState: item.activeWorkflow ? { intent: item.activeWorkflow } : {}, currentDecision: {} }); } catch (error) { needle = { skipped: true, reason: "NEEDLE_RUNTIME_ERROR", error: String(error?.message || error) }; }
     const merged = needle?.mergedArguments?.fields || deterministic || {};
     const extractedFields = Object.fromEntries(Object.entries(merged).map(([key, value]) => [key, value && typeof value === "object" && "value" in value ? value.value : value]));
-    return { candidates: candidates.map((candidate) => candidate.id), generated, parsed, rawModelOutput, retrieval: { status: retrieval.status, candidateTools: retrieval.candidates.map((candidate) => candidate.toolId), availableTools: retrieval.candidates.filter((candidate) => candidate.available).map((candidate) => candidate.toolId), diagnostics: retrieval.diagnostics }, needle: { skipped: needle?.skipped === true, reason: needle?.reason || "", selectedTool: needle?.comparison?.needleDecision?.toolId || "", rawModelOutput: needle?.comparison?.needleDecision?.raw || needle?.result?.result || "", conflicts: needle?.mergedArguments?.conflicts || [] }, deterministic, extractedFields, latencyMs: Math.round(performance.now() - started), writeExposed: parsed.writeExposed };
+    return { candidates: candidates.map((candidate) => candidate.id), generated, parsed, rawModelOutput, resolutionSource, deterministicRuleId: deterministicIntent ? "semantic:" + deterministicIntent : "", candidateSource, lfmInvoked: resolutionSource === "lfm", fallbackReason: resolutionSource === "fallback" ? parsed.errorCode : "", lfmLatencyMs: parsed.latencyMs || 0, retrieverLatencyMs, extractorLatencyMs, promptApproxChars, generatedTokens: parsed.generatedTokens ?? null, retrieval: { status: retrieval.status, candidateTools: retrieval.candidates.map((candidate) => candidate.toolId), availableTools: retrieval.candidates.filter((candidate) => candidate.available).map((candidate) => candidate.toolId), diagnostics: retrieval.diagnostics }, needle: { skipped: needle?.skipped === true, reason: needle?.reason || "", selectedTool: needle?.comparison?.needleDecision?.toolId || "", rawModelOutput: needle?.comparison?.needleDecision?.raw || needle?.result?.result || "", conflicts: needle?.mergedArguments?.conflicts || [] }, deterministic, extractedFields, latencyMs: Math.round(performance.now() - started), writeExposed: parsed.writeExposed };
   })()`;
   return evaluate(socketUrl, expression, 90000);
 }
@@ -145,14 +193,14 @@ function createRecord(item, result, error = null) {
     expectedIntent: item.expectedIntent, predictedIntent, intentCorrect,
     expectedTool: item.expectedTool || "", candidateTools: result.retrieval?.candidateTools || [], selectedTool, toolCorrect,
     schemaValid, parsedOutput: result.parsed, expectedFields, extractedFields, missingFields, unexpectedFields,
-    confidence: result.parsed?.confidence ?? null, latencyMs: result.latencyMs, errorType: result.generated?.error || "",
+    confidence: result.parsed?.confidence ?? null, latencyMs: result.latencyMs, totalLatencyMs: result.latencyMs, lfmLatencyMs: result.lfmLatencyMs || 0, retrieverLatencyMs: result.retrieverLatencyMs || 0, extractorLatencyMs: result.extractorLatencyMs || 0, generatedTokens: result.generatedTokens ?? null, promptApproxChars: result.promptApproxChars || 0, resolutionSource: result.resolutionSource, deterministicRuleId: result.deterministicRuleId || "", candidateSource: result.candidateSource || "", candidateCount: result.candidates.length, candidateIntents: result.candidates, lfmInvoked: result.lfmInvoked === true, fallbackReason: result.fallbackReason || "", errorType: result.generated?.error || "",
     rawModelOutput: result.rawModelOutput, rawNeedleOutput: result.needle?.rawModelOutput || "",
     deterministicNotes: [`retrieval=${result.retrieval?.status || ""}`, `lfmCandidates=${result.candidates.join(",")}`, `needle=${result.needle?.reason || "executed"}`, ...(result.needle?.conflicts || [])],
     fieldCorrect: missingFields.length === 0, errorCategories: [...new Set(categories)], writeExposed: result.writeExposed
   };
 }
 
-(async () => {
+async function main() {
   const target = await targetForApp();
   const report = { schemaVersion: 1, runId, modelId: "lfm2.5-1.2b-q4_0", split, startedAt: new Date().toISOString(), completedAt: null, frozenRuntimeCommit: adb("shell", "dumpsys", "package", PACKAGE).match(/versionName=([^\s]+)/)?.[1] || "", writeExposed: 0, records: [], metrics: null };
   save(report);
@@ -165,4 +213,7 @@ function createRecord(item, result, error = null) {
   }
   report.completedAt = new Date().toISOString(); report.metrics = summarize(report.records); save(report);
   console.log(JSON.stringify({ outputPath, split, metrics: report.metrics }, null, 2));
-})().catch((error) => { console.error(error.stack || error.message); process.exitCode = 1; });
+}
+
+module.exports = { summarize, sourceMetrics, createRecord };
+if (require.main === module) main().catch((error) => { console.error(error.stack || error.message); process.exitCode = 1; });
