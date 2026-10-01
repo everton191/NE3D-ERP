@@ -2,7 +2,7 @@
 
 ## Estado
 
-Classificação: **B — contrato estruturado aprovado; avaliação 65/15 pendente**.
+Classificação: **AINDA NÃO APTO — contrato estrutural aprovado; holdout insuficiente para promoção**.
 
 O Lote 5 preserva Needle em shadow e não altera `WRITE`, ActionPlan, UI, calculadora, Supabase, carrossel ou `apps/opticore`.
 
@@ -39,16 +39,18 @@ Os artefatos completos ficam em `reports/ai/lfm25-evaluation/`: baseline `lfm25-
 
 O ajuste preservou o LFM2.5 QAD-Q4_0, a quantização, o chat template e a grammar. Ele passou a priorizar as regras semânticas determinísticas já existentes para padrões inequívocos, a respeitar continuação de `activeWorkflow`, e a falhar fechado quando não há intent plausível. O provider continua em shadow, sem executar tools e com `writeExposed: 0`.
 
-O gate estrutural foi repetido após o tuning: **5/5**, com grammar ativa, duas mensagens de chat e `writeExposed: 0` em todos os casos. O holdout de 15 casos permanece intocado até o checkpoint desta fase.
+O gate estrutural foi repetido após o tuning: **5/5**, com grammar ativa, duas mensagens de chat e `writeExposed: 0` em todos os casos.
+
+Após o checkpoint `bbed17e`, o holdout foi executado uma única vez, sem ajuste posterior. Nos 15 casos, o resultado foi 60,00% de intent, 66,67% de tool, 86,67% de schema e 0% de campos (um caso com campo esperado), com 1 campo obrigatório ausente, 3 inesperados e zero falha técnica. As principais confusões foram `customers.search -> NO_MATCH` (2), `printers.list -> production.list` (2), `reports.sales -> cash.get_status` (1) e `reports.financial -> NO_MATCH` (1). O artefato completo é `reports/ai/lfm25-evaluation/lfm25-holdout-2026-10-01T00-08-20-915Z.json`.
 
 Comparação preservada:
 
 | Provider | Holdout intent | Holdout tool |
 | --- | ---: | ---: |
 | Needle pós-tuning | 46,67% | 60,00% |
-| LFM2.5 QAD-Q4_0 | Tuning 98,46% intent / 87,69% tool; holdout pendente |
+| LFM2.5 QAD-Q4_0 | 60,00% | 66,67% |
 | Híbrido | Não aplicável: LFM não promovido para simulação |
 
-## Próximo passo
+## Conclusão
 
-Congelar este tuning e executar uma única vez os 15 casos de holdout em shadow. Manter `writeExposed: 0`, não executar tools e não promover o LFM para roteamento. Não trocar modelo/quantização e não usar o holdout para tuning posterior.
+Classificação: **AINDA NÃO APTO**. O contrato estrutural e o cold start estão aprovados, mas o holdout não sustenta promoção para roteamento de produção: há perda relevante de intent/tool e dois casos com conflito de schema. Manter shadow, `writeExposed: 0` e WRITE bloqueado. Uma próxima fase deve ampliar cobertura determinística e de entidades usando um novo conjunto de desenvolvimento, sem reutilizar estes 15 casos como tuning.

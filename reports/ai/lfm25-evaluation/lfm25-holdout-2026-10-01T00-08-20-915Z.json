@@ -1,0 +1,1067 @@
+{
+  "schemaVersion": 1,
+  "runId": "lfm25-holdout-2026-10-01T00-08-20-915Z",
+  "modelId": "lfm2.5-1.2b-q4_0",
+  "split": "holdout",
+  "startedAt": "2026-10-01T00:08:21.272Z",
+  "completedAt": "2026-10-01T00:09:01.425Z",
+  "frozenRuntimeCommit": "1.0.39",
+  "writeExposed": 0,
+  "records": [
+    {
+      "caseId": "other-001",
+      "datasetSplit": "holdout",
+      "input": "procura cliente Maria",
+      "expectedIntent": "customers.search",
+      "predictedIntent": "",
+      "intentCorrect": false,
+      "expectedTool": "customers.search",
+      "candidateTools": [
+        "inventory.search"
+      ],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": false,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_MATCH_CONFLICT",
+        "provider": "lfm2.5",
+        "candidateIntents": [
+          {
+            "id": "orders.list",
+            "domain": "orders",
+            "description": "orders.list"
+          },
+          {
+            "id": "orders.get",
+            "domain": "orders",
+            "description": "orders.get"
+          },
+          {
+            "id": "orders.create",
+            "domain": "orders",
+            "description": "orders.create"
+          },
+          {
+            "id": "orders.update",
+            "domain": "orders",
+            "description": "orders.update"
+          },
+          {
+            "id": "orders.cancel",
+            "domain": "orders",
+            "description": "orders.cancel"
+          }
+        ],
+        "latencyMs": 2853,
+        "grammarApplied": true,
+        "chatMessages": 2,
+        "rawModelOutput": "{\"intentId\": \"orders.list\" , \"confidence\": 1, \"noMatch\": true}",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 5943,
+      "errorType": "NO_MATCH_CONFLICT",
+      "rawModelOutput": "{\"intentId\": \"orders.list\" , \"confidence\": 1, \"noMatch\": true}",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[],\"suppressed_calls\":[],\"reasoning\":\"No tool available for web search or browser.\",\"confidence\":1.0000,\"prefill_tps\":806.8,\"decode_tps\":337.7,\"peak_ram_mb\":1727.1}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=orders.list,orders.get,orders.create,orders.update,orders.cancel",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "F_SCHEMA_OUTPUT",
+        "C_CANDIDATE_RETRIEVAL",
+        "D_TOOL_SELECTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "other-002",
+      "datasetSplit": "holdout",
+      "input": "busca cliente João",
+      "expectedIntent": "customers.search",
+      "predictedIntent": "",
+      "intentCorrect": false,
+      "expectedTool": "customers.search",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": false,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_MATCH_CONFLICT",
+        "provider": "lfm2.5",
+        "candidateIntents": [
+          {
+            "id": "orders.list",
+            "domain": "orders",
+            "description": "orders.list"
+          },
+          {
+            "id": "orders.get",
+            "domain": "orders",
+            "description": "orders.get"
+          },
+          {
+            "id": "orders.create",
+            "domain": "orders",
+            "description": "orders.create"
+          },
+          {
+            "id": "orders.update",
+            "domain": "orders",
+            "description": "orders.update"
+          },
+          {
+            "id": "orders.cancel",
+            "domain": "orders",
+            "description": "orders.cancel"
+          }
+        ],
+        "latencyMs": 3096,
+        "grammarApplied": true,
+        "chatMessages": 2,
+        "rawModelOutput": "{\"intentId\": \"orders.list\" , \"confidence\": 0.95, \"noMatch\": true}",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 6097,
+      "errorType": "NO_MATCH_CONFLICT",
+      "rawModelOutput": "{\"intentId\": \"orders.list\" , \"confidence\": 0.95, \"noMatch\": true}",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=orders.list,orders.get,orders.create,orders.update,orders.cancel",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "F_SCHEMA_OUTPUT",
+        "C_CANDIDATE_RETRIEVAL",
+        "D_TOOL_SELECTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "other-003",
+      "datasetSplit": "holdout",
+      "input": "lista impressoras",
+      "expectedIntent": "printers.list",
+      "predictedIntent": "production.list",
+      "intentCorrect": false,
+      "expectedTool": "printers.list",
+      "candidateTools": [
+        "production.list"
+      ],
+      "selectedTool": "production.list",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "production.list",
+        "domain": "production",
+        "confidence": 0.99,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "lfm2.5",
+        "candidateIntents": [
+          {
+            "id": "production.list",
+            "domain": "production",
+            "description": "production.list"
+          },
+          {
+            "id": "production.get",
+            "domain": "production",
+            "description": "production.get"
+          },
+          {
+            "id": "production.start",
+            "domain": "production",
+            "description": "production.start"
+          },
+          {
+            "id": "production.change_status",
+            "domain": "production",
+            "description": "production.change_status"
+          }
+        ],
+        "latencyMs": 3172,
+        "grammarApplied": true,
+        "chatMessages": 2,
+        "rawModelOutput": "{\"intentId\": \"production.list\" , \"confidence\": 0.99, \"noMatch\": false}",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 0.99,
+      "latencyMs": 6605,
+      "errorType": "",
+      "rawModelOutput": "{\"intentId\": \"production.list\" , \"confidence\": 0.99, \"noMatch\": false}",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"production.list\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'lista impressoras' -> product_list tool. No parameters.\",\"confidence\":1.0000,\"prefill_tps\":733.6,\"decode_tps\":313.4,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=production.list,production.get,production.start,production.change_status",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "D_TOOL_SELECTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "other-004",
+      "datasetSplit": "holdout",
+      "input": "procura impressora",
+      "expectedIntent": "printers.list",
+      "predictedIntent": "production.list",
+      "intentCorrect": false,
+      "expectedTool": "printers.list",
+      "candidateTools": [
+        "production.list"
+      ],
+      "selectedTool": "production.list",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "production.list",
+        "domain": "production",
+        "confidence": 0.95,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "lfm2.5",
+        "candidateIntents": [
+          {
+            "id": "production.list",
+            "domain": "production",
+            "description": "production.list"
+          },
+          {
+            "id": "production.get",
+            "domain": "production",
+            "description": "production.get"
+          },
+          {
+            "id": "production.start",
+            "domain": "production",
+            "description": "production.start"
+          },
+          {
+            "id": "production.change_status",
+            "domain": "production",
+            "description": "production.change_status"
+          }
+        ],
+        "latencyMs": 3106,
+        "grammarApplied": true,
+        "chatMessages": 2,
+        "rawModelOutput": "{\"intentId\": \"production.list\" , \"confidence\": 0.95, \"noMatch\": false}",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 0.95,
+      "latencyMs": 6594,
+      "errorType": "",
+      "rawModelOutput": "{\"intentId\": \"production.list\" , \"confidence\": 0.95, \"noMatch\": false}",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"production.list\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'procura impressora' -> product_list tool.\",\"confidence\":1.0000,\"prefill_tps\":483.4,\"decode_tps\":288.9,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=production.list,production.get,production.start,production.change_status",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "D_TOOL_SELECTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "other-005",
+      "datasetSplit": "holdout",
+      "input": "relatório de vendas",
+      "expectedIntent": "reports.sales",
+      "predictedIntent": "cash.get_status",
+      "intentCorrect": false,
+      "expectedTool": "",
+      "candidateTools": [
+        "cash.get_status"
+      ],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "cash.get_status",
+        "domain": "cash",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "lfm2.5",
+        "candidateIntents": [
+          {
+            "id": "cash.get_status",
+            "domain": "cash",
+            "description": "cash.get_status"
+          },
+          {
+            "id": "cash.withdraw",
+            "domain": "cash",
+            "description": "cash.withdraw"
+          },
+          {
+            "id": "cash.close",
+            "domain": "cash",
+            "description": "cash.close"
+          }
+        ],
+        "latencyMs": 3170,
+        "grammarApplied": true,
+        "chatMessages": 2,
+        "rawModelOutput": "{\"intentId\": \"cash.get_status\" , \"confidence\": 1, \"noMatch\": false}",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 6583,
+      "errorType": "",
+      "rawModelOutput": "{\"intentId\": \"cash.get_status\" , \"confidence\": 1, \"noMatch\": false}",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[],\"suppressed_calls\":[],\"reasoning\":\"No tool for web search or browser.\",\"confidence\":1.0000,\"prefill_tps\":841.9,\"decode_tps\":334.6,\"peak_ram_mb\":1727.1}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=cash.get_status,cash.withdraw,cash.close",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "other-006",
+      "datasetSplit": "holdout",
+      "input": "relatório financeiro",
+      "expectedIntent": "reports.financial",
+      "predictedIntent": "",
+      "intentCorrect": false,
+      "expectedTool": "",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "lfm2.5",
+        "candidateIntents": [],
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 2,
+      "errorType": "NO_PLAUSIBLE_INTENTS",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "other-007",
+      "datasetSplit": "holdout",
+      "input": "gera pdf pedido 12",
+      "expectedIntent": "documents.order_pdf",
+      "predictedIntent": "documents.order_pdf",
+      "intentCorrect": true,
+      "expectedTool": "",
+      "candidateTools": [
+        "documents.order_pdf"
+      ],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "documents.order_pdf",
+        "domain": "documents",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "documents.order_pdf",
+            "domain": "documents",
+            "description": "documents.order_pdf",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "order"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "orderId"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "documents.order_pdf",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "NOT_IMPLEMENTED",
+            "actionIds": []
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {
+        "orderNumber": "12"
+      },
+      "missingFields": [],
+      "unexpectedFields": [
+        "orderNumber"
+      ],
+      "confidence": 1,
+      "latencyMs": 1,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=BLOCKED",
+        "lfmCandidates=documents.order_pdf",
+        "needle=BLOCKED"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "other-008",
+      "datasetSplit": "holdout",
+      "input": "manda esse no zap",
+      "expectedIntent": "documents.share_order",
+      "predictedIntent": "documents.share_order",
+      "intentCorrect": true,
+      "expectedTool": "",
+      "candidateTools": [
+        "documents.share_order"
+      ],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "documents.share_order",
+        "domain": "documents",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "documents.share_order",
+            "domain": "documents",
+            "description": "documents.share_order",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "order"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "orderId",
+              "channel"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "documents.share_order",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "NOT_IMPLEMENTED",
+            "actionIds": []
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 1,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=BLOCKED",
+        "lfmCandidates=documents.share_order",
+        "needle=BLOCKED"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "other-009",
+      "datasetSplit": "holdout",
+      "input": "manda esse no zap",
+      "expectedIntent": "documents.share_order",
+      "predictedIntent": "documents.share_order",
+      "intentCorrect": true,
+      "expectedTool": "",
+      "candidateTools": [
+        "documents.share_order"
+      ],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "documents.share_order",
+        "domain": "documents",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "documents.share_order",
+            "domain": "documents",
+            "description": "documents.share_order",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "order"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "orderId",
+              "channel"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "documents.share_order",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "NOT_IMPLEMENTED",
+            "actionIds": []
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 1,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=BLOCKED",
+        "lfmCandidates=documents.share_order",
+        "needle=BLOCKED"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "other-010",
+      "datasetSplit": "holdout",
+      "input": "qual a capital da França",
+      "expectedIntent": "",
+      "predictedIntent": "",
+      "intentCorrect": true,
+      "expectedTool": "",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "lfm2.5",
+        "candidateIntents": [],
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 2,
+      "errorType": "NO_PLAUSIBLE_INTENTS",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "other-011",
+      "datasetSplit": "holdout",
+      "input": "me conta uma piada",
+      "expectedIntent": "",
+      "predictedIntent": "",
+      "intentCorrect": true,
+      "expectedTool": "",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "lfm2.5",
+        "candidateIntents": [],
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 1,
+      "errorType": "NO_PLAUSIBLE_INTENTS",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "other-012",
+      "datasetSplit": "holdout",
+      "input": "qual a previsão do tempo",
+      "expectedIntent": "",
+      "predictedIntent": "",
+      "intentCorrect": true,
+      "expectedTool": "",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "lfm2.5",
+        "candidateIntents": [],
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 2,
+      "errorType": "NO_PLAUSIBLE_INTENTS",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "other-013",
+      "datasetSplit": "holdout",
+      "input": "abre pedido da Maria",
+      "expectedIntent": "orders.get",
+      "predictedIntent": "orders.get",
+      "intentCorrect": true,
+      "expectedTool": "orders.get",
+      "candidateTools": [
+        "orders.get"
+      ],
+      "selectedTool": "orders.get",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "orders.get",
+        "domain": "orders",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "orders.get",
+            "domain": "orders",
+            "description": "orders.get",
+            "aliases": [
+              "ORDER.HISTORY"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "order"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "orderId"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "orders.get",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "orders.get"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "customerName": "Maria"
+      },
+      "extractedFields": {
+        "orderNumber": "da Maria"
+      },
+      "missingFields": [
+        "customerName"
+      ],
+      "unexpectedFields": [
+        "orderNumber"
+      ],
+      "confidence": 1,
+      "latencyMs": 835,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"orders.get\",\"arguments\":{\"orderNumber\":\"da Maria\"}}],\"suppressed_calls\":[],\"reasoning\":\"order_number 'da Maria' from query; no other parameters.\",\"confidence\":0.9899,\"prefill_tps\":229.5,\"decode_tps\":163.5,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=orders.get",
+        "needle=executed"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "other-014",
+      "datasetSplit": "holdout",
+      "input": "vc tem pla preto",
+      "expectedIntent": "inventory.get_stock",
+      "predictedIntent": "inventory.get_stock",
+      "intentCorrect": true,
+      "expectedTool": "inventory.get_stock",
+      "candidateTools": [
+        "inventory.get_stock"
+      ],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "inventory.get_stock",
+        "domain": "inventory",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "deterministic",
+        "candidateIntents": [
+          {
+            "id": "inventory.get_stock",
+            "domain": "inventory",
+            "description": "inventory.get_stock",
+            "aliases": [
+              "STOCK.SUMMARY"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "material"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "materialId"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "inventory.get_stock",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "PARTIAL",
+            "actionIds": [
+              "inventory.search"
+            ]
+          }
+        ],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "chatMessages": 0,
+        "rawModelOutput": "",
+        "deterministic": true,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {
+        "materialName": "pla preto"
+      },
+      "missingFields": [],
+      "unexpectedFields": [
+        "materialName"
+      ],
+      "confidence": 1,
+      "latencyMs": 317,
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[],\"suppressed_calls\":[],\"reasoning\":\"No tool available for file management or file saving.\",\"confidence\":1.0000,\"prefill_tps\":696.8,\"decode_tps\":249.0,\"peak_ram_mb\":1727.1}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=inventory.get_stock",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "D_TOOL_SELECTION",
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "other-015",
+      "datasetSplit": "holdout",
+      "input": "hj tem pedido?",
+      "expectedIntent": "orders.list",
+      "predictedIntent": "orders.list",
+      "intentCorrect": true,
+      "expectedTool": "orders.list",
+      "candidateTools": [
+        "orders.list"
+      ],
+      "selectedTool": "orders.list",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "orders.list",
+        "domain": "orders",
+        "confidence": 0.95,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "lfm2.5",
+        "candidateIntents": [
+          {
+            "id": "orders.list",
+            "domain": "orders",
+            "description": "orders.list"
+          },
+          {
+            "id": "orders.get",
+            "domain": "orders",
+            "description": "orders.get"
+          },
+          {
+            "id": "orders.create",
+            "domain": "orders",
+            "description": "orders.create"
+          },
+          {
+            "id": "orders.update",
+            "domain": "orders",
+            "description": "orders.update"
+          },
+          {
+            "id": "orders.cancel",
+            "domain": "orders",
+            "description": "orders.cancel"
+          }
+        ],
+        "latencyMs": 3110,
+        "grammarApplied": true,
+        "chatMessages": 2,
+        "rawModelOutput": "{\"intentId\": \"orders.list\" , \"confidence\": 0.95, \"noMatch\": false}",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 0.95,
+      "latencyMs": 6666,
+      "errorType": "",
+      "rawModelOutput": "{\"intentId\": \"orders.list\" , \"confidence\": 0.95, \"noMatch\": false}",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"orders.list\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'hj tem' -> order_list; no modelArgs or entityBindings given.\",\"confidence\":1.0000,\"prefill_tps\":771.0,\"decode_tps\":346.2,\"peak_ram_mb\":1727.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=orders.list,orders.get,orders.create,orders.update,orders.cancel",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [],
+      "writeExposed": 0
+    }
+  ],
+  "metrics": {
+    "total": 15,
+    "intentAccuracy": 60,
+    "toolAccuracy": 66.67,
+    "schemaValidity": 86.67,
+    "fieldExtractionAccuracy": 0,
+    "missingRequiredFields": 1,
+    "unexpectedFields": 3,
+    "technicalFailures": 0,
+    "averageLatencyMs": 3067,
+    "p50LatencyMs": 835,
+    "p95LatencyMs": 6666,
+    "confusionMatrix": {
+      "customers.search": {
+        "NO_MATCH": 2
+      },
+      "printers.list": {
+        "production.list": 2
+      },
+      "reports.sales": {
+        "cash.get_status": 1
+      },
+      "reports.financial": {
+        "NO_MATCH": 1
+      },
+      "documents.order_pdf": {
+        "documents.order_pdf": 1
+      },
+      "documents.share_order": {
+        "documents.share_order": 2
+      },
+      "NO_MATCH": {
+        "NO_MATCH": 3
+      },
+      "orders.get": {
+        "orders.get": 1
+      },
+      "inventory.get_stock": {
+        "inventory.get_stock": 1
+      },
+      "orders.list": {
+        "orders.list": 1
+      }
+    },
+    "errorCategories": {
+      "F_SCHEMA_OUTPUT": 2,
+      "C_CANDIDATE_RETRIEVAL": 6,
+      "D_TOOL_SELECTION": 5,
+      "G_INSUFFICIENT_CONTEXT": 8,
+      "E_ENTITY_EXTRACTION": 3
+    }
+  }
+}
