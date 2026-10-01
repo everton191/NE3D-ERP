@@ -1,0 +1,4397 @@
+{
+  "schemaVersion": 2,
+  "runId": "lfm25-lfm-dev-v1-dev-mode-B-2026-10-01T23-05-36-149Z",
+  "datasetId": "lfm-dev-v1",
+  "modelId": "lfm2.5-1.2b-q4_0",
+  "split": "dev",
+  "evaluationMode": "B",
+  "startedAt": "2026-10-01T23:05:36.317Z",
+  "completedAt": "2026-10-01T23:07:40.947Z",
+  "frozenRuntimeCommit": "1.0.39",
+  "writeExposed": 0,
+  "records": [
+    {
+      "caseId": "dev-001",
+      "datasetSplit": "dev",
+      "input": "acha a ficha da cliente Renata",
+      "expectedIntent": "customers.search",
+      "predictedIntent": "orders.list",
+      "intentCorrect": false,
+      "expectedTool": "customers.search",
+      "candidateTools": [
+        "orders.list"
+      ],
+      "selectedTool": "orders.list",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "orders.list",
+        "domain": "orders",
+        "confidence": 0.95,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "lfm2.5",
+        "candidateIntents": [
+          {
+            "id": "orders.list",
+            "domain": "orders",
+            "description": "orders.list",
+            "aliases": [
+              "ORDER.SEARCH"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [],
+            "optionalFields": [
+              "query",
+              "status",
+              "customer"
+            ],
+            "availableWhen": "always",
+            "workflowId": "orders.list",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "orders.search"
+            ]
+          },
+          {
+            "id": "orders.get",
+            "domain": "orders",
+            "description": "orders.get",
+            "aliases": [
+              "ORDER.HISTORY"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "order"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "orderId"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "orders.get",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "orders.get"
+            ]
+          },
+          {
+            "id": "orders.create",
+            "domain": "orders",
+            "description": "orders.create",
+            "aliases": [
+              "ORDER.CREATE"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "customer"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "customerId",
+              "description",
+              "quantity",
+              "unitPrice"
+            ],
+            "optionalFields": [
+              "weightGrams",
+              "notes"
+            ],
+            "availableWhen": "always",
+            "workflowId": "orders.create",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "PARTIAL",
+            "actionIds": [
+              "orders.prepare_create",
+              "orders.commit_create"
+            ]
+          },
+          {
+            "id": "orders.update",
+            "domain": "orders",
+            "description": "orders.update",
+            "aliases": [
+              "ORDER.UPDATE"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "order"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "orderId",
+              "changes",
+              "idempotencyKey"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "orders.update",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "orders.prepare_update",
+              "orders.update"
+            ]
+          },
+          {
+            "id": "orders.cancel",
+            "domain": "orders",
+            "description": "orders.cancel",
+            "aliases": [
+              "ORDER.CANCEL"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "order"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "orderId",
+              "reason",
+              "idempotencyKey"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "orders.cancel",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "orders.prepare_cancel",
+              "orders.cancel"
+            ]
+          }
+        ],
+        "latencyMs": 4649,
+        "grammarApplied": true,
+        "chatMessages": 2,
+        "rawModelOutput": "{\"intentId\": \"orders.list\" , \"confidence\": 0.95, \"noMatch\": false}",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "query": "Renata"
+      },
+      "extractedFields": {},
+      "missingFields": [
+        "query"
+      ],
+      "unexpectedFields": [],
+      "confidence": 0.95,
+      "latencyMs": 10489,
+      "totalLatencyMs": 10489,
+      "lfmLatencyMs": 4649,
+      "retrieverLatencyMs": 0.30000000000000004,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 446,
+      "resolutionSource": "lfm",
+      "deterministicRuleId": "",
+      "candidateSource": "domain-heuristic",
+      "candidateCount": 5,
+      "candidateIntents": [
+        "orders.list",
+        "orders.get",
+        "orders.create",
+        "orders.update",
+        "orders.cancel"
+      ],
+      "lfmInvoked": true,
+      "fallbackReason": "",
+      "decisionError": "",
+      "errorType": "",
+      "rawModelOutput": "{\"intentId\": \"orders.list\" , \"confidence\": 0.95, \"noMatch\": false}",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"orders.list\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'acha' -> order_list; 'ficha da cliente Renata' -> modelArgs empty; no other tool\",\"confidence\":0.9821,\"prefill_tps\":49.4,\"decode_tps\":45.5,\"peak_ram_mb\":1678.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=orders.list,orders.get,orders.create,orders.update,orders.cancel",
+        "needle=executed"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "D_TOOL_SELECTION",
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-002",
+      "datasetSplit": "dev",
+      "input": "tem cadastro do Paulo?",
+      "expectedIntent": "customers.search",
+      "predictedIntent": "",
+      "intentCorrect": false,
+      "expectedTool": "customers.search",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "fallback",
+        "candidateIntents": [],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "query": "Paulo"
+      },
+      "extractedFields": {},
+      "missingFields": [
+        "query"
+      ],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 1,
+      "totalLatencyMs": 1,
+      "lfmLatencyMs": 0,
+      "retrieverLatencyMs": 0.30000000000000004,
+      "extractorLatencyMs": 0.1,
+      "generatedTokens": null,
+      "promptApproxChars": 0,
+      "resolutionSource": "fallback",
+      "deterministicRuleId": "",
+      "candidateSource": "none",
+      "candidateCount": 0,
+      "candidateIntents": [],
+      "lfmInvoked": false,
+      "fallbackReason": "NO_PLAUSIBLE_INTENTS",
+      "decisionError": "NO_PLAUSIBLE_INTENTS",
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "D_TOOL_SELECTION",
+        "E_ENTITY_EXTRACTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-003",
+      "datasetSplit": "dev",
+      "input": "cliente ana silva",
+      "expectedIntent": "customers.search",
+      "predictedIntent": "orders.list",
+      "intentCorrect": false,
+      "expectedTool": "customers.search",
+      "candidateTools": [
+        "orders.list"
+      ],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "orders.list",
+        "domain": "orders",
+        "confidence": 0.95,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "lfm2.5",
+        "candidateIntents": [
+          {
+            "id": "orders.list",
+            "domain": "orders",
+            "description": "orders.list",
+            "aliases": [
+              "ORDER.SEARCH"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [],
+            "optionalFields": [
+              "query",
+              "status",
+              "customer"
+            ],
+            "availableWhen": "always",
+            "workflowId": "orders.list",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "orders.search"
+            ]
+          },
+          {
+            "id": "orders.get",
+            "domain": "orders",
+            "description": "orders.get",
+            "aliases": [
+              "ORDER.HISTORY"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "order"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "orderId"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "orders.get",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "orders.get"
+            ]
+          },
+          {
+            "id": "orders.create",
+            "domain": "orders",
+            "description": "orders.create",
+            "aliases": [
+              "ORDER.CREATE"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "customer"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "customerId",
+              "description",
+              "quantity",
+              "unitPrice"
+            ],
+            "optionalFields": [
+              "weightGrams",
+              "notes"
+            ],
+            "availableWhen": "always",
+            "workflowId": "orders.create",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "PARTIAL",
+            "actionIds": [
+              "orders.prepare_create",
+              "orders.commit_create"
+            ]
+          },
+          {
+            "id": "orders.update",
+            "domain": "orders",
+            "description": "orders.update",
+            "aliases": [
+              "ORDER.UPDATE"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "order"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "orderId",
+              "changes",
+              "idempotencyKey"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "orders.update",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "orders.prepare_update",
+              "orders.update"
+            ]
+          },
+          {
+            "id": "orders.cancel",
+            "domain": "orders",
+            "description": "orders.cancel",
+            "aliases": [
+              "ORDER.CANCEL"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "order"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "orderId",
+              "reason",
+              "idempotencyKey"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "orders.cancel",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "orders.prepare_cancel",
+              "orders.cancel"
+            ]
+          }
+        ],
+        "latencyMs": 5276,
+        "grammarApplied": true,
+        "chatMessages": 2,
+        "rawModelOutput": "{\"intentId\": \"orders.list\" , \"confidence\": 0.95, \"noMatch\": false}",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "query": "ana silva"
+      },
+      "extractedFields": {},
+      "missingFields": [
+        "query"
+      ],
+      "unexpectedFields": [],
+      "confidence": 0.95,
+      "latencyMs": 8943,
+      "totalLatencyMs": 8943,
+      "lfmLatencyMs": 5276,
+      "retrieverLatencyMs": 0.3,
+      "extractorLatencyMs": 0.1,
+      "generatedTokens": null,
+      "promptApproxChars": 433,
+      "resolutionSource": "lfm",
+      "deterministicRuleId": "",
+      "candidateSource": "domain-heuristic",
+      "candidateCount": 5,
+      "candidateIntents": [
+        "orders.list",
+        "orders.get",
+        "orders.create",
+        "orders.update",
+        "orders.cancel"
+      ],
+      "lfmInvoked": true,
+      "fallbackReason": "",
+      "decisionError": "",
+      "errorType": "",
+      "rawModelOutput": "{\"intentId\": \"orders.list\" , \"confidence\": 0.95, \"noMatch\": false}",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[],\"suppressed_calls\":[],\"reasoning\":\"No client name or contact lookup tool available.\",\"confidence\":0.9877,\"prefill_tps\":140.4,\"decode_tps\":96.5,\"peak_ram_mb\":1678.1}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=orders.list,orders.get,orders.create,orders.update,orders.cancel",
+        "needle=executed"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "D_TOOL_SELECTION",
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-004",
+      "datasetSplit": "dev",
+      "input": "localiza o contato do Marcos",
+      "expectedIntent": "customers.search",
+      "predictedIntent": "",
+      "intentCorrect": false,
+      "expectedTool": "customers.search",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "fallback",
+        "candidateIntents": [],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "query": "Marcos"
+      },
+      "extractedFields": {},
+      "missingFields": [
+        "query"
+      ],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 1,
+      "totalLatencyMs": 1,
+      "lfmLatencyMs": 0,
+      "retrieverLatencyMs": 0.8,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 0,
+      "resolutionSource": "fallback",
+      "deterministicRuleId": "",
+      "candidateSource": "none",
+      "candidateCount": 0,
+      "candidateIntents": [],
+      "lfmInvoked": false,
+      "fallbackReason": "NO_PLAUSIBLE_INTENTS",
+      "decisionError": "NO_PLAUSIBLE_INTENTS",
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "D_TOOL_SELECTION",
+        "E_ENTITY_EXTRACTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-005",
+      "datasetSplit": "dev",
+      "input": "cadstro da Juliana",
+      "expectedIntent": "customers.search",
+      "predictedIntent": "",
+      "intentCorrect": false,
+      "expectedTool": "customers.search",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "fallback",
+        "candidateIntents": [],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "query": "Juliana"
+      },
+      "extractedFields": {},
+      "missingFields": [
+        "query"
+      ],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 1,
+      "totalLatencyMs": 1,
+      "lfmLatencyMs": 0,
+      "retrieverLatencyMs": 0.4,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 0,
+      "resolutionSource": "fallback",
+      "deterministicRuleId": "",
+      "candidateSource": "none",
+      "candidateCount": 0,
+      "candidateIntents": [],
+      "lfmInvoked": false,
+      "fallbackReason": "NO_PLAUSIBLE_INTENTS",
+      "decisionError": "NO_PLAUSIBLE_INTENTS",
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "D_TOOL_SELECTION",
+        "E_ENTITY_EXTRACTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-006",
+      "datasetSplit": "dev",
+      "input": "quem é o cliente Roberto Lima",
+      "expectedIntent": "customers.search",
+      "predictedIntent": "orders.list",
+      "intentCorrect": false,
+      "expectedTool": "customers.search",
+      "candidateTools": [
+        "orders.list"
+      ],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "orders.list",
+        "domain": "orders",
+        "confidence": 0.95,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "lfm2.5",
+        "candidateIntents": [
+          {
+            "id": "orders.list",
+            "domain": "orders",
+            "description": "orders.list",
+            "aliases": [
+              "ORDER.SEARCH"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [],
+            "optionalFields": [
+              "query",
+              "status",
+              "customer"
+            ],
+            "availableWhen": "always",
+            "workflowId": "orders.list",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "orders.search"
+            ]
+          },
+          {
+            "id": "orders.get",
+            "domain": "orders",
+            "description": "orders.get",
+            "aliases": [
+              "ORDER.HISTORY"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "order"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "orderId"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "orders.get",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "orders.get"
+            ]
+          },
+          {
+            "id": "orders.create",
+            "domain": "orders",
+            "description": "orders.create",
+            "aliases": [
+              "ORDER.CREATE"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "customer"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "customerId",
+              "description",
+              "quantity",
+              "unitPrice"
+            ],
+            "optionalFields": [
+              "weightGrams",
+              "notes"
+            ],
+            "availableWhen": "always",
+            "workflowId": "orders.create",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "PARTIAL",
+            "actionIds": [
+              "orders.prepare_create",
+              "orders.commit_create"
+            ]
+          },
+          {
+            "id": "orders.update",
+            "domain": "orders",
+            "description": "orders.update",
+            "aliases": [
+              "ORDER.UPDATE"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "order"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "orderId",
+              "changes",
+              "idempotencyKey"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "orders.update",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "orders.prepare_update",
+              "orders.update"
+            ]
+          },
+          {
+            "id": "orders.cancel",
+            "domain": "orders",
+            "description": "orders.cancel",
+            "aliases": [
+              "ORDER.CANCEL"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "order"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "orderId",
+              "reason",
+              "idempotencyKey"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "orders.cancel",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "orders.prepare_cancel",
+              "orders.cancel"
+            ]
+          }
+        ],
+        "latencyMs": 4558,
+        "grammarApplied": true,
+        "chatMessages": 2,
+        "rawModelOutput": "{\"intentId\": \"orders.list\" , \"confidence\": 0.95, \"noMatch\": false}",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "query": "Roberto Lima"
+      },
+      "extractedFields": {},
+      "missingFields": [
+        "query"
+      ],
+      "unexpectedFields": [],
+      "confidence": 0.95,
+      "latencyMs": 8149,
+      "totalLatencyMs": 8149,
+      "lfmLatencyMs": 4558,
+      "retrieverLatencyMs": 0.6000000000000001,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 445,
+      "resolutionSource": "lfm",
+      "deterministicRuleId": "",
+      "candidateSource": "domain-heuristic",
+      "candidateCount": 5,
+      "candidateIntents": [
+        "orders.list",
+        "orders.get",
+        "orders.create",
+        "orders.update",
+        "orders.cancel"
+      ],
+      "lfmInvoked": true,
+      "fallbackReason": "",
+      "decisionError": "",
+      "errorType": "",
+      "rawModelOutput": "{\"intentId\": \"orders.list\" , \"confidence\": 0.95, \"noMatch\": false}",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[],\"suppressed_calls\":[],\"reasoning\":\"No tool available for client management or contact lookup.\",\"confidence\":1.0000,\"prefill_tps\":365.0,\"decode_tps\":107.5,\"peak_ram_mb\":1678.1}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=orders.list,orders.get,orders.create,orders.update,orders.cancel",
+        "needle=executed"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "D_TOOL_SELECTION",
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-007",
+      "datasetSplit": "dev",
+      "input": "quais máquinas estão cadastradas?",
+      "expectedIntent": "printers.list",
+      "predictedIntent": "",
+      "intentCorrect": false,
+      "expectedTool": "printers.list",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "fallback",
+        "candidateIntents": [],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 2,
+      "totalLatencyMs": 2,
+      "lfmLatencyMs": 0,
+      "retrieverLatencyMs": 1.2,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 0,
+      "resolutionSource": "fallback",
+      "deterministicRuleId": "",
+      "candidateSource": "none",
+      "candidateCount": 0,
+      "candidateIntents": [],
+      "lfmInvoked": false,
+      "fallbackReason": "NO_PLAUSIBLE_INTENTS",
+      "decisionError": "NO_PLAUSIBLE_INTENTS",
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "D_TOOL_SELECTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-008",
+      "datasetSplit": "dev",
+      "input": "mostra as impressoras disponíveis",
+      "expectedIntent": "printers.list",
+      "predictedIntent": "production.list",
+      "intentCorrect": false,
+      "expectedTool": "printers.list",
+      "candidateTools": [
+        "production.list"
+      ],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "production.list",
+        "domain": "production",
+        "confidence": 0.99,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "lfm2.5",
+        "candidateIntents": [
+          {
+            "id": "production.list",
+            "domain": "production",
+            "description": "production.list",
+            "aliases": [
+              "PRODUCTION.SEARCH"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [],
+            "optionalFields": [
+              "status"
+            ],
+            "availableWhen": "always",
+            "workflowId": "production.list",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "production.list_queue"
+            ]
+          },
+          {
+            "id": "production.get",
+            "domain": "production",
+            "description": "production.get",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "job"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "jobId"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "production.get",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "NOT_IMPLEMENTED",
+            "actionIds": []
+          },
+          {
+            "id": "production.start",
+            "domain": "production",
+            "description": "production.start",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "jobId",
+              "printerId"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "production.start",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "production.prepare_job",
+              "production.commit_job"
+            ]
+          },
+          {
+            "id": "production.change_status",
+            "domain": "production",
+            "description": "production.change_status",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "jobId",
+              "status"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "production.change_status",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "production.prepare_change_status",
+              "production.change_status"
+            ]
+          }
+        ],
+        "latencyMs": 4550,
+        "grammarApplied": true,
+        "chatMessages": 2,
+        "rawModelOutput": "{\"intentId\": \"production.list\" , \"confidence\": 0.99, \"noMatch\": false}",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 0.99,
+      "latencyMs": 9006,
+      "totalLatencyMs": 9006,
+      "lfmLatencyMs": 4550,
+      "retrieverLatencyMs": 0.6,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 455,
+      "resolutionSource": "lfm",
+      "deterministicRuleId": "",
+      "candidateSource": "domain-heuristic",
+      "candidateCount": 4,
+      "candidateIntents": [
+        "production.list",
+        "production.get",
+        "production.start",
+        "production.change_status"
+      ],
+      "lfmInvoked": true,
+      "fallbackReason": "",
+      "decisionError": "",
+      "errorType": "",
+      "rawModelOutput": "{\"intentId\": \"production.list\" , \"confidence\": 0.99, \"noMatch\": false}",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[],\"suppressed_calls\":[],\"reasoning\":\"No tool available for system diagnostics or hardware diagnostics.\",\"confidence\":1.0000,\"prefill_tps\":192.2,\"decode_tps\":55.4,\"peak_ram_mb\":1678.1}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=production.list,production.get,production.start,production.change_status",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "D_TOOL_SELECTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-009",
+      "datasetSplit": "dev",
+      "input": "tem alguma printer online?",
+      "expectedIntent": "printers.list",
+      "predictedIntent": "",
+      "intentCorrect": false,
+      "expectedTool": "printers.list",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "fallback",
+        "candidateIntents": [],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 1,
+      "totalLatencyMs": 1,
+      "lfmLatencyMs": 0,
+      "retrieverLatencyMs": 0.4,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 0,
+      "resolutionSource": "fallback",
+      "deterministicRuleId": "",
+      "candidateSource": "none",
+      "candidateCount": 0,
+      "candidateIntents": [],
+      "lfmInvoked": false,
+      "fallbackReason": "NO_PLAUSIBLE_INTENTS",
+      "decisionError": "NO_PLAUSIBLE_INTENTS",
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "D_TOOL_SELECTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-010",
+      "datasetSplit": "dev",
+      "input": "ver impressora da bancada",
+      "expectedIntent": "printers.list",
+      "predictedIntent": "production.list",
+      "intentCorrect": false,
+      "expectedTool": "printers.list",
+      "candidateTools": [
+        "production.list"
+      ],
+      "selectedTool": "production.list",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "production.list",
+        "domain": "production",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "lfm2.5",
+        "candidateIntents": [
+          {
+            "id": "production.list",
+            "domain": "production",
+            "description": "production.list",
+            "aliases": [
+              "PRODUCTION.SEARCH"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [],
+            "optionalFields": [
+              "status"
+            ],
+            "availableWhen": "always",
+            "workflowId": "production.list",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "production.list_queue"
+            ]
+          },
+          {
+            "id": "production.get",
+            "domain": "production",
+            "description": "production.get",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "job"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "jobId"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "production.get",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "NOT_IMPLEMENTED",
+            "actionIds": []
+          },
+          {
+            "id": "production.start",
+            "domain": "production",
+            "description": "production.start",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "jobId",
+              "printerId"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "production.start",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "production.prepare_job",
+              "production.commit_job"
+            ]
+          },
+          {
+            "id": "production.change_status",
+            "domain": "production",
+            "description": "production.change_status",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "jobId",
+              "status"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "production.change_status",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "production.prepare_change_status",
+              "production.change_status"
+            ]
+          }
+        ],
+        "latencyMs": 4562,
+        "grammarApplied": true,
+        "chatMessages": 2,
+        "rawModelOutput": "{ \"intentId\": \"production.list\" , \"confidence\": 1, \"noMatch\": false }",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "query": "bancada"
+      },
+      "extractedFields": {},
+      "missingFields": [
+        "query"
+      ],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 8373,
+      "totalLatencyMs": 8373,
+      "lfmLatencyMs": 4562,
+      "retrieverLatencyMs": 0.4,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 447,
+      "resolutionSource": "lfm",
+      "deterministicRuleId": "",
+      "candidateSource": "domain-heuristic",
+      "candidateCount": 4,
+      "candidateIntents": [
+        "production.list",
+        "production.get",
+        "production.start",
+        "production.change_status"
+      ],
+      "lfmInvoked": true,
+      "fallbackReason": "",
+      "decisionError": "",
+      "errorType": "",
+      "rawModelOutput": "{ \"intentId\": \"production.list\" , \"confidence\": 1, \"noMatch\": false }",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"production.list\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'impressora da bancada' -> product_list tool.\",\"confidence\":1.0000,\"prefill_tps\":273.5,\"decode_tps\":78.7,\"peak_ram_mb\":1678.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=production.list,production.get,production.start,production.change_status",
+        "needle=executed"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "D_TOOL_SELECTION",
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-011",
+      "datasetSplit": "dev",
+      "input": "impresoras ativas",
+      "expectedIntent": "printers.list",
+      "predictedIntent": "",
+      "intentCorrect": false,
+      "expectedTool": "printers.list",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "fallback",
+        "candidateIntents": [],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "status": "ativas"
+      },
+      "extractedFields": {},
+      "missingFields": [
+        "status"
+      ],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 1,
+      "totalLatencyMs": 1,
+      "lfmLatencyMs": 0,
+      "retrieverLatencyMs": 0.4,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 0,
+      "resolutionSource": "fallback",
+      "deterministicRuleId": "",
+      "candidateSource": "none",
+      "candidateCount": 0,
+      "candidateIntents": [],
+      "lfmInvoked": false,
+      "fallbackReason": "NO_PLAUSIBLE_INTENTS",
+      "decisionError": "NO_PLAUSIBLE_INTENTS",
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "D_TOOL_SELECTION",
+        "E_ENTITY_EXTRACTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-012",
+      "datasetSplit": "dev",
+      "input": "como estão as máquinas 3d",
+      "expectedIntent": "printers.list",
+      "predictedIntent": "",
+      "intentCorrect": false,
+      "expectedTool": "printers.list",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "fallback",
+        "candidateIntents": [],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 1,
+      "totalLatencyMs": 1,
+      "lfmLatencyMs": 0,
+      "retrieverLatencyMs": 0.7,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 0,
+      "resolutionSource": "fallback",
+      "deterministicRuleId": "",
+      "candidateSource": "none",
+      "candidateCount": 0,
+      "candidateIntents": [],
+      "lfmInvoked": false,
+      "fallbackReason": "NO_PLAUSIBLE_INTENTS",
+      "decisionError": "NO_PLAUSIBLE_INTENTS",
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "D_TOOL_SELECTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-013",
+      "datasetSplit": "dev",
+      "input": "o que está na fila hoje?",
+      "expectedIntent": "production.list",
+      "predictedIntent": "",
+      "intentCorrect": false,
+      "expectedTool": "production.list",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "fallback",
+        "candidateIntents": [],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 2,
+      "totalLatencyMs": 2,
+      "lfmLatencyMs": 0,
+      "retrieverLatencyMs": 1,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 0,
+      "resolutionSource": "fallback",
+      "deterministicRuleId": "",
+      "candidateSource": "none",
+      "candidateCount": 0,
+      "candidateIntents": [],
+      "lfmInvoked": false,
+      "fallbackReason": "NO_PLAUSIBLE_INTENTS",
+      "decisionError": "NO_PLAUSIBLE_INTENTS",
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "D_TOOL_SELECTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-014",
+      "datasetSplit": "dev",
+      "input": "trabalhos aguardando impressão",
+      "expectedIntent": "production.list",
+      "predictedIntent": "production.list",
+      "intentCorrect": true,
+      "expectedTool": "production.list",
+      "candidateTools": [
+        "production.list"
+      ],
+      "selectedTool": "production.list",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "production.list",
+        "domain": "production",
+        "confidence": 0.95,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "lfm2.5",
+        "candidateIntents": [
+          {
+            "id": "production.list",
+            "domain": "production",
+            "description": "production.list",
+            "aliases": [
+              "PRODUCTION.SEARCH"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [],
+            "optionalFields": [
+              "status"
+            ],
+            "availableWhen": "always",
+            "workflowId": "production.list",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "production.list_queue"
+            ]
+          },
+          {
+            "id": "production.get",
+            "domain": "production",
+            "description": "production.get",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "job"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "jobId"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "production.get",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "NOT_IMPLEMENTED",
+            "actionIds": []
+          },
+          {
+            "id": "production.start",
+            "domain": "production",
+            "description": "production.start",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "jobId",
+              "printerId"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "production.start",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "production.prepare_job",
+              "production.commit_job"
+            ]
+          },
+          {
+            "id": "production.change_status",
+            "domain": "production",
+            "description": "production.change_status",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "jobId",
+              "status"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "production.change_status",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "production.prepare_change_status",
+              "production.change_status"
+            ]
+          }
+        ],
+        "latencyMs": 4890,
+        "grammarApplied": true,
+        "chatMessages": 2,
+        "rawModelOutput": "{\"intentId\": \"production.list\" , \"confidence\": 0.95, \"noMatch\": false}",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "status": "aguardando"
+      },
+      "extractedFields": {},
+      "missingFields": [
+        "status"
+      ],
+      "unexpectedFields": [],
+      "confidence": 0.95,
+      "latencyMs": 9118,
+      "totalLatencyMs": 9118,
+      "lfmLatencyMs": 4890,
+      "retrieverLatencyMs": 0.8,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 452,
+      "resolutionSource": "lfm",
+      "deterministicRuleId": "",
+      "candidateSource": "domain-heuristic",
+      "candidateCount": 4,
+      "candidateIntents": [
+        "production.list",
+        "production.get",
+        "production.start",
+        "production.change_status"
+      ],
+      "lfmInvoked": true,
+      "fallbackReason": "",
+      "decisionError": "",
+      "errorType": "",
+      "rawModelOutput": "{\"intentId\": \"production.list\" , \"confidence\": 0.95, \"noMatch\": false}",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"production.list\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'trabalhos aguardando impressão' -> product_list.\",\"confidence\":1.0000,\"prefill_tps\":130.4,\"decode_tps\":53.8,\"peak_ram_mb\":1678.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=production.list,production.get,production.start,production.change_status",
+        "needle=executed"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-015",
+      "datasetSplit": "dev",
+      "input": "tem peça sendo produzida?",
+      "expectedIntent": "production.list",
+      "predictedIntent": "",
+      "intentCorrect": false,
+      "expectedTool": "production.list",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "fallback",
+        "candidateIntents": [],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 1,
+      "totalLatencyMs": 1,
+      "lfmLatencyMs": 0,
+      "retrieverLatencyMs": 0.5,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 0,
+      "resolutionSource": "fallback",
+      "deterministicRuleId": "",
+      "candidateSource": "none",
+      "candidateCount": 0,
+      "candidateIntents": [],
+      "lfmInvoked": false,
+      "fallbackReason": "NO_PLAUSIBLE_INTENTS",
+      "decisionError": "NO_PLAUSIBLE_INTENTS",
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "D_TOOL_SELECTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-016",
+      "datasetSplit": "dev",
+      "input": "acompanhar os jobs em andamento",
+      "expectedIntent": "production.list",
+      "predictedIntent": "",
+      "intentCorrect": false,
+      "expectedTool": "production.list",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "fallback",
+        "candidateIntents": [],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "status": "em andamento"
+      },
+      "extractedFields": {},
+      "missingFields": [
+        "status"
+      ],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 2,
+      "totalLatencyMs": 2,
+      "lfmLatencyMs": 0,
+      "retrieverLatencyMs": 0.8999999999999999,
+      "extractorLatencyMs": 0.1,
+      "generatedTokens": null,
+      "promptApproxChars": 0,
+      "resolutionSource": "fallback",
+      "deterministicRuleId": "",
+      "candidateSource": "none",
+      "candidateCount": 0,
+      "candidateIntents": [],
+      "lfmInvoked": false,
+      "fallbackReason": "NO_PLAUSIBLE_INTENTS",
+      "decisionError": "NO_PLAUSIBLE_INTENTS",
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "D_TOOL_SELECTION",
+        "E_ENTITY_EXTRACTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-017",
+      "datasetSplit": "dev",
+      "input": "fila 3d agora",
+      "expectedIntent": "production.list",
+      "predictedIntent": "",
+      "intentCorrect": false,
+      "expectedTool": "production.list",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "fallback",
+        "candidateIntents": [],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 1,
+      "totalLatencyMs": 1,
+      "lfmLatencyMs": 0,
+      "retrieverLatencyMs": 0.6000000000000001,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 0,
+      "resolutionSource": "fallback",
+      "deterministicRuleId": "",
+      "candidateSource": "none",
+      "candidateCount": 0,
+      "candidateIntents": [],
+      "lfmInvoked": false,
+      "fallbackReason": "NO_PLAUSIBLE_INTENTS",
+      "decisionError": "NO_PLAUSIBLE_INTENTS",
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "D_TOOL_SELECTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-018",
+      "datasetSplit": "dev",
+      "input": "produçao atrasada",
+      "expectedIntent": "production.list",
+      "predictedIntent": "production.change_status",
+      "intentCorrect": false,
+      "expectedTool": "production.list",
+      "candidateTools": [
+        "production.change_status"
+      ],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "production.change_status",
+        "domain": "production",
+        "confidence": 0.95,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "lfm2.5",
+        "candidateIntents": [
+          {
+            "id": "production.list",
+            "domain": "production",
+            "description": "production.list",
+            "aliases": [
+              "PRODUCTION.SEARCH"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [],
+            "optionalFields": [
+              "status"
+            ],
+            "availableWhen": "always",
+            "workflowId": "production.list",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "production.list_queue"
+            ]
+          },
+          {
+            "id": "production.get",
+            "domain": "production",
+            "description": "production.get",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "job"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "jobId"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "production.get",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "NOT_IMPLEMENTED",
+            "actionIds": []
+          },
+          {
+            "id": "production.start",
+            "domain": "production",
+            "description": "production.start",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "jobId",
+              "printerId"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "production.start",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "production.prepare_job",
+              "production.commit_job"
+            ]
+          },
+          {
+            "id": "production.change_status",
+            "domain": "production",
+            "description": "production.change_status",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "jobId",
+              "status"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "production.change_status",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "production.prepare_change_status",
+              "production.change_status"
+            ]
+          }
+        ],
+        "latencyMs": 4564,
+        "grammarApplied": true,
+        "chatMessages": 2,
+        "rawModelOutput": "{\"intentId\": \"production.change_status\" , \"confidence\": 0.95, \"noMatch\": false}",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "status": "atrasada"
+      },
+      "extractedFields": {},
+      "missingFields": [
+        "status"
+      ],
+      "unexpectedFields": [],
+      "confidence": 0.95,
+      "latencyMs": 7883,
+      "totalLatencyMs": 7883,
+      "lfmLatencyMs": 4564,
+      "retrieverLatencyMs": 0.5,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 439,
+      "resolutionSource": "lfm",
+      "deterministicRuleId": "",
+      "candidateSource": "domain-heuristic",
+      "candidateCount": 4,
+      "candidateIntents": [
+        "production.list",
+        "production.get",
+        "production.start",
+        "production.change_status"
+      ],
+      "lfmInvoked": true,
+      "fallbackReason": "",
+      "decisionError": "",
+      "errorType": "",
+      "rawModelOutput": "{\"intentId\": \"production.change_status\" , \"confidence\": 0.95, \"noMatch\": false}",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=UNAVAILABLE",
+        "lfmCandidates=production.list,production.get,production.start,production.change_status",
+        "needle=UNAVAILABLE"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "B_AMBIGUOUS_INTENT",
+        "D_TOOL_SELECTION",
+        "E_ENTITY_EXTRACTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-019",
+      "datasetSplit": "dev",
+      "input": "quanto vendemos esta semana?",
+      "expectedIntent": "reports.sales",
+      "predictedIntent": "",
+      "intentCorrect": false,
+      "expectedTool": "",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "fallback",
+        "candidateIntents": [],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "period": "esta semana"
+      },
+      "extractedFields": {},
+      "missingFields": [
+        "period"
+      ],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 1,
+      "totalLatencyMs": 1,
+      "lfmLatencyMs": 0,
+      "retrieverLatencyMs": 0.6000000000000001,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 0,
+      "resolutionSource": "fallback",
+      "deterministicRuleId": "",
+      "candidateSource": "none",
+      "candidateCount": 0,
+      "candidateIntents": [],
+      "lfmInvoked": false,
+      "fallbackReason": "NO_PLAUSIBLE_INTENTS",
+      "decisionError": "NO_PLAUSIBLE_INTENTS",
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "E_ENTITY_EXTRACTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-020",
+      "datasetSplit": "dev",
+      "input": "quero o total de vendas de setembro",
+      "expectedIntent": "reports.sales",
+      "predictedIntent": "cash.get_status",
+      "intentCorrect": false,
+      "expectedTool": "",
+      "candidateTools": [
+        "cash.get_status"
+      ],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "cash.get_status",
+        "domain": "cash",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "lfm2.5",
+        "candidateIntents": [
+          {
+            "id": "cash.get_status",
+            "domain": "cash",
+            "description": "cash.get_status",
+            "aliases": [
+              "CASH.SUMMARY"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [],
+            "optionalFields": [
+              "period"
+            ],
+            "availableWhen": "always",
+            "workflowId": "cash.get_status",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "cash.get_summary"
+            ]
+          },
+          {
+            "id": "cash.withdraw",
+            "domain": "cash",
+            "description": "cash.withdraw",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "amount",
+              "description"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "cash.withdraw",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "cash.prepare_withdrawal",
+              "cash.commit_withdrawal"
+            ]
+          },
+          {
+            "id": "cash.close",
+            "domain": "cash",
+            "description": "cash.close",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "sessionId",
+              "countedAmount"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "cash.close",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "cash.prepare_close_session",
+              "cash.close_session"
+            ]
+          }
+        ],
+        "latencyMs": 4893,
+        "grammarApplied": true,
+        "chatMessages": 2,
+        "rawModelOutput": "{\"intentId\": \"cash.get_status\" , \"confidence\": 1, \"noMatch\": false}",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "period": "setembro"
+      },
+      "extractedFields": {},
+      "missingFields": [
+        "period"
+      ],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 9180,
+      "totalLatencyMs": 9180,
+      "lfmLatencyMs": 4893,
+      "retrieverLatencyMs": 0.5,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 423,
+      "resolutionSource": "lfm",
+      "deterministicRuleId": "",
+      "candidateSource": "domain-heuristic",
+      "candidateCount": 3,
+      "candidateIntents": [
+        "cash.get_status",
+        "cash.withdraw",
+        "cash.close"
+      ],
+      "lfmInvoked": true,
+      "fallbackReason": "",
+      "decisionError": "",
+      "errorType": "",
+      "rawModelOutput": "{\"intentId\": \"cash.get_status\" , \"confidence\": 1, \"noMatch\": false}",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[],\"suppressed_calls\":[],\"reasoning\":\"No tool for inventory count or shopping list.\",\"confidence\":1.0000,\"prefill_tps\":168.8,\"decode_tps\":64.9,\"peak_ram_mb\":1678.1}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=cash.get_status,cash.withdraw,cash.close",
+        "needle=executed"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-021",
+      "datasetSplit": "dev",
+      "input": "vendas dos últimos 30 dias",
+      "expectedIntent": "reports.sales",
+      "predictedIntent": "cash.get_status",
+      "intentCorrect": false,
+      "expectedTool": "",
+      "candidateTools": [
+        "cash.get_status"
+      ],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "cash.get_status",
+        "domain": "cash",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "lfm2.5",
+        "candidateIntents": [
+          {
+            "id": "cash.get_status",
+            "domain": "cash",
+            "description": "cash.get_status",
+            "aliases": [
+              "CASH.SUMMARY"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [],
+            "optionalFields": [
+              "period"
+            ],
+            "availableWhen": "always",
+            "workflowId": "cash.get_status",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "cash.get_summary"
+            ]
+          },
+          {
+            "id": "cash.withdraw",
+            "domain": "cash",
+            "description": "cash.withdraw",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "amount",
+              "description"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "cash.withdraw",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "cash.prepare_withdrawal",
+              "cash.commit_withdrawal"
+            ]
+          },
+          {
+            "id": "cash.close",
+            "domain": "cash",
+            "description": "cash.close",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "sessionId",
+              "countedAmount"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "cash.close",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "cash.prepare_close_session",
+              "cash.close_session"
+            ]
+          }
+        ],
+        "latencyMs": 4815,
+        "grammarApplied": true,
+        "chatMessages": 2,
+        "rawModelOutput": "{\"intentId\": \"cash.get_status\" , \"confidence\": 1, \"noMatch\": false}",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "period": "últimos 30 dias"
+      },
+      "extractedFields": {
+        "quantity": 30,
+        "description": "dia"
+      },
+      "missingFields": [
+        "period"
+      ],
+      "unexpectedFields": [
+        "quantity",
+        "description"
+      ],
+      "confidence": 1,
+      "latencyMs": 8564,
+      "totalLatencyMs": 8564,
+      "lfmLatencyMs": 4815,
+      "retrieverLatencyMs": 0.7,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 414,
+      "resolutionSource": "lfm",
+      "deterministicRuleId": "",
+      "candidateSource": "domain-heuristic",
+      "candidateCount": 3,
+      "candidateIntents": [
+        "cash.get_status",
+        "cash.withdraw",
+        "cash.close"
+      ],
+      "lfmInvoked": true,
+      "fallbackReason": "",
+      "decisionError": "",
+      "errorType": "",
+      "rawModelOutput": "{\"intentId\": \"cash.get_status\" , \"confidence\": 1, \"noMatch\": false}",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[],\"suppressed_calls\":[],\"reasoning\":\"No hay herramienta de consulta de vendas o historial.\",\"confidence\":1.0000,\"prefill_tps\":233.8,\"decode_tps\":89.8,\"peak_ram_mb\":1678.1}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=cash.get_status,cash.withdraw,cash.close",
+        "needle=executed"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-022",
+      "datasetSplit": "dev",
+      "input": "relatorio mensal de pedidos vendidos",
+      "expectedIntent": "reports.sales",
+      "predictedIntent": "orders.get",
+      "intentCorrect": false,
+      "expectedTool": "",
+      "candidateTools": [
+        "orders.get"
+      ],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "orders.get",
+        "domain": "orders",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "lfm2.5",
+        "candidateIntents": [
+          {
+            "id": "orders.get",
+            "domain": "orders",
+            "description": "orders.get",
+            "aliases": [
+              "ORDER.HISTORY"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "order"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "orderId"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "orders.get",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "orders.get"
+            ]
+          },
+          {
+            "id": "orders.list",
+            "domain": "orders",
+            "description": "orders.list",
+            "aliases": [
+              "ORDER.SEARCH"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [],
+            "optionalFields": [
+              "query",
+              "status",
+              "customer"
+            ],
+            "availableWhen": "always",
+            "workflowId": "orders.list",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "orders.search"
+            ]
+          },
+          {
+            "id": "orders.create",
+            "domain": "orders",
+            "description": "orders.create",
+            "aliases": [
+              "ORDER.CREATE"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "customer"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "customerId",
+              "description",
+              "quantity",
+              "unitPrice"
+            ],
+            "optionalFields": [
+              "weightGrams",
+              "notes"
+            ],
+            "availableWhen": "always",
+            "workflowId": "orders.create",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "PARTIAL",
+            "actionIds": [
+              "orders.prepare_create",
+              "orders.commit_create"
+            ]
+          },
+          {
+            "id": "orders.update",
+            "domain": "orders",
+            "description": "orders.update",
+            "aliases": [
+              "ORDER.UPDATE"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "order"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "orderId",
+              "changes",
+              "idempotencyKey"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "orders.update",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "orders.prepare_update",
+              "orders.update"
+            ]
+          },
+          {
+            "id": "orders.cancel",
+            "domain": "orders",
+            "description": "orders.cancel",
+            "aliases": [
+              "ORDER.CANCEL"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [
+              "order"
+            ],
+            "optionalEntities": [],
+            "requiredFields": [
+              "orderId",
+              "reason",
+              "idempotencyKey"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "orders.cancel",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "orders.prepare_cancel",
+              "orders.cancel"
+            ]
+          }
+        ],
+        "latencyMs": 4434,
+        "grammarApplied": true,
+        "chatMessages": 2,
+        "rawModelOutput": "{\"intentId\": \"orders.get\" , \"confidence\": 1, \"noMatch\": false}",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "period": "mensal"
+      },
+      "extractedFields": {},
+      "missingFields": [
+        "period"
+      ],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 8640,
+      "totalLatencyMs": 8640,
+      "lfmLatencyMs": 4434,
+      "retrieverLatencyMs": 0.5,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 452,
+      "resolutionSource": "lfm",
+      "deterministicRuleId": "",
+      "candidateSource": "retriever+domain-heuristic",
+      "candidateCount": 5,
+      "candidateIntents": [
+        "orders.get",
+        "orders.list",
+        "orders.create",
+        "orders.update",
+        "orders.cancel"
+      ],
+      "lfmInvoked": true,
+      "fallbackReason": "",
+      "decisionError": "",
+      "errorType": "",
+      "rawModelOutput": "{\"intentId\": \"orders.get\" , \"confidence\": 1, \"noMatch\": false}",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[],\"suppressed_calls\":[],\"reasoning\":\"No tool for order tracking or delivery status.\",\"confidence\":1.0000,\"prefill_tps\":146.1,\"decode_tps\":95.1,\"peak_ram_mb\":1678.1}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=orders.get,orders.list,orders.create,orders.update,orders.cancel",
+        "needle=executed"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-023",
+      "datasetSplit": "dev",
+      "input": "qto vendeu ontem",
+      "expectedIntent": "reports.sales",
+      "predictedIntent": "",
+      "intentCorrect": false,
+      "expectedTool": "",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "fallback",
+        "candidateIntents": [],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "period": "ontem"
+      },
+      "extractedFields": {},
+      "missingFields": [
+        "period"
+      ],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 1,
+      "totalLatencyMs": 1,
+      "lfmLatencyMs": 0,
+      "retrieverLatencyMs": 0.30000000000000004,
+      "extractorLatencyMs": 0.1,
+      "generatedTokens": null,
+      "promptApproxChars": 0,
+      "resolutionSource": "fallback",
+      "deterministicRuleId": "",
+      "candidateSource": "none",
+      "candidateCount": 0,
+      "candidateIntents": [],
+      "lfmInvoked": false,
+      "fallbackReason": "NO_PLAUSIBLE_INTENTS",
+      "decisionError": "NO_PLAUSIBLE_INTENTS",
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "E_ENTITY_EXTRACTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-024",
+      "datasetSplit": "dev",
+      "input": "desempenho comercial do trimestre",
+      "expectedIntent": "reports.sales",
+      "predictedIntent": "",
+      "intentCorrect": false,
+      "expectedTool": "",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "fallback",
+        "candidateIntents": [],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "period": "trimestre"
+      },
+      "extractedFields": {},
+      "missingFields": [
+        "period"
+      ],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 1,
+      "totalLatencyMs": 1,
+      "lfmLatencyMs": 0,
+      "retrieverLatencyMs": 0.30000000000000004,
+      "extractorLatencyMs": 0.1,
+      "generatedTokens": null,
+      "promptApproxChars": 0,
+      "resolutionSource": "fallback",
+      "deterministicRuleId": "",
+      "candidateSource": "none",
+      "candidateCount": 0,
+      "candidateIntents": [],
+      "lfmInvoked": false,
+      "fallbackReason": "NO_PLAUSIBLE_INTENTS",
+      "decisionError": "NO_PLAUSIBLE_INTENTS",
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "E_ENTITY_EXTRACTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-025",
+      "datasetSplit": "dev",
+      "input": "resultado financeiro deste mês",
+      "expectedIntent": "reports.financial",
+      "predictedIntent": "",
+      "intentCorrect": false,
+      "expectedTool": "",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "fallback",
+        "candidateIntents": [],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "period": "este mês"
+      },
+      "extractedFields": {},
+      "missingFields": [
+        "period"
+      ],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 2,
+      "totalLatencyMs": 2,
+      "lfmLatencyMs": 0,
+      "retrieverLatencyMs": 0.8,
+      "extractorLatencyMs": 0.1,
+      "generatedTokens": null,
+      "promptApproxChars": 0,
+      "resolutionSource": "fallback",
+      "deterministicRuleId": "",
+      "candidateSource": "none",
+      "candidateCount": 0,
+      "candidateIntents": [],
+      "lfmInvoked": false,
+      "fallbackReason": "NO_PLAUSIBLE_INTENTS",
+      "decisionError": "NO_PLAUSIBLE_INTENTS",
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "E_ENTITY_EXTRACTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-026",
+      "datasetSplit": "dev",
+      "input": "receitas e despesas do ano",
+      "expectedIntent": "reports.financial",
+      "predictedIntent": "",
+      "intentCorrect": false,
+      "expectedTool": "",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "fallback",
+        "candidateIntents": [],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "period": "ano"
+      },
+      "extractedFields": {},
+      "missingFields": [
+        "period"
+      ],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 1,
+      "totalLatencyMs": 1,
+      "lfmLatencyMs": 0,
+      "retrieverLatencyMs": 0.7,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 0,
+      "resolutionSource": "fallback",
+      "deterministicRuleId": "",
+      "candidateSource": "none",
+      "candidateCount": 0,
+      "candidateIntents": [],
+      "lfmInvoked": false,
+      "fallbackReason": "NO_PLAUSIBLE_INTENTS",
+      "decisionError": "NO_PLAUSIBLE_INTENTS",
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "E_ENTITY_EXTRACTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-027",
+      "datasetSplit": "dev",
+      "input": "como ficou o financeiro em agosto?",
+      "expectedIntent": "reports.financial",
+      "predictedIntent": "",
+      "intentCorrect": false,
+      "expectedTool": "",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "fallback",
+        "candidateIntents": [],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "period": "agosto"
+      },
+      "extractedFields": {},
+      "missingFields": [
+        "period"
+      ],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 1,
+      "totalLatencyMs": 1,
+      "lfmLatencyMs": 0,
+      "retrieverLatencyMs": 0.7,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 0,
+      "resolutionSource": "fallback",
+      "deterministicRuleId": "",
+      "candidateSource": "none",
+      "candidateCount": 0,
+      "candidateIntents": [],
+      "lfmInvoked": false,
+      "fallbackReason": "NO_PLAUSIBLE_INTENTS",
+      "decisionError": "NO_PLAUSIBLE_INTENTS",
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "E_ENTITY_EXTRACTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-028",
+      "datasetSplit": "dev",
+      "input": "balanço dos últimos sete dias",
+      "expectedIntent": "reports.financial",
+      "predictedIntent": "",
+      "intentCorrect": false,
+      "expectedTool": "",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "fallback",
+        "candidateIntents": [],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "period": "últimos sete dias"
+      },
+      "extractedFields": {},
+      "missingFields": [
+        "period"
+      ],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 2,
+      "totalLatencyMs": 2,
+      "lfmLatencyMs": 0,
+      "retrieverLatencyMs": 1,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 0,
+      "resolutionSource": "fallback",
+      "deterministicRuleId": "",
+      "candidateSource": "none",
+      "candidateCount": 0,
+      "candidateIntents": [],
+      "lfmInvoked": false,
+      "fallbackReason": "NO_PLAUSIBLE_INTENTS",
+      "decisionError": "NO_PLAUSIBLE_INTENTS",
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "E_ENTITY_EXTRACTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-029",
+      "datasetSplit": "dev",
+      "input": "relat financ semana",
+      "expectedIntent": "reports.financial",
+      "predictedIntent": "",
+      "intentCorrect": false,
+      "expectedTool": "",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "fallback",
+        "candidateIntents": [],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "period": "semana"
+      },
+      "extractedFields": {},
+      "missingFields": [
+        "period"
+      ],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 1,
+      "totalLatencyMs": 1,
+      "lfmLatencyMs": 0,
+      "retrieverLatencyMs": 0.5,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 0,
+      "resolutionSource": "fallback",
+      "deterministicRuleId": "",
+      "candidateSource": "none",
+      "candidateCount": 0,
+      "candidateIntents": [],
+      "lfmInvoked": false,
+      "fallbackReason": "NO_PLAUSIBLE_INTENTS",
+      "decisionError": "NO_PLAUSIBLE_INTENTS",
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "E_ENTITY_EXTRACTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-030",
+      "datasetSplit": "dev",
+      "input": "lucro e gastos do trimestre",
+      "expectedIntent": "reports.financial",
+      "predictedIntent": "",
+      "intentCorrect": false,
+      "expectedTool": "",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "fallback",
+        "candidateIntents": [],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "period": "trimestre"
+      },
+      "extractedFields": {},
+      "missingFields": [
+        "period"
+      ],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 1,
+      "totalLatencyMs": 1,
+      "lfmLatencyMs": 0,
+      "retrieverLatencyMs": 0.6,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 0,
+      "resolutionSource": "fallback",
+      "deterministicRuleId": "",
+      "candidateSource": "none",
+      "candidateCount": 0,
+      "candidateIntents": [],
+      "lfmInvoked": false,
+      "fallbackReason": "NO_PLAUSIBLE_INTENTS",
+      "decisionError": "NO_PLAUSIBLE_INTENTS",
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "E_ENTITY_EXTRACTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-031",
+      "datasetSplit": "dev",
+      "input": "qual é o movimento do caixa hoje?",
+      "expectedIntent": "cash.get_status",
+      "predictedIntent": "cash.get_status",
+      "intentCorrect": true,
+      "expectedTool": "cash.get_status",
+      "candidateTools": [
+        "cash.get_status"
+      ],
+      "selectedTool": "cash.get_status",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "cash.get_status",
+        "domain": "cash",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "lfm2.5",
+        "candidateIntents": [
+          {
+            "id": "cash.get_status",
+            "domain": "cash",
+            "description": "cash.get_status",
+            "aliases": [
+              "CASH.SUMMARY"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [],
+            "optionalFields": [
+              "period"
+            ],
+            "availableWhen": "always",
+            "workflowId": "cash.get_status",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "cash.get_summary"
+            ]
+          },
+          {
+            "id": "cash.withdraw",
+            "domain": "cash",
+            "description": "cash.withdraw",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "amount",
+              "description"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "cash.withdraw",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "cash.prepare_withdrawal",
+              "cash.commit_withdrawal"
+            ]
+          },
+          {
+            "id": "cash.close",
+            "domain": "cash",
+            "description": "cash.close",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "sessionId",
+              "countedAmount"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "cash.close",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "cash.prepare_close_session",
+              "cash.close_session"
+            ]
+          }
+        ],
+        "latencyMs": 4839,
+        "grammarApplied": true,
+        "chatMessages": 2,
+        "rawModelOutput": "{\"intentId\": \"cash.get_status\" , \"confidence\": 1, \"noMatch\": false}",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "period": "hoje"
+      },
+      "extractedFields": {},
+      "missingFields": [
+        "period"
+      ],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 9617,
+      "totalLatencyMs": 9617,
+      "lfmLatencyMs": 4839,
+      "retrieverLatencyMs": 0.7,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 421,
+      "resolutionSource": "lfm",
+      "deterministicRuleId": "",
+      "candidateSource": "domain-heuristic",
+      "candidateCount": 3,
+      "candidateIntents": [
+        "cash.get_status",
+        "cash.withdraw",
+        "cash.close"
+      ],
+      "lfmInvoked": true,
+      "fallbackReason": "",
+      "decisionError": "",
+      "errorType": "",
+      "rawModelOutput": "{\"intentId\": \"cash.get_status\" , \"confidence\": 1, \"noMatch\": false}",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"cash.get_status\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'qual é o movimento do caixa' -> modelArgs; 'do caixa' -> modelArgs; no tool for 'do caixa'\",\"confidence\":0.8961,\"prefill_tps\":405.3,\"decode_tps\":87.6,\"peak_ram_mb\":1678.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=cash.get_status,cash.withdraw,cash.close",
+        "needle=executed"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-032",
+      "datasetSplit": "dev",
+      "input": "tem dinheiro disponível no caixa?",
+      "expectedIntent": "cash.get_status",
+      "predictedIntent": "cash.get_status",
+      "intentCorrect": true,
+      "expectedTool": "cash.get_status",
+      "candidateTools": [
+        "cash.get_status"
+      ],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "cash.get_status",
+        "domain": "cash",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "lfm2.5",
+        "candidateIntents": [
+          {
+            "id": "cash.get_status",
+            "domain": "cash",
+            "description": "cash.get_status",
+            "aliases": [
+              "CASH.SUMMARY"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [],
+            "optionalFields": [
+              "period"
+            ],
+            "availableWhen": "always",
+            "workflowId": "cash.get_status",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "cash.get_summary"
+            ]
+          },
+          {
+            "id": "cash.withdraw",
+            "domain": "cash",
+            "description": "cash.withdraw",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "amount",
+              "description"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "cash.withdraw",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "cash.prepare_withdrawal",
+              "cash.commit_withdrawal"
+            ]
+          },
+          {
+            "id": "cash.close",
+            "domain": "cash",
+            "description": "cash.close",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "sessionId",
+              "countedAmount"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "cash.close",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "cash.prepare_close_session",
+              "cash.close_session"
+            ]
+          }
+        ],
+        "latencyMs": 4414,
+        "grammarApplied": true,
+        "chatMessages": 2,
+        "rawModelOutput": "{\"intentId\": \"cash.get_status\" , \"confidence\": 1, \"noMatch\": false}",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 8192,
+      "totalLatencyMs": 8192,
+      "lfmLatencyMs": 4414,
+      "retrieverLatencyMs": 0.6000000000000001,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 421,
+      "resolutionSource": "lfm",
+      "deterministicRuleId": "",
+      "candidateSource": "domain-heuristic",
+      "candidateCount": 3,
+      "candidateIntents": [
+        "cash.get_status",
+        "cash.withdraw",
+        "cash.close"
+      ],
+      "lfmInvoked": true,
+      "fallbackReason": "",
+      "decisionError": "",
+      "errorType": "",
+      "rawModelOutput": "{\"intentId\": \"cash.get_status\" , \"confidence\": 1, \"noMatch\": false}",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[],\"suppressed_calls\":[],\"reasoning\":\"No tool available for weather or weather queries.\",\"confidence\":1.0000,\"prefill_tps\":88.6,\"decode_tps\":111.9,\"peak_ram_mb\":1678.1}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=cash.get_status,cash.withdraw,cash.close",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "D_TOOL_SELECTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-033",
+      "datasetSplit": "dev",
+      "input": "consulta o fechamento parcial",
+      "expectedIntent": "cash.get_status",
+      "predictedIntent": "",
+      "intentCorrect": false,
+      "expectedTool": "cash.get_status",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "fallback",
+        "candidateIntents": [],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 1,
+      "totalLatencyMs": 1,
+      "lfmLatencyMs": 0,
+      "retrieverLatencyMs": 0.30000000000000004,
+      "extractorLatencyMs": 0.1,
+      "generatedTokens": null,
+      "promptApproxChars": 0,
+      "resolutionSource": "fallback",
+      "deterministicRuleId": "",
+      "candidateSource": "none",
+      "candidateCount": 0,
+      "candidateIntents": [],
+      "lfmInvoked": false,
+      "fallbackReason": "NO_PLAUSIBLE_INTENTS",
+      "decisionError": "NO_PLAUSIBLE_INTENTS",
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "D_TOOL_SELECTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-034",
+      "datasetSplit": "dev",
+      "input": "situação financeira do caixa agora",
+      "expectedIntent": "cash.get_status",
+      "predictedIntent": "cash.get_status",
+      "intentCorrect": true,
+      "expectedTool": "cash.get_status",
+      "candidateTools": [
+        "cash.get_status"
+      ],
+      "selectedTool": "cash.get_status",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "cash.get_status",
+        "domain": "cash",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "lfm2.5",
+        "candidateIntents": [
+          {
+            "id": "cash.get_status",
+            "domain": "cash",
+            "description": "cash.get_status",
+            "aliases": [
+              "CASH.SUMMARY"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [],
+            "optionalFields": [
+              "period"
+            ],
+            "availableWhen": "always",
+            "workflowId": "cash.get_status",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "cash.get_summary"
+            ]
+          },
+          {
+            "id": "cash.withdraw",
+            "domain": "cash",
+            "description": "cash.withdraw",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "amount",
+              "description"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "cash.withdraw",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "cash.prepare_withdrawal",
+              "cash.commit_withdrawal"
+            ]
+          },
+          {
+            "id": "cash.close",
+            "domain": "cash",
+            "description": "cash.close",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "sessionId",
+              "countedAmount"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "cash.close",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "cash.prepare_close_session",
+              "cash.close_session"
+            ]
+          }
+        ],
+        "latencyMs": 4672,
+        "grammarApplied": true,
+        "chatMessages": 2,
+        "rawModelOutput": "{\"intentId\": \"cash.get_status\" , \"confidence\": 1, \"noMatch\": false}",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 8772,
+      "totalLatencyMs": 8772,
+      "lfmLatencyMs": 4672,
+      "retrieverLatencyMs": 0.9,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 422,
+      "resolutionSource": "lfm",
+      "deterministicRuleId": "",
+      "candidateSource": "domain-heuristic",
+      "candidateCount": 3,
+      "candidateIntents": [
+        "cash.get_status",
+        "cash.withdraw",
+        "cash.close"
+      ],
+      "lfmInvoked": true,
+      "fallbackReason": "",
+      "decisionError": "",
+      "errorType": "",
+      "rawModelOutput": "{\"intentId\": \"cash.get_status\" , \"confidence\": 1, \"noMatch\": false}",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"cash.get_status\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'situação financeira' -> modelArgs; 'caixa agora' -> modelArgs; no tool for financial data.\",\"confidence\":0.8743,\"prefill_tps\":106.4,\"decode_tps\":112.7,\"peak_ram_mb\":1678.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=cash.get_status,cash.withdraw,cash.close",
+        "needle=executed"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-035",
+      "datasetSplit": "dev",
+      "input": "cx de hoje como tá",
+      "expectedIntent": "cash.get_status",
+      "predictedIntent": "",
+      "intentCorrect": false,
+      "expectedTool": "cash.get_status",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": false,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "fallback",
+        "candidateIntents": [],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "period": "hoje"
+      },
+      "extractedFields": {},
+      "missingFields": [
+        "period"
+      ],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 1,
+      "totalLatencyMs": 1,
+      "lfmLatencyMs": 0,
+      "retrieverLatencyMs": 0.8,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 0,
+      "resolutionSource": "fallback",
+      "deterministicRuleId": "",
+      "candidateSource": "none",
+      "candidateCount": 0,
+      "candidateIntents": [],
+      "lfmInvoked": false,
+      "fallbackReason": "NO_PLAUSIBLE_INTENTS",
+      "decisionError": "NO_PLAUSIBLE_INTENTS",
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "C_CANDIDATE_RETRIEVAL",
+        "D_TOOL_SELECTION",
+        "E_ENTITY_EXTRACTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-036",
+      "datasetSplit": "dev",
+      "input": "entradas e saídas do caixa nesta manhã",
+      "expectedIntent": "cash.get_status",
+      "predictedIntent": "cash.get_status",
+      "intentCorrect": true,
+      "expectedTool": "cash.get_status",
+      "candidateTools": [
+        "cash.get_status"
+      ],
+      "selectedTool": "cash.get_status",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "cash.get_status",
+        "domain": "cash",
+        "confidence": 1,
+        "noMatch": false,
+        "errorCode": "",
+        "provider": "lfm2.5",
+        "candidateIntents": [
+          {
+            "id": "cash.get_status",
+            "domain": "cash",
+            "description": "cash.get_status",
+            "aliases": [
+              "CASH.SUMMARY"
+            ],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [],
+            "optionalFields": [
+              "period"
+            ],
+            "availableWhen": "always",
+            "workflowId": "cash.get_status",
+            "screenRoute": "",
+            "mode": "READ",
+            "requiresConfirmation": false,
+            "status": "READY",
+            "actionIds": [
+              "cash.get_summary"
+            ]
+          },
+          {
+            "id": "cash.withdraw",
+            "domain": "cash",
+            "description": "cash.withdraw",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "amount",
+              "description"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "cash.withdraw",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "cash.prepare_withdrawal",
+              "cash.commit_withdrawal"
+            ]
+          },
+          {
+            "id": "cash.close",
+            "domain": "cash",
+            "description": "cash.close",
+            "aliases": [],
+            "positiveExamples": [],
+            "negativeExamples": [],
+            "requiredEntities": [],
+            "optionalEntities": [],
+            "requiredFields": [
+              "sessionId",
+              "countedAmount"
+            ],
+            "optionalFields": [],
+            "availableWhen": "always",
+            "workflowId": "cash.close",
+            "screenRoute": "",
+            "mode": "PREPARE_WRITE",
+            "requiresConfirmation": true,
+            "status": "DEGRADED",
+            "actionIds": [
+              "cash.prepare_close_session",
+              "cash.close_session"
+            ]
+          }
+        ],
+        "latencyMs": 4532,
+        "grammarApplied": true,
+        "chatMessages": 2,
+        "rawModelOutput": "{\"intentId\": \"cash.get_status\" , \"confidence\": 1, \"noMatch\": false}",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {
+        "period": "esta manhã"
+      },
+      "extractedFields": {},
+      "missingFields": [
+        "period"
+      ],
+      "unexpectedFields": [],
+      "confidence": 1,
+      "latencyMs": 8975,
+      "totalLatencyMs": 8975,
+      "lfmLatencyMs": 4532,
+      "retrieverLatencyMs": 0.7,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 426,
+      "resolutionSource": "lfm",
+      "deterministicRuleId": "",
+      "candidateSource": "domain-heuristic",
+      "candidateCount": 3,
+      "candidateIntents": [
+        "cash.get_status",
+        "cash.withdraw",
+        "cash.close"
+      ],
+      "lfmInvoked": true,
+      "fallbackReason": "",
+      "decisionError": "",
+      "errorType": "",
+      "rawModelOutput": "{\"intentId\": \"cash.get_status\" , \"confidence\": 1, \"noMatch\": false}",
+      "rawNeedleOutput": "{\"type\":\"call\",\"success\":true,\"error\":null,\"error_code\":null,\"reason\":null,\"function_calls\":[{\"name\":\"cash.get_status\",\"arguments\":{}}],\"suppressed_calls\":[],\"reasoning\":\"'entradas e saídas' -> enum 'entradas'; 'do caixa nesta manhã' -> enum 'caixa nesta manhã'\",\"confidence\":0.5847,\"prefill_tps\":139.6,\"decode_tps\":89.2,\"peak_ram_mb\":1678.1,\"validation\":{\"ungrounded\":[],\"negation\":false}}",
+      "deterministicNotes": [
+        "retrieval=MATCH",
+        "lfmCandidates=cash.get_status,cash.withdraw,cash.close",
+        "needle=executed"
+      ],
+      "fieldCorrect": false,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-037",
+      "datasetSplit": "dev",
+      "input": "qual ônibus passa no centro?",
+      "expectedIntent": "",
+      "predictedIntent": "",
+      "intentCorrect": true,
+      "expectedTool": "",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "fallback",
+        "candidateIntents": [],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 2,
+      "totalLatencyMs": 2,
+      "lfmLatencyMs": 0,
+      "retrieverLatencyMs": 1,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 0,
+      "resolutionSource": "fallback",
+      "deterministicRuleId": "",
+      "candidateSource": "none",
+      "candidateCount": 0,
+      "candidateIntents": [],
+      "lfmInvoked": false,
+      "fallbackReason": "NO_PLAUSIBLE_INTENTS",
+      "decisionError": "NO_PLAUSIBLE_INTENTS",
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-038",
+      "datasetSplit": "dev",
+      "input": "faz uma música pra mim",
+      "expectedIntent": "",
+      "predictedIntent": "",
+      "intentCorrect": true,
+      "expectedTool": "",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "fallback",
+        "candidateIntents": [],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {
+        "customerName": "mim"
+      },
+      "missingFields": [],
+      "unexpectedFields": [
+        "customerName"
+      ],
+      "confidence": 0,
+      "latencyMs": 2,
+      "totalLatencyMs": 2,
+      "lfmLatencyMs": 0,
+      "retrieverLatencyMs": 1,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 0,
+      "resolutionSource": "fallback",
+      "deterministicRuleId": "",
+      "candidateSource": "none",
+      "candidateCount": 0,
+      "candidateIntents": [],
+      "lfmInvoked": false,
+      "fallbackReason": "NO_PLAUSIBLE_INTENTS",
+      "decisionError": "NO_PLAUSIBLE_INTENTS",
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-039",
+      "datasetSplit": "dev",
+      "input": "quem ganhou o jogo ontem",
+      "expectedIntent": "",
+      "predictedIntent": "",
+      "intentCorrect": true,
+      "expectedTool": "",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "fallback",
+        "candidateIntents": [],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 1,
+      "totalLatencyMs": 1,
+      "lfmLatencyMs": 0,
+      "retrieverLatencyMs": 0.5,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 0,
+      "resolutionSource": "fallback",
+      "deterministicRuleId": "",
+      "candidateSource": "none",
+      "candidateCount": 0,
+      "candidateIntents": [],
+      "lfmInvoked": false,
+      "fallbackReason": "NO_PLAUSIBLE_INTENTS",
+      "decisionError": "NO_PLAUSIBLE_INTENTS",
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-040",
+      "datasetSplit": "dev",
+      "input": "me lembra disso amanhã",
+      "expectedIntent": "",
+      "predictedIntent": "",
+      "intentCorrect": true,
+      "expectedTool": "",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "fallback",
+        "candidateIntents": [],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 1,
+      "totalLatencyMs": 1,
+      "lfmLatencyMs": 0,
+      "retrieverLatencyMs": 0.6,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 0,
+      "resolutionSource": "fallback",
+      "deterministicRuleId": "",
+      "candidateSource": "none",
+      "candidateCount": 0,
+      "candidateIntents": [],
+      "lfmInvoked": false,
+      "fallbackReason": "NO_PLAUSIBLE_INTENTS",
+      "decisionError": "NO_PLAUSIBLE_INTENTS",
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-041",
+      "datasetSplit": "dev",
+      "input": "e aquele negócio?",
+      "expectedIntent": "",
+      "predictedIntent": "",
+      "intentCorrect": true,
+      "expectedTool": "",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "fallback",
+        "candidateIntents": [],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {},
+      "missingFields": [],
+      "unexpectedFields": [],
+      "confidence": 0,
+      "latencyMs": 2,
+      "totalLatencyMs": 2,
+      "lfmLatencyMs": 0,
+      "retrieverLatencyMs": 1.5,
+      "extractorLatencyMs": 0,
+      "generatedTokens": null,
+      "promptApproxChars": 0,
+      "resolutionSource": "fallback",
+      "deterministicRuleId": "",
+      "candidateSource": "none",
+      "candidateCount": 0,
+      "candidateIntents": [],
+      "lfmInvoked": false,
+      "fallbackReason": "NO_PLAUSIBLE_INTENTS",
+      "decisionError": "NO_PLAUSIBLE_INTENTS",
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    },
+    {
+      "caseId": "dev-042",
+      "datasetSplit": "dev",
+      "input": "pode resolver pra mim",
+      "expectedIntent": "",
+      "predictedIntent": "",
+      "intentCorrect": true,
+      "expectedTool": "",
+      "candidateTools": [],
+      "selectedTool": "",
+      "toolCorrect": true,
+      "schemaValid": true,
+      "parsedOutput": {
+        "intentId": "",
+        "domain": "",
+        "confidence": 0,
+        "noMatch": true,
+        "errorCode": "NO_PLAUSIBLE_INTENTS",
+        "provider": "fallback",
+        "candidateIntents": [],
+        "latencyMs": 0,
+        "grammarApplied": false,
+        "rawModelOutput": "",
+        "deterministic": false,
+        "writeExposed": 0
+      },
+      "expectedFields": {},
+      "extractedFields": {
+        "customerName": "mim"
+      },
+      "missingFields": [],
+      "unexpectedFields": [
+        "customerName"
+      ],
+      "confidence": 0,
+      "latencyMs": 1,
+      "totalLatencyMs": 1,
+      "lfmLatencyMs": 0,
+      "retrieverLatencyMs": 0.4,
+      "extractorLatencyMs": 0.1,
+      "generatedTokens": null,
+      "promptApproxChars": 0,
+      "resolutionSource": "fallback",
+      "deterministicRuleId": "",
+      "candidateSource": "none",
+      "candidateCount": 0,
+      "candidateIntents": [],
+      "lfmInvoked": false,
+      "fallbackReason": "NO_PLAUSIBLE_INTENTS",
+      "decisionError": "NO_PLAUSIBLE_INTENTS",
+      "errorType": "",
+      "rawModelOutput": "",
+      "rawNeedleOutput": "",
+      "deterministicNotes": [
+        "retrieval=NO_MATCH",
+        "lfmCandidates=",
+        "needle=NO_MATCH"
+      ],
+      "fieldCorrect": true,
+      "errorCategories": [
+        "E_ENTITY_EXTRACTION",
+        "G_INSUFFICIENT_CONTEXT"
+      ],
+      "writeExposed": 0
+    }
+  ],
+  "metrics": {
+    "total": 42,
+    "intentAccuracy": 26.19,
+    "toolAccuracy": 52.38,
+    "schemaValidity": 100,
+    "fieldExtractionAccuracy": 0,
+    "fieldCaseCoverage": {
+      "numerator": 26,
+      "denominator": 42,
+      "percentage": 61.9
+    },
+    "fieldExactCaseAccuracy": {
+      "numerator": 0,
+      "denominator": 26,
+      "percentage": 0
+    },
+    "fieldPrecision": {
+      "numerator": 0,
+      "denominator": 2,
+      "percentage": 0
+    },
+    "fieldRecall": {
+      "numerator": 0,
+      "denominator": 26,
+      "percentage": 0
+    },
+    "unexpectedFieldRate": {
+      "numerator": 4,
+      "denominator": 4,
+      "percentage": 100
+    },
+    "missingFieldRate": {
+      "numerator": 26,
+      "denominator": 26,
+      "percentage": 100
+    },
+    "missingRequiredFields": 26,
+    "unexpectedFields": 4,
+    "technicalFailures": 0,
+    "averageLatencyMs": 2951,
+    "p50LatencyMs": 2,
+    "p95LatencyMs": 9180,
+    "confusionMatrix": {
+      "customers.search": {
+        "orders.list": 3,
+        "NO_MATCH": 3
+      },
+      "printers.list": {
+        "NO_MATCH": 4,
+        "production.list": 2
+      },
+      "production.list": {
+        "NO_MATCH": 4,
+        "production.list": 1,
+        "production.change_status": 1
+      },
+      "reports.sales": {
+        "NO_MATCH": 3,
+        "cash.get_status": 2,
+        "orders.get": 1
+      },
+      "reports.financial": {
+        "NO_MATCH": 6
+      },
+      "cash.get_status": {
+        "cash.get_status": 4,
+        "NO_MATCH": 2
+      },
+      "NO_MATCH": {
+        "NO_MATCH": 6
+      }
+    },
+    "errorCategories": {
+      "C_CANDIDATE_RETRIEVAL": 30,
+      "D_TOOL_SELECTION": 20,
+      "E_ENTITY_EXTRACTION": 28,
+      "G_INSUFFICIENT_CONTEXT": 29,
+      "B_AMBIGUOUS_INTENT": 1
+    },
+    "byResolutionSource": {
+      "deterministic": {
+        "count": 0,
+        "intentAccuracy": 0,
+        "toolAccuracy": 0,
+        "schemaValidity": 0,
+        "averageLatencyMs": 0,
+        "p50LatencyMs": 0,
+        "p95LatencyMs": 0,
+        "lfmCalls": 0
+      },
+      "retriever": {
+        "count": 0,
+        "intentAccuracy": 0,
+        "toolAccuracy": 0,
+        "schemaValidity": 0,
+        "averageLatencyMs": 0,
+        "p50LatencyMs": 0,
+        "p95LatencyMs": 0,
+        "lfmCalls": 0
+      },
+      "lfm": {
+        "count": 14,
+        "intentAccuracy": 35.71,
+        "toolAccuracy": 50,
+        "schemaValidity": 100,
+        "averageLatencyMs": 8850,
+        "p50LatencyMs": 8772,
+        "p95LatencyMs": 10489,
+        "lfmCalls": 14
+      },
+      "fallback": {
+        "count": 28,
+        "intentAccuracy": 21.43,
+        "toolAccuracy": 53.57,
+        "schemaValidity": 100,
+        "averageLatencyMs": 1,
+        "p50LatencyMs": 1,
+        "p95LatencyMs": 2,
+        "lfmCalls": 0
+      }
+    }
+  }
+}

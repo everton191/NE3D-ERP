@@ -3,16 +3,23 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
-const corpus = require("../src/ai/ptbr-evaluation-corpus.js");
+const defaultCorpus = require("../src/ai/ptbr-evaluation-corpus.js");
 
 const PACKAGE = "br.com.ne3d.erp";
 const splitArg = process.argv.find((value) => value.startsWith("--split="));
 const split = splitArg ? splitArg.slice("--split=".length) : "tuning";
-if (!new Set(["tuning", "holdout"]).has(split)) throw new Error("LFM_EVALUATION_SPLIT_INVALID");
+const modeArg = process.argv.find((value) => value.startsWith("--mode="));
+const mode = (modeArg ? modeArg.slice("--mode=".length) : "C").toUpperCase();
+if (!new Set(["A", "B", "C"]).has(mode)) throw new Error("LFM_EVALUATION_MODE_INVALID");
+const datasetArg = process.argv.find((value) => value.startsWith("--dataset="));
+const datasetPath = datasetArg ? path.resolve(datasetArg.slice("--dataset=".length)) : "";
+const corpus = datasetPath ? require(datasetPath) : defaultCorpus;
 const cases = corpus.cases.filter((item) => item.split === split);
+if (!cases.length) throw new Error("LFM_EVALUATION_SPLIT_EMPTY");
 const adbPath = process.env.ANDROID_ADB || `${process.env.LOCALAPPDATA || ""}\\Android\\Sdk\\platform-tools\\adb.exe`;
 const outputDir = path.resolve(__dirname, "..", "reports", "ai", "lfm25-evaluation");
-const runId = `lfm25-${split}-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+const datasetId = corpus.datasetId || "ptbr-80";
+const runId = `lfm25-${datasetId}-${split}-mode-${mode}-${new Date().toISOString().replace(/[:.]/g, "-")}`;
 const outputPath = path.join(outputDir, `${runId}.json`);
 
 function adb(...args) { return execFileSync(adbPath, args, { encoding: "utf8" }).trim(); }
@@ -94,7 +101,7 @@ function summarize(records) {
   const extractedFieldCount = records.reduce((sum, item) => sum + Object.keys(item.extractedFields || {}).length, 0);
   const unexpectedFieldCount = records.reduce((sum, item) => sum + item.unexpectedFields.length, 0);
   const missingFieldCount = records.reduce((sum, item) => sum + item.missingFields.length, 0);
-  const latencies = records.filter((item) => !item.errorType).map((item) => item.latencyMs);
+  const latencies = records.filter((item) => !item.errorCategories?.includes("I_RUNTIME")).map((item) => item.latencyMs);
   const categories = {};
   for (const item of records) for (const category of item.errorCategories || []) categories[category] = (categories[category] || 0) + 1;
   return {
@@ -148,12 +155,36 @@ async function runCase(socketUrl, item) {
     const provider = new lfm.LfmIntentProvider();
     const contextSnapshot = { ...(item.context || {}), ...(item.activeWorkflow ? { activeWorkflow: item.activeWorkflow } : {}) };
     const deterministicIntent = window.SimplificaToolCandidateRetriever.semanticIntent(item.rawInput, contextSnapshot) || "";
-    const parsed = await provider.interpretIntent({ input: item.rawInput, contextSnapshot });
+    const mode = ${JSON.stringify(mode)};
+    const rawRetrievalStarted = performance.now();
+    const rawRetrieval = window.SimplificaToolCandidateRetriever.retrieveToolCandidates({ input: item.rawInput, contextSnapshot, workflowState: item.activeWorkflow ? { intent: item.activeWorkflow } : {}, limit: 3 });
+    const rawRetrieverLatencyMs = Math.round((performance.now() - rawRetrievalStarted) * 1000) / 1000;
+    let parsed;
+    let resolutionSource;
+    let candidateSource;
+    if (deterministicIntent) {
+      parsed = { intentId: deterministicIntent, domain: deterministicIntent.split(".")[0], confidence: 1, noMatch: false, errorCode: "", provider: "deterministic", candidateIntents: [window.SimplificaIntentRegistry.get(deterministicIntent)], latencyMs: 0, grammarApplied: false, rawModelOutput: "", deterministic: true, writeExposed: 0 };
+      resolutionSource = "deterministic";
+      candidateSource = "deterministic-rule";
+    } else if (mode === "A") {
+      const top = rawRetrieval.candidates.find((candidate) => candidate.available) || rawRetrieval.candidates[0];
+      parsed = top ? { intentId: top.intentId, domain: top.intentId.split(".")[0], confidence: Math.max(0, Math.min(1, top.score / 100)), noMatch: false, errorCode: "", provider: "retriever", candidateIntents: rawRetrieval.candidates.map((candidate) => window.SimplificaIntentRegistry.get(candidate.intentId)).filter(Boolean), latencyMs: 0, grammarApplied: false, rawModelOutput: "", deterministic: false, writeExposed: 0 } : { intentId: "", domain: "", confidence: 0, noMatch: true, errorCode: "NO_RETRIEVER_MATCH", provider: "fallback", candidateIntents: [], latencyMs: 0, grammarApplied: false, rawModelOutput: "", deterministic: false, writeExposed: 0 };
+      resolutionSource = top ? "retriever" : "fallback";
+      candidateSource = top ? "candidate-retriever" : "none";
+    } else if (mode === "B") {
+      const ids = [...new Set([...rawRetrieval.candidates.map((candidate) => candidate.intentId), ...lfm.plausibleIntents(item.rawInput, contextSnapshot).map((candidate) => candidate.id)])].slice(0, 8);
+      const rerankCandidates = ids.map((id) => window.SimplificaIntentRegistry.get(id)).filter(Boolean);
+      parsed = rerankCandidates.length ? await provider.interpretIntent({ input: item.rawInput, contextSnapshot, candidateIntents: rerankCandidates }) : { intentId: "", domain: "", confidence: 0, noMatch: true, errorCode: "NO_PLAUSIBLE_INTENTS", provider: "fallback", candidateIntents: [], latencyMs: 0, grammarApplied: false, rawModelOutput: "", deterministic: false, writeExposed: 0 };
+      resolutionSource = rerankCandidates.length ? "lfm" : "fallback";
+      candidateSource = rawRetrieval.candidates.length ? "retriever+domain-heuristic" : rerankCandidates.length ? "domain-heuristic" : "none";
+    } else {
+      parsed = await provider.interpretIntent({ input: item.rawInput, contextSnapshot });
+      resolutionSource = parsed.provider === "deterministic" ? "deterministic" : parsed.errorCode === "NO_PLAUSIBLE_INTENTS" ? "fallback" : "lfm";
+      candidateSource = deterministicIntent ? "deterministic-rule" : item.activeWorkflow ? "active-workflow" : (parsed.candidateIntents || []).length ? "domain-heuristic" : "none";
+    }
     const candidates = parsed.candidateIntents || [];
     const generated = { grammarApplied: parsed.grammarApplied, error: parsed.errorCode || "" };
     const rawModelOutput = parsed.rawModelOutput || "";
-    const resolutionSource = parsed.provider === "deterministic" ? "deterministic" : parsed.errorCode === "NO_PLAUSIBLE_INTENTS" ? "fallback" : "lfm";
-    const candidateSource = deterministicIntent ? "deterministic-rule" : item.activeWorkflow ? "active-workflow" : candidates.length ? "domain-heuristic" : "none";
     const promptApproxChars = resolutionSource === "lfm" ? lfm.promptFor(item.rawInput, candidates, contextSnapshot).length + lfm.systemPromptFor().length : 0;
     const actionPlan = parsed.intentId ? { intent: parsed.intentId } : null;
     const retrieverStarted = performance.now();
@@ -166,7 +197,7 @@ async function runCase(socketUrl, item) {
     try { needle = await window.SimplificaNeedleShadow.shadow({ input: item.rawInput, actionPlan, contextSnapshot, workflowState: item.activeWorkflow ? { intent: item.activeWorkflow } : {}, currentDecision: {} }); } catch (error) { needle = { skipped: true, reason: "NEEDLE_RUNTIME_ERROR", error: String(error?.message || error) }; }
     const merged = needle?.mergedArguments?.fields || deterministic || {};
     const extractedFields = Object.fromEntries(Object.entries(merged).map(([key, value]) => [key, value && typeof value === "object" && "value" in value ? value.value : value]));
-    return { candidates: candidates.map((candidate) => candidate.id), generated, parsed, rawModelOutput, resolutionSource, deterministicRuleId: deterministicIntent ? "semantic:" + deterministicIntent : "", candidateSource, lfmInvoked: resolutionSource === "lfm", fallbackReason: resolutionSource === "fallback" ? parsed.errorCode : "", lfmLatencyMs: parsed.latencyMs || 0, retrieverLatencyMs, extractorLatencyMs, promptApproxChars, generatedTokens: parsed.generatedTokens ?? null, retrieval: { status: retrieval.status, candidateTools: retrieval.candidates.map((candidate) => candidate.toolId), availableTools: retrieval.candidates.filter((candidate) => candidate.available).map((candidate) => candidate.toolId), diagnostics: retrieval.diagnostics }, needle: { skipped: needle?.skipped === true, reason: needle?.reason || "", selectedTool: needle?.comparison?.needleDecision?.toolId || "", rawModelOutput: needle?.comparison?.needleDecision?.raw || needle?.result?.result || "", conflicts: needle?.mergedArguments?.conflicts || [] }, deterministic, extractedFields, latencyMs: Math.round(performance.now() - started), writeExposed: parsed.writeExposed };
+    return { evaluationMode: mode, candidates: candidates.map((candidate) => candidate.id), generated, parsed, rawModelOutput, resolutionSource, deterministicRuleId: deterministicIntent ? "semantic:" + deterministicIntent : "", candidateSource, lfmInvoked: resolutionSource === "lfm", fallbackReason: resolutionSource === "fallback" ? parsed.errorCode : "", lfmLatencyMs: parsed.latencyMs || 0, retrieverLatencyMs: retrieverLatencyMs + rawRetrieverLatencyMs, extractorLatencyMs, promptApproxChars, generatedTokens: parsed.generatedTokens ?? null, retrieval: { status: retrieval.status, candidateTools: retrieval.candidates.map((candidate) => candidate.toolId), availableTools: retrieval.candidates.filter((candidate) => candidate.available).map((candidate) => candidate.toolId), diagnostics: retrieval.diagnostics }, needle: { skipped: needle?.skipped === true, reason: needle?.reason || "", selectedTool: needle?.comparison?.needleDecision?.toolId || "", rawModelOutput: needle?.comparison?.needleDecision?.raw || needle?.result?.result || "", conflicts: needle?.mergedArguments?.conflicts || [] }, deterministic, extractedFields, latencyMs: Math.round(performance.now() - started), writeExposed: parsed.writeExposed };
   })()`;
   return evaluate(socketUrl, expression, 90000);
 }
@@ -181,7 +212,7 @@ function createRecord(item, result, error = null) {
   const selectedTool = result.needle?.selectedTool || "";
   const intentCorrect = predictedIntent === (item.expectedIntent || "");
   const toolCorrect = selectedTool === (item.expectedTool || "");
-  const schemaValid = result.parsed?.deterministic === true || result.parsed?.errorCode === "NO_PLAUSIBLE_INTENTS" || (!result.parsed?.errorCode && result.generated?.grammarApplied === true);
+  const schemaValid = result.evaluationMode === "A" || result.parsed?.deterministic === true || result.parsed?.provider === "fallback" || result.parsed?.errorCode === "NO_PLAUSIBLE_INTENTS" || (!result.parsed?.errorCode && result.generated?.grammarApplied === true);
   const categories = [];
   if (!schemaValid) categories.push("F_SCHEMA_OUTPUT");
   if (!intentCorrect) categories.push(result.candidates.includes(item.expectedIntent) ? (result.candidates.length > 1 ? "B_AMBIGUOUS_INTENT" : "A_SEMANTIC") : "C_CANDIDATE_RETRIEVAL");
@@ -193,7 +224,7 @@ function createRecord(item, result, error = null) {
     expectedIntent: item.expectedIntent, predictedIntent, intentCorrect,
     expectedTool: item.expectedTool || "", candidateTools: result.retrieval?.candidateTools || [], selectedTool, toolCorrect,
     schemaValid, parsedOutput: result.parsed, expectedFields, extractedFields, missingFields, unexpectedFields,
-    confidence: result.parsed?.confidence ?? null, latencyMs: result.latencyMs, totalLatencyMs: result.latencyMs, lfmLatencyMs: result.lfmLatencyMs || 0, retrieverLatencyMs: result.retrieverLatencyMs || 0, extractorLatencyMs: result.extractorLatencyMs || 0, generatedTokens: result.generatedTokens ?? null, promptApproxChars: result.promptApproxChars || 0, resolutionSource: result.resolutionSource, deterministicRuleId: result.deterministicRuleId || "", candidateSource: result.candidateSource || "", candidateCount: result.candidates.length, candidateIntents: result.candidates, lfmInvoked: result.lfmInvoked === true, fallbackReason: result.fallbackReason || "", errorType: result.generated?.error || "",
+    confidence: result.parsed?.confidence ?? null, latencyMs: result.latencyMs, totalLatencyMs: result.latencyMs, lfmLatencyMs: result.lfmLatencyMs || 0, retrieverLatencyMs: result.retrieverLatencyMs || 0, extractorLatencyMs: result.extractorLatencyMs || 0, generatedTokens: result.generatedTokens ?? null, promptApproxChars: result.promptApproxChars || 0, resolutionSource: result.resolutionSource, deterministicRuleId: result.deterministicRuleId || "", candidateSource: result.candidateSource || "", candidateCount: result.candidates.length, candidateIntents: result.candidates, lfmInvoked: result.lfmInvoked === true, fallbackReason: result.fallbackReason || "", decisionError: result.generated?.error || "", errorType: "",
     rawModelOutput: result.rawModelOutput, rawNeedleOutput: result.needle?.rawModelOutput || "",
     deterministicNotes: [`retrieval=${result.retrieval?.status || ""}`, `lfmCandidates=${result.candidates.join(",")}`, `needle=${result.needle?.reason || "executed"}`, ...(result.needle?.conflicts || [])],
     fieldCorrect: missingFields.length === 0, errorCategories: [...new Set(categories)], writeExposed: result.writeExposed
@@ -202,7 +233,7 @@ function createRecord(item, result, error = null) {
 
 async function main() {
   const target = await targetForApp();
-  const report = { schemaVersion: 1, runId, modelId: "lfm2.5-1.2b-q4_0", split, startedAt: new Date().toISOString(), completedAt: null, frozenRuntimeCommit: adb("shell", "dumpsys", "package", PACKAGE).match(/versionName=([^\s]+)/)?.[1] || "", writeExposed: 0, records: [], metrics: null };
+  const report = { schemaVersion: 2, runId, datasetId, modelId: "lfm2.5-1.2b-q4_0", split, evaluationMode: mode, startedAt: new Date().toISOString(), completedAt: null, frozenRuntimeCommit: adb("shell", "dumpsys", "package", PACKAGE).match(/versionName=([^\s]+)/)?.[1] || "", writeExposed: 0, records: [], metrics: null };
   save(report);
   for (const [index, item] of cases.entries()) {
     let result; let error;
