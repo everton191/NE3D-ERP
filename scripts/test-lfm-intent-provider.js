@@ -24,5 +24,8 @@ assert.equal(lfm.plausibleIntents("tem pla branco ai", {})[0].id, "inventory.sea
 assert.equal(lfm.plausibleIntents("120g por 2h30", {})[0].id, "calculator.calculate");
 assert.equal(lfm.plausibleIntents("pedido pra Roberta com 2 porta escovinha de 18", {})[0].id, "orders.create");
 assert.equal(lfm.plausibleIntents("adiciona mais 2 nesse pedido", { activeWorkflow: "orders.create" })[0].id, "orders.create");
+assert.deepEqual(lfm.plausibleIntents("cadastro da Renata", {}).map((item) => item.domain), ["customers", "customers"]);
+assert.deepEqual(lfm.plausibleIntents("máquinas 3d cadastradas", {}).map((item) => item.domain), ["printers", "printers"]);
+assert.deepEqual(lfm.plausibleIntents("receitas e despesas do mês", {}).map((item) => item.id), ["reports.sales", "reports.financial"]);
 assert.equal(lfm.plausibleIntents("qual a capital da França", {}).length, 0);
 console.log("LFM intent provider closed-set grammar, chat protocol and safety policy: PASS");

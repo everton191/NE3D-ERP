@@ -10,11 +10,14 @@
   const minimalContext = (context = {}) => Object.freeze({ currentScreen: context.currentScreen || "", activeWorkflow: context.activeWorkflow || "", currentOrder: context.currentOrder || null, currentCustomer: context.currentCustomer || null, currentCalculation: context.currentCalculation || null, missingFields: Array.isArray(context.missingFields) ? context.missingFields.slice(0, 8) : [] });
   const domainsFor = (input, context = {}) => {
     const text = clean(input); const found = new Set();
-    if (/pedido|cliente/.test(text) || context.currentOrder || context.currentCustomer) found.add("orders");
+    if (/pedido/.test(text) || context.currentOrder) found.add("orders");
+    if (/cliente|cadastro|contato/.test(text) || context.currentCustomer) found.add("customers");
     if (/zap|whatsapp|pdf|documento/.test(text)) found.add("documents");
     if (/estoque|material|pla|petg|abs|rolo/.test(text)) found.add("inventory");
-    if (/producao|impress/.test(text)) found.add("production");
-    if (/caixa|venda|sangria/.test(text)) found.add("cash");
+    if (/producao|fila|jobs?|peca.*produz|trabalho.*impress/.test(text)) found.add("production");
+    if (/impressora|printers?|maquinas? 3d/.test(text)) found.add("printers");
+    if (/relat|venda|faturamento|comercial|financeiro|receita|despesa|lucro|balanco/.test(text)) found.add("reports");
+    if (/caixa|sangria/.test(text)) found.add("cash");
     if (/calcula|orcamento|gramas?|\bkg\b|horas?|\bmin/.test(text) || context.currentCalculation) found.add("calculator");
     if (/abre|ir para|vai para/.test(text)) found.add("navigation");
     return found;

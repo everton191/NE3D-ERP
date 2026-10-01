@@ -101,6 +101,9 @@ function summarize(records) {
   const extractedFieldCount = records.reduce((sum, item) => sum + Object.keys(item.extractedFields || {}).length, 0);
   const unexpectedFieldCount = records.reduce((sum, item) => sum + item.unexpectedFields.length, 0);
   const missingFieldCount = records.reduce((sum, item) => sum + item.missingFields.length, 0);
+  const expectedNoMatch = records.filter((item) => !item.expectedIntent);
+  const predictedNoMatch = records.filter((item) => !item.predictedIntent);
+  const correctNoMatch = records.filter((item) => !item.expectedIntent && !item.predictedIntent).length;
   const latencies = records.filter((item) => !item.errorCategories?.includes("I_RUNTIME")).map((item) => item.latencyMs);
   const categories = {};
   for (const item of records) for (const category of item.errorCategories || []) categories[category] = (categories[category] || 0) + 1;
@@ -116,6 +119,8 @@ function summarize(records) {
     fieldRecall: ratioMetric(correctFieldCount, expectedFieldCount),
     unexpectedFieldRate: ratioMetric(unexpectedFieldCount, extractedFieldCount),
     missingFieldRate: ratioMetric(missingFieldCount, expectedFieldCount),
+    noMatchPrecision: ratioMetric(correctNoMatch, predictedNoMatch.length),
+    noMatchRecall: ratioMetric(correctNoMatch, expectedNoMatch.length),
     missingRequiredFields: missingFieldCount,
     unexpectedFields: unexpectedFieldCount,
     technicalFailures: records.filter((item) => item.errorCategories?.includes("I_RUNTIME")).length,
