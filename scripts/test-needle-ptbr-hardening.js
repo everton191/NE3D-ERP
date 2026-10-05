@@ -2,6 +2,7 @@
 const assert = require("node:assert/strict");
 const normalizer = require("../src/ai/ptbr-routing-normalizer.js");
 const values = require("../src/ai/deterministic-value-extractor.js");
+const navigation = require("../src/ai/navigation-target-resolver.js");
 const schemas = require("../src/ai/dynamic-tool-schema.js");
 assert.equal(normalizer.normalizeRoutingInput("qnt tem de pla preto").normalizedRoutingInput, "quanto tem de pla preto");
 for (const input of ["qunto tem de pla preto", "qunto tenho de PETG branco", "qunto material tem"]) assert.match(normalizer.normalizeRoutingInput(input).normalizedRoutingInput, /quanto/);
@@ -14,6 +15,12 @@ assert.equal(values.extractDeterministicValues("pedido 123").orderNumber.value, 
 assert.equal(values.extractDeterministicValues("abre pedido da Maria").customerName.value, "Maria");
 assert.equal(values.extractDeterministicValues("pedido da Maria").customerName.value, "Maria");
 assert.equal(values.extractDeterministicValues("pedido da Maria").orderNumber, undefined);
+for (const [input, target] of [["abre estoque", "estoque"], ["vai para o caixa", "caixa"], ["quero abrir produção", "producao"], ["mostra a tela de pedidos", "pedidos"], ["abre o início", "inicio"], ["navega pra calculadora", "calculadora"]]) {
+  assert.equal(navigation.resolveNavigationTarget(input).target, target);
+  assert.equal(values.extractDeterministicValues(input).target.value, target);
+}
+assert.equal(navigation.resolveNavigationTarget("consulta pedido 321"), null);
+assert.equal(navigation.resolveNavigationTarget("o estoque está baixo"), null);
 const orderSchema = schemas.buildNeedleToolSchema({ id: "orders.create", description: "Preparar pedido" }, { deterministicValues: values.extractDeterministicValues("faz 3 chaveiros pra Maria 12 cada") });
 assert.deepEqual(Object.keys(orderSchema.parameters.properties), []); assert.equal(orderSchema.parameters.additionalProperties, false);
 const merged = schemas.mergeNeedleArguments({ customerId: "inventado", unitPrice: 2 }, { unitPrice: { value: 12, source: "USER", confidence: 1 } });
