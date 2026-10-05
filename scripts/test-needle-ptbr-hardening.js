@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const normalizer = require("../src/ai/ptbr-routing-normalizer.js");
 const values = require("../src/ai/deterministic-value-extractor.js");
 const navigation = require("../src/ai/navigation-target-resolver.js");
+const inventoryQuery = require("../src/ai/inventory-query-resolver.js");
 const schemas = require("../src/ai/dynamic-tool-schema.js");
 assert.equal(normalizer.normalizeRoutingInput("qnt tem de pla preto").normalizedRoutingInput, "quanto tem de pla preto");
 for (const input of ["qunto tem de pla preto", "qunto tenho de PETG branco", "qunto material tem"]) assert.match(normalizer.normalizeRoutingInput(input).normalizedRoutingInput, /quanto/);
@@ -21,6 +22,12 @@ for (const [input, target] of [["abre estoque", "estoque"], ["vai para o caixa",
 }
 assert.equal(navigation.resolveNavigationTarget("consulta pedido 321"), null);
 assert.equal(navigation.resolveNavigationTarget("o estoque está baixo"), null);
+for (const [input, query] of [["procura PLA preto", "PLA preto"], ["busca por PETG azul", "PETG azul"], ["pesquisa ABS natural no estoque", "ABS natural"], ["encontra filamento branco", "filamento branco"], ["quero localizar resina cinza", "resina cinza"], ["no estoque procura nylon", "nylon"]]) {
+  assert.equal(inventoryQuery.resolveInventoryQuery(input).query, query);
+  assert.equal(values.extractDeterministicValues(input).query.value, query);
+}
+assert.equal(inventoryQuery.resolveInventoryQuery("quanto tem de PLA preto"), null);
+assert.equal(inventoryQuery.resolveInventoryQuery("qual a previsão do tempo"), null);
 const orderSchema = schemas.buildNeedleToolSchema({ id: "orders.create", description: "Preparar pedido" }, { deterministicValues: values.extractDeterministicValues("faz 3 chaveiros pra Maria 12 cada") });
 assert.deepEqual(Object.keys(orderSchema.parameters.properties), []); assert.equal(orderSchema.parameters.additionalProperties, false);
 const merged = schemas.mergeNeedleArguments({ customerId: "inventado", unitPrice: 2 }, { unitPrice: { value: 12, source: "USER", confidence: 1 } });

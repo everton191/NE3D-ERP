@@ -5,7 +5,7 @@ const crypto = require("crypto");
 const root = path.resolve(__dirname, "..");
 const dist = path.join(root, "dist");
 const includeReleaseDownloads = !process.argv.includes("--without-downloads");
-const buildInputs = ["index.html", "sw.js", "app.js", "style.css", "src/services/ai-runtime-loader.js", "src/ai/action-registry.js", "src/ai/intent-registry.js", "src/ai/action-plan.js", "src/ai/context-snapshot.js", "src/ai/draft-manager.js", "src/ai/tool-registry.js", "src/ai/tool-candidate-retriever.js", "src/ai/needle-shadow-provider.js", "src/ai/lfm-intent-provider.js", "src/ai/ptbr-routing-normalizer.js", "src/ai/navigation-target-resolver.js", "src/ai/deterministic-value-extractor.js", "src/ai/dynamic-tool-schema.js", "src/ai/ptbr-evaluation-corpus.js", "src/ai/needle-persisted-evaluation.js"];
+const buildInputs = ["index.html", "sw.js", "app.js", "style.css", "src/services/ai-runtime-loader.js", "src/ai/action-registry.js", "src/ai/intent-registry.js", "src/ai/action-plan.js", "src/ai/context-snapshot.js", "src/ai/draft-manager.js", "src/ai/tool-registry.js", "src/ai/tool-candidate-retriever.js", "src/ai/needle-shadow-provider.js", "src/ai/lfm-intent-provider.js", "src/ai/ptbr-routing-normalizer.js", "src/ai/navigation-target-resolver.js", "src/ai/inventory-query-resolver.js", "src/ai/deterministic-value-extractor.js", "src/ai/dynamic-tool-schema.js", "src/ai/ptbr-evaluation-corpus.js", "src/ai/needle-persisted-evaluation.js"];
 const buildDigest = crypto.createHash("sha256");
 buildInputs.forEach((relativePath) => { const absolutePath = path.join(root, relativePath); buildDigest.update(relativePath); if (fs.existsSync(absolutePath)) buildDigest.update(fs.readFileSync(absolutePath)); });
 const buildId = `0.1.0-${buildDigest.digest("hex").slice(0, 16)}`;
@@ -94,6 +94,7 @@ const publicSrcFiles = [
   "src/ai/tool-registry.js",
   "src/ai/ptbr-routing-normalizer.js",
   "src/ai/navigation-target-resolver.js",
+  "src/ai/inventory-query-resolver.js",
   "src/ai/deterministic-value-extractor.js",
   "src/ai/dynamic-tool-schema.js",
   "src/ai/ptbr-evaluation-corpus.js",
