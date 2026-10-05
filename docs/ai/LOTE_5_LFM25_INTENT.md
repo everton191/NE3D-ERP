@@ -76,3 +76,17 @@ As métricas de campos foram ampliadas com numeradores e denominadores. No dev f
 Após o congelamento, 21 casos inéditos (três por família) foram executados uma única vez no modo A. Resultado: 80,95% intent, 80,95% tool, 100% schema, média 273 ms, P50 1 ms, P95 870 ms e zero chamada ao LFM. NO_MATCH teve precision 3/7 (42,86%) e recall 3/3 (100%). Campos: coverage 12/21 (57,14%), exact 0/12, precision 0/0, recall 0/12, unexpected 1/1 e missing 12/12.
 
 O resultado preserva a classificação **AINDA NÃO APTO**. A arquitetura A é a melhor base de avaliação, mas quatro intents válidos caíram em fallback e a extração de campos permaneceu insuficiente. Nenhuma alteração foi feita após observar a validação.
+
+## Auditoria do evaluator 65/15 — 2026-10-05
+
+O corpus histórico foi preservado com 80 casos (65 tuning e 15 holdout). A auditoria confirmou que `fieldExtractionAccuracy` já usava somente casos com `expectedFields` não vazio: casos exatos / casos anotados. Portanto, o 0% antigo do holdout significava 0/1, não 0/15. A amostra tinha cobertura de anotação de apenas 1/15 (6,67%), uma ocorrência e um único campo (`customerName`), insuficiente para representar extração de entidades no holdout.
+
+O relatório mantém `fieldExtractionAccuracy` e `fieldCaseCoverage` por compatibilidade e acrescenta `fieldExactCaseAccuracy`, `fieldAnnotationCoverage` e `byField`. Para cada campo, `byField` registra ocorrências esperadas, extraídas, corretas, precisão (`corretas / extraídas`) e recall (`corretas / esperadas`). Isso expõe campos extraídos em casos sem anotação sem alterar o corpus retroativamente.
+
+A causa funcional de `other-013` (`abre pedido da Maria`) era dupla: o extrator determinístico só reconhecia cliente após `pra/para`, enquanto o Needle podia inferir `orderNumber="da Maria"` e a fusão aceitava qualquer texto nesse campo. O extrator passou a reconhecer `pedido da/do <nome>` e a fusão agora aceita `orderNumber` inferido somente em formato numérico. Pedidos numéricos como `pedido 123` continuam aceitos.
+
+No ASUS_I005DA, após sync, build e instalação, a rodada completa em modo C terminou sem falha técnica. Tuning: intent 98,46%, tool 87,69%, schema 100%, caso exato de campos 19/29 (65,52%), precisão agregada legada 42/76 (55,26%) e recall 42/54 (77,78%). Holdout: intent 93,33%, tool 93,33%, schema 93,33%, caso exato 1/1 (100%), precisão agregada legada 1/1 e recall 1/1. `other-013` retornou `customerName="Maria"`, sem `orderNumber`, e registrou `INVALID_FORMAT:orderNumber` para a inferência descartada.
+
+O holdout ainda não é uma régua representativa de campos. Além da única anotação de `customerName`, a rodada encontrou `orderNumber` em `other-007` e `materialName` em `other-014`, ambos sem expectativa anotada. Esses casos precisam de revisão humana em uma futura versão do corpus; não foram reclassificados nesta auditoria para evitar tuning pelo holdout.
+
+Classificação após esta fase: **EVALUATOR CORRIGIDO; AINDA NÃO APTO PARA NOVO CICLO LFM 65/15**. Antes de novo tuning, deve ser criada uma revisão versionada de desenvolvimento/validação com cobertura deliberada por campo e sem reutilizar o holdout observado como tuning. Needle permanece em shadow, `writeExposed: 0` e WRITE bloqueado.

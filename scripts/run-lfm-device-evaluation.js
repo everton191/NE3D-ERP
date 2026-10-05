@@ -93,6 +93,26 @@ function sourceMetrics(records) {
   }));
 }
 
+function fieldMetrics(records) {
+  const names = [...new Set(records.flatMap((item) => [
+    ...Object.keys(item.expectedFields || {}),
+    ...Object.keys(item.extractedFields || {})
+  ]))].sort();
+  return Object.fromEntries(names.map((name) => {
+    const expected = records.filter((item) => Object.hasOwn(item.expectedFields || {}, name));
+    const extracted = records.filter((item) => Object.hasOwn(item.extractedFields || {}, name));
+    const correct = expected.filter((item) => Object.hasOwn(item.extractedFields || {}, name)
+      && String(item.extractedFields[name]) === String(item.expectedFields[name])).length;
+    return [name, {
+      expected: expected.length,
+      extracted: extracted.length,
+      correct,
+      precision: ratioMetric(correct, extracted.length),
+      recall: ratioMetric(correct, expected.length)
+    }];
+  }));
+}
+
 function summarize(records) {
   const fieldCases = records.filter((item) => Object.keys(item.expectedFields || {}).length > 0);
   const expectedFieldCount = fieldCases.reduce((sum, item) => sum + Object.keys(item.expectedFields || {}).length, 0);
@@ -115,6 +135,12 @@ function summarize(records) {
     fieldExtractionAccuracy: percentage(fieldCases.filter((item) => item.fieldCorrect).length, fieldCases.length),
     fieldCaseCoverage: ratioMetric(fieldCases.length, records.length),
     fieldExactCaseAccuracy: ratioMetric(fieldCases.filter((item) => item.fieldCorrect).length, fieldCases.length),
+    fieldAnnotationCoverage: {
+      cases: ratioMetric(fieldCases.length, records.length),
+      expectedOccurrences: expectedFieldCount,
+      distinctExpectedFields: new Set(fieldCases.flatMap((item) => Object.keys(item.expectedFields || {}))).size
+    },
+    byField: fieldMetrics(records),
     fieldPrecision: ratioMetric(correctFieldCount, extractedRelevantCount),
     fieldRecall: ratioMetric(correctFieldCount, expectedFieldCount),
     unexpectedFieldRate: ratioMetric(unexpectedFieldCount, extractedFieldCount),
@@ -251,5 +277,5 @@ async function main() {
   console.log(JSON.stringify({ outputPath, split, metrics: report.metrics }, null, 2));
 }
 
-module.exports = { summarize, sourceMetrics, createRecord };
+module.exports = { summarize, sourceMetrics, fieldMetrics, createRecord };
 if (require.main === module) main().catch((error) => { console.error(error.stack || error.message); process.exitCode = 1; });

@@ -12,6 +12,7 @@ const metrics = summarize([
 
 assert.deepEqual(metrics.fieldCaseCoverage, { numerator: 2, denominator: 3, percentage: 66.67 });
 assert.deepEqual(metrics.fieldExactCaseAccuracy, { numerator: 1, denominator: 2, percentage: 50 });
+assert.deepEqual(metrics.fieldAnnotationCoverage, { cases: { numerator: 2, denominator: 3, percentage: 66.67 }, expectedOccurrences: 3, distinctExpectedFields: 3 });
 assert.deepEqual(metrics.fieldPrecision, { numerator: 2, denominator: 4, percentage: 50 });
 assert.deepEqual(metrics.fieldRecall, { numerator: 2, denominator: 3, percentage: 66.67 });
 assert.deepEqual(metrics.unexpectedFieldRate, { numerator: 1, denominator: 4, percentage: 25 });
@@ -20,4 +21,6 @@ assert.deepEqual(metrics.noMatchPrecision, { numerator: 0, denominator: 0, perce
 assert.deepEqual(metrics.noMatchRecall, { numerator: 0, denominator: 0, percentage: 0 });
 assert.equal(metrics.byResolutionSource.deterministic.count, 1);
 assert.equal(metrics.byResolutionSource.lfm.lfmCalls, 1);
+assert.deepEqual(metrics.byField.customerName, { expected: 1, extracted: 1, correct: 1, precision: { numerator: 1, denominator: 1, percentage: 100 }, recall: { numerator: 1, denominator: 1, percentage: 100 } });
+assert.deepEqual(metrics.byField.orderNumber, { expected: 1, extracted: 1, correct: 0, precision: { numerator: 0, denominator: 1, percentage: 0 }, recall: { numerator: 0, denominator: 1, percentage: 0 } });
 console.log("LFM evaluation field and resolution-source metrics: PASS");
