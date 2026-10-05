@@ -113,6 +113,63 @@ function fieldMetrics(records) {
   }));
 }
 
+function validationFieldMetrics(records) {
+  const annotated = records.filter((item) => (item.evaluatedFields || []).length > 0);
+  const names = [...new Set(annotated.flatMap((item) => item.evaluatedFields || []))].sort();
+  const byField = Object.fromEntries(names.map((name) => {
+    const scoped = annotated.filter((item) => item.evaluatedFields.includes(name));
+    const expected = scoped.filter((item) => Object.hasOwn(item.expectedFields || {}, name));
+    const extracted = scoped.filter((item) => Object.hasOwn(item.extractedFields || {}, name));
+    const correct = expected.filter((item) => Object.hasOwn(item.extractedFields || {}, name)
+      && String(item.extractedFields[name]) === String(item.expectedFields[name])).length;
+    const falsePositiveCases = extracted.filter((item) => !Object.hasOwn(item.expectedFields || {}, name)
+      || String(item.extractedFields[name]) !== String(item.expectedFields[name])).map((item) => item.caseId);
+    const falseNegativeCases = expected.filter((item) => !Object.hasOwn(item.extractedFields || {}, name)
+      || String(item.extractedFields[name]) !== String(item.expectedFields[name])).map((item) => item.caseId);
+    return [name, {
+      evaluated: scoped.length,
+      expected: expected.length,
+      extracted: extracted.length,
+      correct,
+      precision: ratioMetric(correct, extracted.length),
+      recall: ratioMetric(correct, expected.length),
+      falsePositives: falsePositiveCases.length,
+      falseNegatives: falseNegativeCases.length,
+      falsePositiveCases,
+      falseNegativeCases
+    }];
+  }));
+  const totalExpected = Object.values(byField).reduce((sum, item) => sum + item.expected, 0);
+  const totalExtracted = Object.values(byField).reduce((sum, item) => sum + item.extracted, 0);
+  const totalCorrect = Object.values(byField).reduce((sum, item) => sum + item.correct, 0);
+  const exact = annotated.filter((item) => item.evaluatedFields.every((name) => {
+    const expected = item.expectedFields || {};
+    const extracted = item.extractedFields || {};
+    return Object.hasOwn(expected, name)
+      ? Object.hasOwn(extracted, name) && String(extracted[name]) === String(expected[name])
+      : !Object.hasOwn(extracted, name);
+  })).length;
+  const precision = ratioMetric(totalCorrect, totalExtracted);
+  const recall = ratioMetric(totalCorrect, totalExpected);
+  const f1 = precision.denominator && recall.denominator && precision.percentage + recall.percentage
+    ? Number(((2 * precision.percentage * recall.percentage) / (precision.percentage + recall.percentage)).toFixed(2))
+    : 0;
+  return {
+    annotatedCases: annotated.length,
+    annotationCoverage: ratioMetric(annotated.length, records.length),
+    exactCaseMatch: ratioMetric(exact, annotated.length),
+    totalExpected,
+    totalExtracted,
+    totalCorrect,
+    microPrecision: precision,
+    microRecall: recall,
+    microF1: f1,
+    falsePositives: totalExtracted - totalCorrect,
+    falseNegatives: totalExpected - totalCorrect,
+    byField
+  };
+}
+
 function summarize(records) {
   const fieldCases = records.filter((item) => Object.keys(item.expectedFields || {}).length > 0);
   const expectedFieldCount = fieldCases.reduce((sum, item) => sum + Object.keys(item.expectedFields || {}).length, 0);
@@ -141,6 +198,7 @@ function summarize(records) {
       distinctExpectedFields: new Set(fieldCases.flatMap((item) => Object.keys(item.expectedFields || {}))).size
     },
     byField: fieldMetrics(records),
+    fieldValidation: validationFieldMetrics(records),
     fieldPrecision: ratioMetric(correctFieldCount, extractedRelevantCount),
     fieldRecall: ratioMetric(correctFieldCount, expectedFieldCount),
     unexpectedFieldRate: ratioMetric(unexpectedFieldCount, extractedFieldCount),
@@ -234,7 +292,7 @@ async function runCase(socketUrl, item) {
 }
 
 function createRecord(item, result, error = null) {
-  if (error) return { caseId: item.id, datasetSplit: item.split, input: item.rawInput, expectedIntent: item.expectedIntent, predictedIntent: "", intentCorrect: false, expectedTool: item.expectedTool || "", candidateTools: [], selectedTool: "", toolCorrect: false, schemaValid: false, parsedOutput: null, expectedFields: item.expectedFields || {}, extractedFields: {}, missingFields: Object.keys(item.expectedFields || {}), unexpectedFields: [], confidence: null, latencyMs: 0, errorType: String(error.message || error), rawModelOutput: "", deterministicNotes: [], errorCategories: ["I_RUNTIME"] };
+  if (error) return { caseId: item.id, datasetSplit: item.split, input: item.rawInput, expectedIntent: item.expectedIntent, predictedIntent: "", intentCorrect: false, expectedTool: item.expectedTool || "", candidateTools: [], selectedTool: "", toolCorrect: false, schemaValid: false, parsedOutput: null, expectedFields: item.expectedFields || {}, evaluatedFields: item.evaluatedFields || Object.keys(item.expectedFields || {}), extractedFields: {}, missingFields: Object.keys(item.expectedFields || {}), unexpectedFields: [], confidence: null, latencyMs: 0, errorType: String(error.message || error), rawModelOutput: "", deterministicNotes: [], errorCategories: ["I_RUNTIME"] };
   const expectedFields = item.expectedFields || {};
   const extractedFields = result.extractedFields || {};
   const missingFields = Object.keys(expectedFields).filter((key) => !(key in extractedFields) || String(extractedFields[key]) !== String(expectedFields[key]));
@@ -254,7 +312,7 @@ function createRecord(item, result, error = null) {
     caseId: item.id, datasetSplit: item.split, input: item.rawInput,
     expectedIntent: item.expectedIntent, predictedIntent, intentCorrect,
     expectedTool: item.expectedTool || "", candidateTools: result.retrieval?.candidateTools || [], selectedTool, toolCorrect,
-    schemaValid, parsedOutput: result.parsed, expectedFields, extractedFields, missingFields, unexpectedFields,
+    schemaValid, parsedOutput: result.parsed, expectedFields, evaluatedFields: item.evaluatedFields || Object.keys(expectedFields), extractedFields, missingFields, unexpectedFields,
     confidence: result.parsed?.confidence ?? null, latencyMs: result.latencyMs, totalLatencyMs: result.latencyMs, lfmLatencyMs: result.lfmLatencyMs || 0, retrieverLatencyMs: result.retrieverLatencyMs || 0, extractorLatencyMs: result.extractorLatencyMs || 0, generatedTokens: result.generatedTokens ?? null, promptApproxChars: result.promptApproxChars || 0, resolutionSource: result.resolutionSource, deterministicRuleId: result.deterministicRuleId || "", candidateSource: result.candidateSource || "", candidateCount: result.candidates.length, candidateIntents: result.candidates, lfmInvoked: result.lfmInvoked === true, fallbackReason: result.fallbackReason || "", decisionError: result.generated?.error || "", errorType: "",
     rawModelOutput: result.rawModelOutput, rawNeedleOutput: result.needle?.rawModelOutput || "",
     deterministicNotes: [`retrieval=${result.retrieval?.status || ""}`, `lfmCandidates=${result.candidates.join(",")}`, `needle=${result.needle?.reason || "executed"}`, ...(result.needle?.conflicts || [])],
@@ -264,7 +322,8 @@ function createRecord(item, result, error = null) {
 
 async function main() {
   const target = await targetForApp();
-  const report = { schemaVersion: 2, runId, datasetId, modelId: "lfm2.5-1.2b-q4_0", split, evaluationMode: mode, startedAt: new Date().toISOString(), completedAt: null, frozenRuntimeCommit: adb("shell", "dumpsys", "package", PACKAGE).match(/versionName=([^\s]+)/)?.[1] || "", writeExposed: 0, records: [], metrics: null };
+  const buildId = await evaluate(target.webSocketDebuggerUrl, "window.SIMPLIFICA_BUILD_ID || 'unknown'", 5000).catch(() => "unknown");
+  const report = { schemaVersion: 2, runId, datasetId, datasetVersion: corpus.version || datasetId, modelId: "lfm2.5-1.2b-q4_0", runtimeConfiguration: { mode, topK: 3, writeExposed: 0 }, split, evaluationMode: mode, startedAt: new Date().toISOString(), completedAt: null, gitCommit: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8", cwd: path.resolve(__dirname, "..") }).trim(), appVersion: adb("shell", "dumpsys", "package", PACKAGE).match(/versionName=([^\s]+)/)?.[1] || "", buildId, device: { model: adb("shell", "getprop", "ro.product.model"), serial: adb("get-serialno"), sdk: adb("shell", "getprop", "ro.build.version.sdk") }, writeExposed: 0, records: [], metrics: null };
   save(report);
   for (const [index, item] of cases.entries()) {
     let result; let error;
@@ -277,5 +336,5 @@ async function main() {
   console.log(JSON.stringify({ outputPath, split, metrics: report.metrics }, null, 2));
 }
 
-module.exports = { summarize, sourceMetrics, fieldMetrics, createRecord };
+module.exports = { summarize, sourceMetrics, fieldMetrics, validationFieldMetrics, createRecord };
 if (require.main === module) main().catch((error) => { console.error(error.stack || error.message); process.exitCode = 1; });

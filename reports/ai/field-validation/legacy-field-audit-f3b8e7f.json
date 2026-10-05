@@ -1,0 +1,350 @@
+{
+  "schemaVersion": 1,
+  "auditId": "legacy-field-audit-f3b8e7f",
+  "sourceCommit": "f3b8e7f",
+  "legacyCorpus": {
+    "total": 80,
+    "tuning": 65,
+    "holdout": 15
+  },
+  "classificationLegend": {
+    "A": "true positive without annotation",
+    "B": "false positive",
+    "C": "ambiguous; human review required"
+  },
+  "supportedFields": [
+    "customerName",
+    "description",
+    "materialName",
+    "orderNumber",
+    "quantity",
+    "query",
+    "target",
+    "timeMinutes",
+    "unitPrice",
+    "weightGrams"
+  ],
+  "byField": {
+    "customerName": {
+      "expected": 11,
+      "correct": 11,
+      "incorrect": 0,
+      "unannotatedExtractions": 4,
+      "falsePositives": 4,
+      "falseNegatives": 0,
+      "occurrences": [
+        {
+          "caseId": "nav-005",
+          "split": "tuning",
+          "input": "abre o caixa pra começar o dia",
+          "extracted": "começar",
+          "classification": "B",
+          "reason": "preposition pra introduces an action, not a customer"
+        },
+        {
+          "caseId": "order-015",
+          "split": "tuning",
+          "input": "adiciona mais 2 nesse pedido",
+          "extracted": "Adiciona",
+          "classification": "B",
+          "reason": "Adiciona is an imperative verb, not a customer"
+        },
+        {
+          "caseId": "cash-004",
+          "split": "tuning",
+          "input": "abre caixa para começar o dia",
+          "extracted": "começar",
+          "classification": "B",
+          "reason": "preposition para introduces an action, not a customer"
+        },
+        {
+          "caseId": "prod-005",
+          "split": "tuning",
+          "input": "bota pra produzir",
+          "extracted": "produzir",
+          "classification": "B",
+          "reason": "produzir is an action, not a customer"
+        }
+      ]
+    },
+    "description": {
+      "expected": 7,
+      "correct": 5,
+      "incorrect": 2,
+      "unannotatedExtractions": 6,
+      "falsePositives": 8,
+      "falseNegatives": 2,
+      "occurrences": [
+        {
+          "caseId": "order-015",
+          "split": "tuning",
+          "input": "adiciona mais 2 nesse pedido",
+          "extracted": "nesse pedido",
+          "classification": "B",
+          "reason": "nesse pedido is workflow context, not an item description"
+        },
+        {
+          "caseId": "calc-002",
+          "split": "tuning",
+          "input": "calcula 150 gramas e 45 minutos",
+          "extracted": "minuto",
+          "classification": "B",
+          "reason": "minute is a duration unit, not an item description"
+        },
+        {
+          "caseId": "calc-004",
+          "split": "tuning",
+          "input": "1kg 3 horas",
+          "extracted": "hora",
+          "classification": "B",
+          "reason": "hour is a duration unit, not an item description"
+        },
+        {
+          "caseId": "calc-007",
+          "split": "tuning",
+          "input": "2 horas e meia",
+          "extracted": "horas e meia",
+          "classification": "B",
+          "reason": "duration text is not an item description"
+        },
+        {
+          "caseId": "calc-010",
+          "split": "tuning",
+          "input": "15 por unidade",
+          "extracted": "por unidade",
+          "classification": "B",
+          "reason": "unit-price wording is not an item description"
+        },
+        {
+          "caseId": "cash-006",
+          "split": "tuning",
+          "input": "sacar 20 do caixa",
+          "extracted": "do caixa",
+          "classification": "B",
+          "reason": "cash context is not an item description"
+        }
+      ]
+    },
+    "materialName": {
+      "expected": 4,
+      "correct": 3,
+      "incorrect": 1,
+      "unannotatedExtractions": 4,
+      "falsePositives": 1,
+      "falseNegatives": 1,
+      "occurrences": [
+        {
+          "caseId": "inv-003",
+          "split": "tuning",
+          "input": "tem pla branco ai",
+          "extracted": "pla branco ai",
+          "classification": "A",
+          "reason": "PLA branco is an explicit material reference"
+        },
+        {
+          "caseId": "inv-008",
+          "split": "tuning",
+          "input": "adiciona 1kg de PLA",
+          "extracted": "PLA",
+          "classification": "A",
+          "reason": "PLA is an explicit material reference"
+        },
+        {
+          "caseId": "inv-013",
+          "split": "tuning",
+          "input": "tem quanto de ABS",
+          "extracted": "ABS",
+          "classification": "A",
+          "reason": "ABS is an explicit material reference"
+        },
+        {
+          "caseId": "other-014",
+          "split": "holdout",
+          "input": "vc tem pla preto",
+          "extracted": "pla preto",
+          "classification": "A",
+          "reason": "PLA preto is an explicit material reference"
+        }
+      ]
+    },
+    "orderNumber": {
+      "expected": 2,
+      "correct": 2,
+      "incorrect": 0,
+      "unannotatedExtractions": 1,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "occurrences": [
+        {
+          "caseId": "other-007",
+          "split": "holdout",
+          "input": "gera pdf pedido 12",
+          "extracted": "12",
+          "classification": "A",
+          "reason": "pedido 12 explicitly contains a valid numeric order reference"
+        }
+      ]
+    },
+    "quantity": {
+      "expected": 8,
+      "correct": 7,
+      "incorrect": 1,
+      "unannotatedExtractions": 5,
+      "falsePositives": 6,
+      "falseNegatives": 1,
+      "occurrences": [
+        {
+          "caseId": "calc-002",
+          "split": "tuning",
+          "input": "calcula 150 gramas e 45 minutos",
+          "extracted": 45,
+          "classification": "B",
+          "reason": "duration value was misclassified as item quantity"
+        },
+        {
+          "caseId": "calc-004",
+          "split": "tuning",
+          "input": "1kg 3 horas",
+          "extracted": 3,
+          "classification": "B",
+          "reason": "duration value was misclassified as item quantity"
+        },
+        {
+          "caseId": "calc-007",
+          "split": "tuning",
+          "input": "2 horas e meia",
+          "extracted": 2,
+          "classification": "B",
+          "reason": "duration value was misclassified as item quantity"
+        },
+        {
+          "caseId": "calc-010",
+          "split": "tuning",
+          "input": "15 por unidade",
+          "extracted": 15,
+          "classification": "B",
+          "reason": "unit-price value was misclassified as item quantity"
+        },
+        {
+          "caseId": "cash-006",
+          "split": "tuning",
+          "input": "sacar 20 do caixa",
+          "extracted": 20,
+          "classification": "B",
+          "reason": "withdrawal amount was misclassified as item quantity"
+        }
+      ]
+    },
+    "query": {
+      "expected": 0,
+      "correct": 0,
+      "incorrect": 0,
+      "unannotatedExtractions": 5,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "occurrences": [
+        {
+          "caseId": "inv-003",
+          "split": "tuning",
+          "input": "tem pla branco ai",
+          "extracted": "tem pla branco",
+          "classification": "C",
+          "reason": "model-derived value lacks an independent deterministic oracle"
+        },
+        {
+          "caseId": "inv-004",
+          "split": "tuning",
+          "input": "procura abs vermelho",
+          "extracted": "procura abs",
+          "classification": "C",
+          "reason": "model-derived value lacks an independent deterministic oracle"
+        },
+        {
+          "caseId": "inv-005",
+          "split": "tuning",
+          "input": "ache petg",
+          "extracted": "ache petg",
+          "classification": "C",
+          "reason": "model-derived value lacks an independent deterministic oracle"
+        },
+        {
+          "caseId": "inv-011",
+          "split": "tuning",
+          "input": "buscar PLA preto",
+          "extracted": "PLA preto",
+          "classification": "C",
+          "reason": "model-derived value lacks an independent deterministic oracle"
+        },
+        {
+          "caseId": "inv-012",
+          "split": "tuning",
+          "input": "procura material PETG",
+          "extracted": "procura material PETG",
+          "classification": "C",
+          "reason": "model-derived value lacks an independent deterministic oracle"
+        }
+      ]
+    },
+    "target": {
+      "expected": 0,
+      "correct": 0,
+      "incorrect": 0,
+      "unannotatedExtractions": 3,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "occurrences": [
+        {
+          "caseId": "nav-002",
+          "split": "tuning",
+          "input": "abre caixa",
+          "extracted": "caixa",
+          "classification": "C",
+          "reason": "model-derived value lacks an independent deterministic oracle"
+        },
+        {
+          "caseId": "nav-003",
+          "split": "tuning",
+          "input": "abre producao",
+          "extracted": "producao",
+          "classification": "C",
+          "reason": "model-derived value lacks an independent deterministic oracle"
+        },
+        {
+          "caseId": "cash-003",
+          "split": "tuning",
+          "input": "abre o caixa",
+          "extracted": "caixa",
+          "classification": "C",
+          "reason": "model-derived value lacks an independent deterministic oracle"
+        }
+      ]
+    },
+    "timeMinutes": {
+      "expected": 8,
+      "correct": 7,
+      "incorrect": 1,
+      "unannotatedExtractions": 0,
+      "falsePositives": 1,
+      "falseNegatives": 1,
+      "occurrences": []
+    },
+    "unitPrice": {
+      "expected": 8,
+      "correct": 2,
+      "incorrect": 0,
+      "unannotatedExtractions": 0,
+      "falsePositives": 0,
+      "falseNegatives": 6,
+      "occurrences": []
+    },
+    "weightGrams": {
+      "expected": 6,
+      "correct": 6,
+      "incorrect": 0,
+      "unannotatedExtractions": 0,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "occurrences": []
+    }
+  }
+}
