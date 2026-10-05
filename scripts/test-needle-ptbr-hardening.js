@@ -4,6 +4,7 @@ const normalizer = require("../src/ai/ptbr-routing-normalizer.js");
 const values = require("../src/ai/deterministic-value-extractor.js");
 const navigation = require("../src/ai/navigation-target-resolver.js");
 const inventoryQuery = require("../src/ai/inventory-query-resolver.js");
+const orderItem = require("../src/ai/order-item-resolver.js");
 const schemas = require("../src/ai/dynamic-tool-schema.js");
 assert.equal(normalizer.normalizeRoutingInput("qnt tem de pla preto").normalizedRoutingInput, "quanto tem de pla preto");
 for (const input of ["qunto tem de pla preto", "qunto tenho de PETG branco", "qunto material tem"]) assert.match(normalizer.normalizeRoutingInput(input).normalizedRoutingInput, /quanto/);
@@ -28,6 +29,11 @@ for (const [input, query] of [["procura PLA preto", "PLA preto"], ["busca por PE
 }
 assert.equal(inventoryQuery.resolveInventoryQuery("quanto tem de PLA preto"), null);
 assert.equal(inventoryQuery.resolveInventoryQuery("qual a previsão do tempo"), null);
+for (const [input, quantity, description] of [["faz 3 chaveiros pra Maria 12 cada", 3, "chaveiro"], ["novo pedido Maria 6 chaveiros 10 reais", 6, "chaveiro"], ["pedido pra Roberta com 2 porta escovinha de 18 reais", 2, "porta escovinha"], ["faz um suporte pra Bia", 1, "suporte"], ["faz zero chaveiros pra Maria", 0, "chaveiro"], ["faz chaveiros por doze reais", null, "chaveiro"]]) {
+  const item = orderItem.resolveOrderItem(input); assert.equal(item.quantity, quantity); assert.equal(item.description, description);
+}
+assert.equal(orderItem.resolveOrderItem("Maria tem 3 pedidos"), null);
+assert.equal(orderItem.resolveOrderItem("calcula 150 gramas e 45 minutos"), null);
 const orderSchema = schemas.buildNeedleToolSchema({ id: "orders.create", description: "Preparar pedido" }, { deterministicValues: values.extractDeterministicValues("faz 3 chaveiros pra Maria 12 cada") });
 assert.deepEqual(Object.keys(orderSchema.parameters.properties), []); assert.equal(orderSchema.parameters.additionalProperties, false);
 const merged = schemas.mergeNeedleArguments({ customerId: "inventado", unitPrice: 2 }, { unitPrice: { value: 12, source: "USER", confidence: 1 } });

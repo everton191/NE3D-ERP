@@ -39,3 +39,21 @@ Field-validation-v1 after block 1 → after block 2:
 - technical failures: 0; `writeExposed=0`.
 
 Both query-negative cases remained without a query.
+
+## Block 3 — order description and quantity
+
+Root cause: a generic `number + free text` expression treated any later number as an item quantity. Prices could replace quantities, `reais` could become the description, and unrelated numeric phrases could be classified as order creation.
+
+Fix: `order-item-resolver.js` recognizes only bounded order structures: explicit create verbs, customer-first order phrases, bare item phrases that include a customer destination, and the active-order continuation `adiciona mais N nesse pedido`. It stops descriptions before customer and price clauses. CandidateRetriever uses the same structure, so extraction and routing cannot drift independently.
+
+Field-validation-v1 after block 2 → after block 3:
+
+- description precision/recall: 5/10 → 10/10;
+- quantity precision/recall: 6/10 → 10/10;
+- exact match: 49/60 (81.67%) → 55/60 (91.67%);
+- micro precision: 69/80 (86.25%) → 78/82 (95.12%);
+- micro recall: 69/80 (86.25%) → 78/80 (97.5%);
+- micro F1: 86.25% → 96.3%;
+- technical failures: 0; `writeExposed=0`.
+
+The legacy 65/15 evaluation completed without technical failures. The holdout case `other-013` retained `customerName=Maria`, and order-number extraction remained 2/2 in tuning.
