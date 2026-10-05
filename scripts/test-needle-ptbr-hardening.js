@@ -5,6 +5,7 @@ const values = require("../src/ai/deterministic-value-extractor.js");
 const navigation = require("../src/ai/navigation-target-resolver.js");
 const inventoryQuery = require("../src/ai/inventory-query-resolver.js");
 const orderItem = require("../src/ai/order-item-resolver.js");
+const orderCustomer = require("../src/ai/order-customer-resolver.js"); global.SimplificaOrderCustomerResolver = orderCustomer;
 const schemas = require("../src/ai/dynamic-tool-schema.js");
 assert.equal(normalizer.normalizeRoutingInput("qnt tem de pla preto").normalizedRoutingInput, "quanto tem de pla preto");
 for (const input of ["qunto tem de pla preto", "qunto tenho de PETG branco", "qunto material tem"]) assert.match(normalizer.normalizeRoutingInput(input).normalizedRoutingInput, /quanto/);
@@ -34,8 +35,13 @@ for (const [input, quantity, description] of [["faz 3 chaveiros pra Maria 12 cad
 }
 assert.equal(orderItem.resolveOrderItem("Maria tem 3 pedidos"), null);
 assert.equal(orderItem.resolveOrderItem("calcula 150 gramas e 45 minutos"), null);
+for (const [input, expected] of [["abre pedido da Maria", "Maria"], ["pedido 123 da Maria", "Maria"], ["para Carla faz 4 miniaturas", "Carla"], ["faz igual o último da Maria", "Maria"]]) assert.equal(orderCustomer.resolveOrderCustomer(input)?.customerName, expected, input);
+for (const input of ["abre pedido da impressora", "pedido da Pla", "adiciona mais 2 nesse pedido", "vai para o caixa"]) assert.equal(orderCustomer.resolveOrderCustomer(input), null, input);
 const orderSchema = schemas.buildNeedleToolSchema({ id: "orders.create", description: "Preparar pedido" }, { deterministicValues: values.extractDeterministicValues("faz 3 chaveiros pra Maria 12 cada") });
 assert.deepEqual(Object.keys(orderSchema.parameters.properties), []); assert.equal(orderSchema.parameters.additionalProperties, false);
+const continuationSchema = schemas.buildNeedleToolSchema({ id: "orders.create", description: "Preparar pedido" }, { deterministicValues: values.extractDeterministicValues("adiciona mais 2 nesse pedido") });
+assert.equal(Object.hasOwn(continuationSchema.parameters.properties, "customerName"), false);
+assert.equal(Object.hasOwn(continuationSchema.parameters.properties, "description"), false);
 const merged = schemas.mergeNeedleArguments({ customerId: "inventado", unitPrice: 2 }, { unitPrice: { value: 12, source: "USER", confidence: 1 } });
 assert(merged.conflicts.includes("UNRESOLVED_ID:customerId")); assert(merged.conflicts.includes("ARGUMENT_CONFLICT:unitPrice"));
 const financialHallucination = schemas.mergeNeedleArguments({ unitPrice: 2, discount: 5, total: 10 });

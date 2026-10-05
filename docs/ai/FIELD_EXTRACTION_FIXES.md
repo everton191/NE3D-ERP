@@ -57,3 +57,22 @@ Field-validation-v1 after block 2 → after block 3:
 - technical failures: 0; `writeExposed=0`.
 
 The legacy 65/15 evaluation completed without technical failures. The holdout case `other-013` retained `customerName=Maria`, and order-number extraction remained 2/2 in tuning.
+
+## Block 4 — order customer and combined reference
+
+Root cause: the old customer expression was case-insensitive even inside its uppercase character class. That allowed common nouns and model guesses (`impressora`, `Adiciona`) to become customer names, while the pattern could not read a customer after a numeric order reference.
+
+Fix: `order-customer-resolver.js` accepts only explicit order/customer structures and a genuinely uppercase proper-name token, with reserved material/printer nouns rejected. It supports `pedido 123 da Maria` as `orderNumber=123` plus `customerName=Maria`. The execution contract of `orders.get` remains unchanged: `orderNumber` resolves to the real `orderId`; `customerName` is a parsed qualifier, not an invented action argument. For `orders.create`, customer and description remain declared supported fields but are deterministic-only in the Needle schema, preventing model-only hallucinations when the user did not provide them.
+
+Field-validation-v1 after block 3 → final:
+
+- customerName precision/recall: 17/19 and 17/18 → 18/18 and 18/18;
+- description precision/recall: unchanged at 10/10;
+- orderNumber precision/recall: unchanged at 4/4;
+- exact match: 55/60 (91.67%) → 58/60 (96.67%);
+- micro precision: 78/82 (95.12%) → 79/81 (97.53%);
+- micro recall: 78/80 (97.5%) → 79/80 (98.75%);
+- micro F1: 96.3% → 98.14%;
+- technical failures: 0; `writeExposed=0`.
+
+The two remaining non-exact cases are outside these four blocks: `field-material-002` (material value mismatch) and `field-calculation-008` (unexpected `timeMinutes`).
