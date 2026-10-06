@@ -1080,6 +1080,7 @@ let appConfig = carregarObjeto("appConfig", {
   compactMode: false,
   interfaceDensity: "default",
   interfaceMode: "simplifica",
+  homeLayout: "simple",
   motionLevel: "medium",
   showBrandInHeader: true,
   defaultMargin: 100,
@@ -1232,6 +1233,32 @@ function isProfissionalMode() {
 
 function getInterfaceModeLabel(mode = getInterfaceMode()) {
   return window.SimplificaConfigInterfaceMode.getInterfaceModeLabel(mode, getConfigInterfaceModeDeps());
+}
+
+function getHomeLayout() {
+  return window.SimplificaHomeLayout.resolve({
+    storedValue: window.SimplificaHomeLayout.read(localStorage),
+    configValue: appConfig.homeLayout
+  });
+}
+
+appConfig.homeLayout = window.SimplificaHomeLayout.persist(getHomeLayout(), {
+  storage: localStorage,
+  config: appConfig
+});
+
+function alterarHomeLayout(layout, { render = true, notify = true } = {}) {
+  const anterior = getHomeLayout();
+  const proximo = window.SimplificaHomeLayout.persist(layout, {
+    storage: localStorage,
+    config: appConfig,
+    save: salvarDados
+  });
+  if (notify && anterior !== proximo) {
+    mostrarToast(proximo === "carousel" ? "Home em carrossel ativada." : "Home simples ativada.", "sucesso", 2800);
+  }
+  if (render) renderizarPreservandoScroll();
+  return proximo;
 }
 
 
@@ -9566,7 +9593,7 @@ function getAppUiRenderersDeps() {
     getTelaAtual: () => telaAtual, setTelaAtual: (value) => (telaAtual = value), setTelaAnterior: (value) => (telaAnterior = value), getAdminLogado: () => adminLogado,
     getUsuarioAtual, getAssistantUiComponents3d, getEstadoVisualSecretariaIa, getDescricaoEstadoSecretariaIa, renderUiIcon, renderAuthPublica, configurarReposicionamentoAtalhoAssistenteIa, aplicarPosicaoAtalhoAssistenteIa,
     ensureAppShellLayers, garantirSubmenusMobileComoTelas, applyViewportModeClasses, aplicarPersonalizacao, renderTravaLocal, renderCalculadoraFlutuante, sincronizarBannersSeNecessario, focarCampoSenha,
-    isTelaPublica, isSuperAdmin, isModoErpSuperadminAtivo, normalizarAbaSuperAdmin, deveMostrarOnboarding, getInterfaceMode, atualizarArvoreInterface, renderMobile, renderDesktop, getChaveEstruturalInterface,
+    isTelaPublica, isSuperAdmin, isModoErpSuperadminAtivo, normalizarAbaSuperAdmin, deveMostrarOnboarding, getInterfaceMode, getHomeLayout, atualizarArvoreInterface, renderMobile, renderDesktop, getChaveEstruturalInterface,
     compactarBarrasAcoesMobile, sincronizarShellUiV3, renderizarFabEstoqueGlobal, renderizarAtalhoSecretariaIaGlobal, configurarFechamentoMenusEstoque, configurarAcoesCadastroImpressora, configurarAcoesPerfil, atualizarMenu,
     ajustarJanelasDashboardAoWorkspace, hidratarLojaPublicaSeNecessario, preencherImpressoras, preencherMateriaisCalculadora, atualizarVisualTaxaExtraCalculadora, atualizarResumoLoteCalculadora,
     getSyncConfig: () => syncConfig, hidratarImpressorasSeNecessario, getBambuLanPlugin, hidratarBambuLanState, sincronizarPreferenciaModoInterface, aplicarMotionSequenciado, hidratarLojaOnlineAdmin,
@@ -9634,6 +9661,7 @@ function getChaveEstruturalInterface(mobile = false) {
     telaAtual,
     mobile ? "mobile" : "desktop",
     getInterfaceMode(),
+    getHomeLayout(),
     usuario?.id || usuario?.supabaseUserId || (adminLogado ? "admin" : "visitante"),
     window.__simplificaLocalLockActive ? "bloqueado" : "liberado"
   ].join(":");
@@ -18703,8 +18731,14 @@ function renderDashboard() {
   agendarAnalyticsDashboard(analytics);
   const cards = getDashboardKpiCards(stats, totaisCaixa);
   const payload = { stats, totaisCaixa, plano, analytics, cards };
-  if (isSimplificaMode()) return renderDashboardSimplifica(payload);
-  return isWebPwaProfile() && !isMobile() ? renderDashboardPwaTechnical(payload) : renderDashboardApkSimple(payload);
+  return renderHomeShell(payload);
+}
+
+function renderHomeShell(payload) {
+  if (getHomeLayout() === "simple") return renderDashboardSimplifica(payload);
+  return isWebPwaProfile() && !isMobile() && !isSimplificaMode()
+    ? renderDashboardPwaTechnical(payload)
+    : renderDashboardApkSimple(payload);
 }
 
 function labelStatusPedido(status = "aberto") {

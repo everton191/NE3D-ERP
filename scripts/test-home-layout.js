@@ -1,0 +1,52 @@
+"use strict";
+
+const assert = require("assert");
+const fs = require("fs");
+const path = require("path");
+
+const root = path.resolve(__dirname, "..");
+const layoutApi = require(path.join(root, "src", "features", "home", "home-layout.js"));
+const appSource = fs.readFileSync(path.join(root, "app.js"), "utf8");
+const indexSource = fs.readFileSync(path.join(root, "index.html"), "utf8");
+const prepareSource = fs.readFileSync(path.join(root, "scripts", "prepare-web.js"), "utf8");
+
+const tests = [];
+function test(name, fn) { tests.push({ name, fn }); }
+
+test("novos usuários recebem Home simples", () => {
+  assert.strictEqual(layoutApi.resolve(), "simple");
+  assert.strictEqual(layoutApi.normalize("desconhecido"), "simple");
+});
+
+test("os dois layouts aceitos permanecem explícitos", () => {
+  assert.strictEqual(layoutApi.normalize("simple"), "simple");
+  assert.strictEqual(layoutApi.normalize("carousel"), "carousel");
+});
+
+test("preferência local válida vence o fallback da configuração", () => {
+  assert.strictEqual(layoutApi.resolve({ storedValue: "carousel", configValue: "simple" }), "carousel");
+});
+
+test("persistência não altera preferências existentes do carrossel", () => {
+  const writes = [];
+  const config = { homeCarouselPreferences: { visibleCardIds: ["orders", "cash"] } };
+  layoutApi.persist("simple", { storage: { setItem: (...args) => writes.push(args) }, config });
+  assert.deepStrictEqual(config.homeCarouselPreferences, { visibleCardIds: ["orders", "cash"] });
+  assert.strictEqual(config.homeLayout, "simple");
+  assert.deepStrictEqual(writes, [[layoutApi.STORAGE_KEY, "simple"]]);
+});
+
+test("integração carrega o módulo antes do aplicativo e inclui o build", () => {
+  assert(indexSource.indexOf("/src/features/home/home-layout.js") < indexSource.indexOf("/app.js"));
+  assert(prepareSource.includes('"src/features/home/home-layout.js"'));
+  assert(appSource.includes('homeLayout: "simple"'));
+  assert(appSource.includes('function renderHomeShell(payload)'));
+});
+
+let passed = 0;
+for (const { name, fn } of tests) {
+  fn();
+  passed += 1;
+  console.log(`PASS ${name}`);
+}
+console.log(`PASS home layout: ${passed}/${tests.length}`);
