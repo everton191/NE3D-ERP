@@ -10510,7 +10510,7 @@ function renderTopbar() {
         <span class="muted">${escaparHtml(subtitulo)}</span>
       </div>
       <label class="topbar-search search-compact" onclick="expandirBuscaGlobal(this)">
-        <button class="search-action-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
+        <button class="search-action-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app" aria-label="Abrir pesquisa"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
         <input data-search-context="global" placeholder="Buscar pedidos, clientes, materiais ou valores..." oninput="atualizarAutocompletePesquisa(this)" onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this); agendarFechamentoAutocompletePesquisa(this)">
       </label>
       <div class="topbar-user">
@@ -13029,7 +13029,7 @@ function renderPromocoes3d() {
       <section class="promotions-3d-search-card card">
         <div class="promotions-3d-search-row">
           <label class="promotions-3d-search">
-            <span>${renderUiIcon("search")}</span>
+            <span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span>
             <input type="search" aria-label="Pesquisar promoções" value="${escaparAttr(promotions3dState.query)}" placeholder="Ex.: filamento PLA, resina ou impressora" oninput="pesquisarPromocoes3d(this.value)">
           </label>
           <button class="promotions-3d-filter-toggle" type="button" aria-label="Abrir filtros e monitor" aria-expanded="false" aria-controls="promotions3dFilterPanel" onclick="alternarPainelFiltrosPromocoes3d(this)">
@@ -13355,8 +13355,8 @@ function renderDashboardHomeHeader() {
       </div>
       <div class="dashboard-header-actions">
         ${renderDashboardInterfaceModeButton()}
-        <label class="dashboard-search search-compact" onclick="this.closest('.dashboard-home-header').classList.add('is-global-search-open');expandirBuscaGlobal(this)">
-          <button class="search-action-button" type="button" tabindex="-1" onpointerdown="event.preventDefault()" onclick="event.preventDefault();event.stopPropagation();this.closest('.dashboard-home-header').classList.add('is-global-search-open');expandirBuscaGlobal(this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
+        <label class="dashboard-search search-compact home-global-search" onclick="this.closest('.dashboard-home-header').classList.add('is-global-search-open');expandirBuscaGlobal(this)">
+          <button class="search-action-button" type="button" tabindex="-1" onpointerdown="event.preventDefault()" onclick="event.preventDefault();event.stopPropagation();this.closest('.dashboard-home-header').classList.add('is-global-search-open');expandirBuscaGlobal(this)" title="Buscar no app" aria-label="Abrir pesquisa"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
           <input data-search-context="global" placeholder="Buscar no app..." oninput="atualizarAutocompletePesquisa(this)" onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this); agendarFechamentoAutocompletePesquisa(this)">
         </label>
         ${renderDashboardCommunicationActions()}
@@ -17665,7 +17665,7 @@ function renderDashboardSearch() {
     <div class="dashboard-search-row">
       <button class="icon-button dashboard-menu-trigger" type="button" onclick="abrirMenuPopup()" title="Abrir menu" aria-label="Abrir menu">${renderMenuHandleIcon()}</button>
       <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
-        <button class="search-action-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
+        <button class="search-action-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app" aria-label="Abrir pesquisa"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
         <input data-search-context="global" placeholder="Buscar pedidos, clientes, materiais ou valores..." oninput="atualizarAutocompletePesquisa(this)" onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this); agendarFechamentoAutocompletePesquisa(this)">
       </label>
     </div>
@@ -18124,7 +18124,7 @@ function renderDashboardDesktopHeader(plano, analytics) {
       </div>
       <div class="desktop-dashboard-hero-actions">
         <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
-          <button class="search-action-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
+          <button class="search-action-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app" aria-label="Abrir pesquisa"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
           <input data-search-context="global" placeholder="Buscar..." oninput="atualizarAutocompletePesquisa(this)" onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this); agendarFechamentoAutocompletePesquisa(this)">
         </label>
         ${renderDashboardCommunicationActions()}
@@ -25617,7 +25617,7 @@ function renderSuperAdminTopbar(tab = "dashboard") {
         <em>Modo Plataforma</em>
       </div>
       <label class="superadmin-platform-search">
-        ${renderUiIcon("search")}
+        <span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span>
         <input data-search-context="superadmin" type="search" placeholder="Buscar empresa, e-mail, plano ou alerta" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="none" spellcheck="false" oninput="filtrarBuscaSuperadmin(this.value); atualizarAutocompletePesquisa(this)" onblur="agendarFechamentoAutocompletePesquisa(this)" onkeydown="fecharBuscaSuperadminAoEnviar(event)" value="${escaparAttr(buscaAtual)}">
         <button class="superadmin-platform-search-clear" type="button" onclick="limparBuscaSuperadmin(event)" aria-label="Limpar busca" title="Limpar busca">×</button>
       </label>

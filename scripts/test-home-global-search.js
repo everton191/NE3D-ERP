@@ -10,6 +10,14 @@ const appSource = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const indexSource = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const styleSource = fs.readFileSync(path.join(root, "style.css"), "utf8");
 const prepareSource = fs.readFileSync(path.join(root, "scripts", "prepare-web.js"), "utf8");
+const searchRendererSources = [
+  "src/features/cash/cash-renderer.js",
+  "src/features/customers/customers-renderer.js",
+  "src/features/inventory/inventory-screen-renderer.js",
+  "src/features/orders/orders-renderer.js",
+  "src/features/production/production-renderer.js",
+  "src/features/reports/reports-renderer.js"
+].map((file) => fs.readFileSync(path.join(root, file), "utf8")).join("\n");
 
 const sources = {
   orders: [{ id: "42", clienteNome: "Maria Silva", status: "aberto", itens: [{ nome: "Dragão articulado" }] }],
@@ -99,8 +107,19 @@ test("13. integração web usa o módulo seguro e corrige o cabeçalho móvel", 
   assert(styleSource.includes(".dashboard-home-header.is-global-search-open"));
   assert(styleSource.includes("grid-template-columns:40px minmax(0,1fr)"));
   assert(styleSource.includes(".dashboard-home-header.is-global-search-open .search-autocomplete-panel"));
-  assert(styleSource.includes(".dashboard-home-header.is-global-search-open .dashboard-search .search-action-button"));
+  assert(styleSource.includes(".dashboard-home-header.is-global-search-open .home-global-search .search-action-button"));
   assert(appSource.includes('tabindex="-1" onpointerdown="event.preventDefault()"'));
+});
+
+test("14. lupa usa um único padrão visual compartilhado", () => {
+  assert.strictEqual((styleSource.match(/^\.search-action-button\{/gm) || []).length, 1);
+  assert.strictEqual((styleSource.match(/^\.search-lens-icon\{/gm) || []).length, 1);
+  assert(styleSource.includes("width:18px;\n  height:18px;\n  stroke-width:2.15;"));
+  assert(!styleSource.includes(".cash-top-search svg{"));
+  assert(!styleSource.includes(".production-search svg {"));
+  assert(appSource.includes('class="dashboard-search search-compact home-global-search"'));
+  assert(/class="superadmin-platform-search">\s*<span class="search-lens-icon"/.test(appSource));
+  assert(searchRendererSources.includes('<span class="search-lens-icon" aria-hidden="true">'));
 });
 
 let passed = 0;

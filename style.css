@@ -1399,50 +1399,6 @@ body.visitor-public-screen .header-menu-button{
   transition:opacity .16s ease;
 }
 
-.search-action-button{
-  width:34px;
-  height:34px;
-  flex:0 0 34px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  padding:0;
-  border:0;
-  border-radius:0;
-  color:#00ffe1;
-  background:transparent;
-  box-shadow:none;
-  cursor:pointer;
-  filter:drop-shadow(0 1px 0 #001014) drop-shadow(0 0 5px rgba(0,255,225,.55));
-}
-
-.search-action-button:hover,
-.search-action-button:focus-visible{
-  color:#ffffff;
-  outline:none;
-  filter:drop-shadow(0 1px 0 #001014) drop-shadow(0 0 8px rgba(0,255,225,.95));
-}
-
-.search-action-button > span:not(.search-lens-icon):last-child{
-  display:none;
-}
-
-.search-lens-icon{
-  display:grid;
-  place-items:center;
-  width:24px;
-  height:24px;
-  font-size:0;
-  line-height:1;
-  filter:none;
-}
-
-.search-lens-icon svg{
-  width:21px;
-  height:21px;
-  stroke-width:2.5;
-}
-
 .smart-suggestion-card{
   display:flex;
   align-items:center;
@@ -3555,12 +3511,6 @@ body.theme-light .cash-session-panel{
   border-radius:var(--radius-control);
   background:var(--color-surface);
   box-shadow:var(--effect-shadow-sm);
-}
-
-.cash-top-search svg{
-  width:17px;
-  height:17px;
-  color:var(--color-primary);
 }
 
 .cash-top-search input{
@@ -10641,14 +10591,12 @@ body[data-ui-profile="web_pwa"] .side-nav-button strong{
   gap:14px;
 }
 
-.desktop-dashboard-hero-actions .dashboard-search.search-compact,
-.dashboard-home-header .dashboard-search.search-compact{
+.desktop-dashboard-hero-actions .dashboard-search.search-compact{
   width:56px;
   max-width:56px;
 }
 
-.desktop-dashboard-hero-actions .dashboard-search.search-compact.expanded,
-.dashboard-home-header .dashboard-search.search-compact.expanded{
+.desktop-dashboard-hero-actions .dashboard-search.search-compact.expanded{
   width:min(320px, 48vw);
   max-width:min(320px, 48vw);
 }
@@ -13372,55 +13320,6 @@ body.mobile-mode .ui3-dashboard .quick-suggestion-actions .btn{
   font-size:11px;
 }
 
-body[data-ui-profile="android_apk"].mobile-mode .dashboard-home-header .dashboard-search.search-compact,
-body[data-ui-profile="android_apk"] .dashboard-home-header .dashboard-search.search-compact,
-body[data-ui-profile="web_pwa"].mobile-mode .dashboard-home-header .dashboard-search.search-compact{
-  width:38px;
-  min-width:38px;
-  max-width:38px;
-  height:38px;
-}
-
-body[data-ui-profile="android_apk"].mobile-mode .dashboard-home-header .dashboard-search.search-compact.is-expanded,
-body[data-ui-profile="android_apk"].mobile-mode .dashboard-home-header .dashboard-search.search-compact:focus-within,
-body[data-ui-profile="android_apk"] .dashboard-home-header .dashboard-search.search-compact.is-expanded,
-body[data-ui-profile="android_apk"] .dashboard-home-header .dashboard-search.search-compact:focus-within,
-body[data-ui-profile="web_pwa"].mobile-mode .dashboard-home-header .dashboard-search.search-compact.is-expanded,
-body[data-ui-profile="web_pwa"].mobile-mode .dashboard-home-header .dashboard-search.search-compact:focus-within{
-  width:min(320px, calc(100vw - 108px));
-  min-width:min(220px, calc(100vw - 108px));
-  max-width:min(320px, calc(100vw - 108px));
-  padding:0 10px;
-  border-color:var(--card-border);
-  background:var(--surface-elevated);
-  box-shadow:var(--shadow-soft);
-}
-
-body[data-ui-profile="android_apk"].mobile-mode .dashboard-home-header .search-action-button,
-body[data-ui-profile="android_apk"] .dashboard-home-header .search-action-button,
-body[data-ui-profile="web_pwa"].mobile-mode .dashboard-home-header .search-action-button{
-  width:32px;
-  min-width:32px;
-  height:32px;
-  min-height:32px;
-  filter:drop-shadow(0 0 4px rgba(0,255,225,.45));
-}
-
-body[data-ui-profile="android_apk"].mobile-mode .dashboard-home-header .search-lens-icon,
-body[data-ui-profile="android_apk"] .dashboard-home-header .search-lens-icon,
-body[data-ui-profile="web_pwa"].mobile-mode .dashboard-home-header .search-lens-icon{
-  width:20px;
-  height:20px;
-}
-
-body[data-ui-profile="android_apk"].mobile-mode .dashboard-home-header .search-lens-icon svg,
-body[data-ui-profile="android_apk"] .dashboard-home-header .search-lens-icon svg,
-body[data-ui-profile="web_pwa"].mobile-mode .dashboard-home-header .search-lens-icon svg{
-  width:17px;
-  height:17px;
-  stroke-width:2.3;
-}
-
 .chart-empty-state{
   min-height:150px;
   display:grid;
@@ -15380,8 +15279,7 @@ body.theme-dark .superadmin-platform-shell :where(.superadmin-attention-row,.sup
 .superadmin-platform-brand svg,
 .superadmin-platform-mark svg,
 .superadmin-platform-nav-item svg,
-.superadmin-platform-mobile-nav svg,
-.superadmin-platform-search svg{
+.superadmin-platform-mobile-nav svg{
   width:20px;
   height:20px;
 }
@@ -19357,7 +19255,6 @@ body.theme-light :where(
   .dashboard-profile-button,
   .home-menu-button,
   .header-menu-button,
-  .search-action-button,
   .calc-float-ball
 ){
   color:var(--color-primary);
@@ -39707,13 +39604,6 @@ body:not(.theme-light) .plans-pricing-screen .plans-pricing-grid .plan-tier-pro{
     border-radius:10px !important;
   }
 
-  body.mobile-mode .superadmin-mobile-only .superadmin-platform-search svg,
-  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-search svg,
-  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-search svg{
-    width:16px !important;
-    height:16px !important;
-  }
-
   body.mobile-mode .superadmin-mobile-only .superadmin-platform-search input,
   body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-search input,
   body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-search input{
@@ -45215,20 +45105,11 @@ body.mobile-mode :where(
   }
 }
 /* Home mobile density and single-surface compact search controls. */
-body.theme-light .dashboard-search.search-compact:not(.is-expanded):not(:focus-within) {
+body.theme-light .dashboard-search.search-compact:not(.home-global-search):not(.is-expanded):not(:focus-within) {
   border-color: transparent !important;
   background: transparent !important;
   box-shadow: none !important;
   backdrop-filter: none !important;
-}
-
-.dashboard-search.search-compact .search-action-button,
-body.theme-light .dashboard-search.search-compact .search-action-button {
-  border: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
-  filter: none !important;
 }
 
 .search-compact input,
@@ -45596,13 +45477,6 @@ body.theme-light .stock-add-fab {
   border: 1px solid var(--color-border, #dce7ea);
   border-radius: 9px;
   background: var(--color-surface, #fff);
-}
-
-.production-search svg {
-  width: 18px;
-  height: 18px;
-  flex: 0 0 18px;
-  color: var(--color-primary-hover, #009b87);
 }
 
 .production-search input,
@@ -50227,43 +50101,167 @@ body[data-ui-profile="web_pwa"].mobile-mode .dashboard-header-actions{
   max-width:100%;
 }
 
-/* A busca aberta ocupa a coluna útil da Home. Sem este estado, a coluna
-   automática de ações espremia a saudação até uma letra por linha. */
-body[data-ui-profile="android_apk"] .dashboard-home-header.is-global-search-open,
-body[data-ui-profile="android_apk"].mobile-mode .dashboard-home-header.is-global-search-open,
-body[data-ui-profile="web_pwa"].mobile-mode .dashboard-home-header.is-global-search-open{
+/* Lupa padrao: uma unica fonte para dimensoes, cor e interacao. */
+.search-action-button{
+  appearance:none;
+  width:40px;
+  min-width:40px;
+  height:40px;
+  min-height:40px;
+  flex:0 0 40px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+  border:0;
+  border-radius:12px;
+  color:color-mix(in srgb,var(--text-primary) 76%,var(--primary));
+  background:transparent;
+  box-shadow:none;
+  cursor:pointer;
+  filter:none;
+  -webkit-backdrop-filter:none;
+  backdrop-filter:none;
+  transition:color .16s ease,background-color .16s ease,transform .12s ease;
+}
+
+.search-action-button:hover,
+.search-action-button:focus-visible{
+  color:var(--primary);
+  background:color-mix(in srgb,var(--primary) 10%,transparent);
+  outline:none;
+  filter:none;
+}
+
+.search-action-button:active{
+  transform:scale(.94);
+}
+
+.search-action-button > span:not(.search-lens-icon):last-child{
+  display:none;
+}
+
+.search-lens-icon{
+  display:grid;
+  place-items:center;
+  width:20px;
+  height:20px;
+  flex:0 0 20px;
+  color:color-mix(in srgb,var(--text-primary) 72%,var(--primary));
+  font-size:0;
+  line-height:1;
+  filter:none;
+}
+
+.search-lens-icon svg{
+  width:18px;
+  height:18px;
+  stroke-width:2.15;
+}
+
+.search-compact:not(.is-expanded):not(:focus-within) .search-action-button{
+  margin-inline:auto;
+}
+
+/* Busca global da Home: somente geometria e estado do campo. */
+.dashboard-home-header .home-global-search{
+  --home-search-size:40px;
+  position:relative;
+  width:var(--home-search-size);
+  min-width:var(--home-search-size);
+  max-width:var(--home-search-size);
+  min-height:var(--home-search-size);
+  gap:0;
+  padding:0;
+  box-sizing:border-box;
+  overflow:hidden;
+  border:1px solid color-mix(in srgb,var(--border-primary) 78%,transparent);
+  border-radius:13px;
+  color:var(--text-primary);
+  background:color-mix(in srgb,var(--surface-primary) 90%,transparent);
+  box-shadow:0 5px 14px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.06);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  transition:width .2s ease,max-width .2s ease,border-color .16s ease,box-shadow .16s ease,background-color .16s ease;
+}
+
+.dashboard-home-header .home-global-search:hover{
+  border-color:color-mix(in srgb,var(--primary) 42%,var(--border-primary));
+  background:color-mix(in srgb,var(--surface-primary) 84%,var(--primary) 16%);
+}
+
+.dashboard-home-header .home-global-search:focus-within,
+.dashboard-home-header .home-global-search.is-expanded{
+  width:min(320px,48vw);
+  min-width:min(220px,48vw);
+  max-width:min(320px,48vw);
+  padding:0 12px;
+  border-color:color-mix(in srgb,var(--primary) 56%,var(--border-primary));
+  border-radius:15px;
+  background:color-mix(in srgb,var(--surface-primary) 96%,transparent);
+  box-shadow:0 8px 22px rgba(0,0,0,.22),0 0 0 3px color-mix(in srgb,var(--primary) 12%,transparent);
+  transform:none;
+}
+
+.dashboard-home-header .home-global-search input{
+  min-width:0;
+  min-height:38px;
+  font-size:14px;
+}
+
+body.theme-light .dashboard-home-header .home-global-search{
+  border-color:rgba(15,23,42,.14);
+  background:rgba(255,255,255,.88);
+  box-shadow:0 5px 16px rgba(15,23,42,.10),inset 0 1px 0 rgba(255,255,255,.9);
+}
+
+body.theme-light .dashboard-home-header .home-global-search:hover,
+body.theme-light .dashboard-home-header .home-global-search:focus-within,
+body.theme-light .dashboard-home-header .home-global-search.is-expanded{
+  border-color:color-mix(in srgb,var(--primary) 48%,rgba(15,23,42,.14));
+  background:#fff;
+}
+
+/* A busca aberta ocupa a coluna util sem comprimir a saudacao. */
+.dashboard-home-header.is-global-search-open{
   grid-template-columns:40px minmax(0,1fr);
   min-height:57px;
 }
 
-body[data-ui-profile="android_apk"] .dashboard-home-header.is-global-search-open .dashboard-greeting,
-body[data-ui-profile="android_apk"].mobile-mode .dashboard-home-header.is-global-search-open .dashboard-greeting,
-body[data-ui-profile="web_pwa"].mobile-mode .dashboard-home-header.is-global-search-open .dashboard-greeting{
+.dashboard-home-header.is-global-search-open .dashboard-greeting{
   position:absolute;
   visibility:hidden;
   pointer-events:none;
 }
 
-body[data-ui-profile="android_apk"] .dashboard-home-header.is-global-search-open .dashboard-header-actions,
-body[data-ui-profile="android_apk"].mobile-mode .dashboard-home-header.is-global-search-open .dashboard-header-actions,
-body[data-ui-profile="web_pwa"].mobile-mode .dashboard-home-header.is-global-search-open .dashboard-header-actions{
+.dashboard-home-header.is-global-search-open .dashboard-header-actions{
   grid-column:2;
   width:100%;
   max-width:100%;
 }
 
-body[data-ui-profile="android_apk"] .dashboard-home-header.is-global-search-open .dashboard-header-actions > :not(.dashboard-search),
-body[data-ui-profile="android_apk"].mobile-mode .dashboard-home-header.is-global-search-open .dashboard-header-actions > :not(.dashboard-search),
-body[data-ui-profile="web_pwa"].mobile-mode .dashboard-home-header.is-global-search-open .dashboard-header-actions > :not(.dashboard-search){
+.dashboard-home-header.is-global-search-open .dashboard-header-actions > :not(.home-global-search){
   display:none;
 }
 
-body[data-ui-profile="android_apk"] .dashboard-home-header.is-global-search-open .dashboard-search.search-compact,
-body[data-ui-profile="android_apk"].mobile-mode .dashboard-home-header.is-global-search-open .dashboard-search.search-compact,
-body[data-ui-profile="web_pwa"].mobile-mode .dashboard-home-header.is-global-search-open .dashboard-search.search-compact{
+.dashboard-home-header.is-global-search-open .home-global-search{
   width:100%;
   min-width:0;
   max-width:none;
+}
+
+.dashboard-home-header.is-global-search-open .home-global-search .search-action-button{
+  display:none;
+}
+
+.dashboard-home-header.is-global-search-open .search-autocomplete-panel{
+  position:absolute;
+  top:calc(100% + 6px);
+  right:0;
+  bottom:auto;
+  left:0;
+  min-width:100%;
+  max-height:min(16rem,calc(100dvh - 12rem));
 }
 
 @media(max-width:700px){
@@ -50275,40 +50273,6 @@ body[data-ui-profile="web_pwa"].mobile-mode .dashboard-home-header.is-global-sea
     overflow:hidden;
     text-overflow:ellipsis;
     white-space:nowrap;
-  }
-  .dashboard-home-header.is-global-search-open{
-    grid-template-columns:40px minmax(0,1fr);
-    min-height:57px;
-  }
-  .dashboard-home-header.is-global-search-open .dashboard-greeting{
-    position:absolute;
-    visibility:hidden;
-    pointer-events:none;
-  }
-  .dashboard-home-header.is-global-search-open .dashboard-header-actions{
-    grid-column:2;
-    width:100%;
-    max-width:100%;
-  }
-  .dashboard-home-header.is-global-search-open .dashboard-header-actions > :not(.dashboard-search){
-    display:none;
-  }
-  .dashboard-home-header.is-global-search-open .dashboard-search.search-compact{
-    width:100%;
-    min-width:0;
-    max-width:none;
-  }
-  .dashboard-home-header.is-global-search-open .dashboard-search .search-action-button{
-    display:none;
-  }
-  .dashboard-home-header.is-global-search-open .search-autocomplete-panel{
-    position:absolute;
-    top:calc(100% + 6px);
-    right:0;
-    bottom:auto;
-    left:0;
-    min-width:100%;
-    max-height:min(16rem, calc(100dvh - 12rem));
   }
 }
 

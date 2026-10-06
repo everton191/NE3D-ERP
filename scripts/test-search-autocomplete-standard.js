@@ -4,12 +4,20 @@ const path = require("path");
 const root = path.resolve(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const css = fs.readFileSync(path.join(root, "style.css"), "utf8");
+const searchMarkup = [
+  app,
+  "src/features/cash/cash-renderer.js",
+  "src/features/customers/customers-renderer.js",
+  "src/features/inventory/inventory-screen-renderer.js",
+  "src/features/orders/orders-renderer.js",
+  "src/features/reports/reports-renderer.js"
+].map((source) => source === app ? source : fs.readFileSync(path.join(root, source), "utf8")).join("\n");
 
 const contexts = ["global", "pedidos", "estoque", "clientes", "caixa", "relatorios", "superadmin"];
 const failures = [];
 
 for (const context of contexts) {
-  if (!app.includes(`data-search-context="${context}"`)) failures.push(`Contexto ausente: ${context}`);
+  if (!searchMarkup.includes(`data-search-context="${context}"`)) failures.push(`Contexto ausente: ${context}`);
 }
 
 [
@@ -30,7 +38,7 @@ for (const context of contexts) {
 });
 
 ["pedidos-busca", "estoque-busca", "clientes-busca", "caixa-busca"].forEach((focusKey) => {
-  if (!app.includes(`data-preserve-focus-key="${focusKey}"`)) {
+  if (!searchMarkup.includes(`data-preserve-focus-key="${focusKey}"`)) {
     failures.push(`Pesquisa com re-render não preserva foco: ${focusKey}`);
   }
 });

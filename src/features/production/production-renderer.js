@@ -216,7 +216,7 @@ function renderProducao(context = {}) {
         <div><h2>${renderUiIcon("producao")} Produção</h2><p class="muted">Visão geral da produção da sua empresa</p></div>
         <span class="status-badge">${totalAtivas} ativa(s)</span>
       </div>
-      <label class="production-search production-search-primary">${renderUiIcon("search")}<input value="${escaparAttr(window.__productionSearch || "")}" placeholder="Pedido, cliente, item ou material" oninput="window.__productionSearch=this.value;agendarRenderizacaoPreservandoScroll(180)"></label>
+      <label class="production-search production-search-primary"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span><input value="${escaparAttr(window.__productionSearch || "")}" placeholder="Pedido, cliente, item ou material" oninput="window.__productionSearch=this.value;agendarRenderizacaoPreservandoScroll(180)"></label>
       ${renderPerfilImpressoraProducao(context)}
       ${renderResumoCapacidadeProducao(context)}
       <div class="production-tabs" role="tablist">

@@ -197,7 +197,7 @@ function renderCaixaBuscaTopo(context = {}) {
   const busca = getBuscaCaixa(context);
   return `
     <label class="cash-top-search" aria-label="Pesquisar movimentações do caixa">
-      ${renderUiIcon("search")}
+      <span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span>
       <input data-search-context="caixa" data-preserve-focus-key="caixa-busca" value="${escaparAttr(busca)}" placeholder="Pesquisar movimentações" oninput="atualizarBuscaCaixa(this.value); reabrirAutocompletePesquisaAposRender(this,30)" onblur="agendarFechamentoAutocompletePesquisa(this)" autocomplete="off">
     </label>
   `;
@@ -526,7 +526,7 @@ function renderCaixaMobileTopbar(context = {}) {
         <h2>Olá, ${escaparHtml(nome)}!</h2>
         <p>Aqui está o resumo do seu caixa hoje.</p>
       </div>
-      <button class="icon-button cash-mobile-search-button" type="button" onclick="abrirCardCaixaRapido('historico');setTimeout(()=>document.querySelector('.cash-top-search input')?.focus?.(),120)" aria-label="Pesquisar">${renderUiIcon("search")}</button>
+      <button class="icon-button cash-mobile-search-button" type="button" onclick="abrirCardCaixaRapido('historico');setTimeout(()=>document.querySelector('.cash-top-search input')?.focus?.(),120)" aria-label="Pesquisar"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
     </div>
   `;
 }
