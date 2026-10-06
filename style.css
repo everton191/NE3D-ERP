@@ -50571,6 +50571,54 @@ body .home-carousel-3d-host.dashboard-action-carousel .dashboard-carousel-card.c
 .home-simple-activities b{font-size:19px;font-weight:400}
 .home-simple-empty{margin:0;color:var(--text-muted);font-size:13px}
 
+.home-layout-options{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+}
+
+.home-layout-option{
+  position:relative;
+  display:grid;
+  grid-template-columns:42px minmax(0,1fr) 22px;
+  align-items:center;
+  gap:12px;
+  min-width:0;
+  min-height:92px;
+  padding:14px;
+  border:1px solid var(--border-soft);
+  border-radius:15px;
+  color:var(--text-primary);
+  background:var(--surface-secondary,var(--surface-primary));
+  cursor:pointer;
+}
+
+.home-layout-option > input{
+  position:absolute;
+  width:1px !important;
+  height:1px;
+  opacity:0;
+  pointer-events:none;
+}
+
+.home-layout-option > span:first-of-type{
+  display:grid;
+  place-items:center;
+  width:42px;
+  height:42px;
+  border-radius:13px;
+  color:var(--accent-text,var(--color-primary));
+  background:color-mix(in srgb,var(--color-primary) 10%,transparent);
+}
+
+.home-layout-option > span:nth-of-type(2){display:grid;gap:4px;min-width:0}
+.home-layout-option strong{font-size:14px}
+.home-layout-option small{color:var(--text-muted);font-size:12px;line-height:1.35}
+.home-layout-option > b{color:var(--accent-text,var(--color-primary));font-size:18px;text-align:center}
+.home-layout-option.is-selected{border-color:color-mix(in srgb,var(--color-primary) 58%,var(--border-soft));background:color-mix(in srgb,var(--color-primary) 7%,var(--surface-primary));box-shadow:0 0 0 1px color-mix(in srgb,var(--color-primary) 18%,transparent)}
+.home-layout-carousel-tools{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px}
+.home-layout-carousel-tools p{margin:0}
+
 body.theme-light .home-shell[data-home-layout="simple"] :is(.home-simple-intro,.home-simple-section){background:#fff;border-color:#dce6e7;box-shadow:0 7px 20px rgba(31,51,53,.055)}
 body.theme-light .home-shell[data-home-layout="simple"] :is(.home-date-card,.home-simple-quick-card,.home-simple-module-card,.home-simple-summary-card){background:#f8fbfb;border-color:#dce6e7;box-shadow:none}
 
@@ -50598,6 +50646,9 @@ body.theme-light .home-shell[data-home-layout="simple"] :is(.home-date-card,.hom
   .home-simple-summary-card strong{font-size:17px}
   .home-simple-activities button{grid-template-columns:34px minmax(0,1fr) auto 9px;gap:8px}
   .home-simple-activities button > span:first-child{width:34px;height:34px}
+  .home-layout-options{grid-template-columns:1fr}
+  .home-layout-option{min-height:82px;padding:12px}
+  .home-layout-carousel-tools{align-items:stretch;flex-direction:column}
 }
 
 @media (max-width:700px){

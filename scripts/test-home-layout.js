@@ -57,6 +57,14 @@ test("Home simples usa ações, módulos e indicadores operacionais reais", () =
   assert(appSource.includes("canAccessScreen(item.screen)"));
 });
 
+test("Aparência oferece escolha imediata entre os dois layouts", () => {
+  assert(appSource.includes('id: "aparencia-home"'));
+  assert(appSource.includes('name="homeLayout" value="simple"'));
+  assert(appSource.includes('name="homeLayout" value="carousel"'));
+  assert(appSource.includes('onchange="alterarHomeLayout(this.value)"'));
+  assert(appSource.includes('Editar e organizar cartões'));
+});
+
 let passed = 0;
 for (const { name, fn } of tests) {
   fn();

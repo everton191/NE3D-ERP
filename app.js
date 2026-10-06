@@ -26305,6 +26305,7 @@ function renderAparenciaConfig() {
   const acessoMarca = true;
   const corAtual = normalizarCorTemaControlado(appConfig.accentColor || "#00BFA6", appConfig.theme || "light", "primary");
   const resolucaoAtual = `${window.innerWidth || 0} x ${window.innerHeight || 0}`;
+  const homeLayout = getHomeLayout();
   return `
     <section class="ui3-real-screen ui3-settings-screen ui3-page ui3-stack ui3-gap-5" data-ui-version="v3" data-ui3-screen="aparencia">
       <div class="card-header">
@@ -26313,6 +26314,23 @@ function renderAparenciaConfig() {
       </div>
       <p class="muted">Somente visual do aplicativo: tema, cores, densidade, navegação e proporção das telas.</p>
       <div class="settings-accordion-list">
+        ${renderUiSection({ id: "aparencia-home", title: "Tela inicial", subtitle: "Escolha entre a visão simples e o carrossel 3D", icon: "dashboard", open: true, group: "aparencia", content: `
+          <div class="home-layout-options" role="radiogroup" aria-label="Formato da tela inicial">
+            <label class="home-layout-option${homeLayout === "simple" ? " is-selected" : ""}">
+              <input type="radio" name="homeLayout" value="simple" ${homeLayout === "simple" ? "checked" : ""} onchange="alterarHomeLayout(this.value)">
+              <span>${renderUiIcon("dashboard")}</span>
+              <span><strong>Home simples</strong><small>Visão clara com atalhos, módulos, resumo e atividades.</small></span>
+              <b aria-hidden="true">${homeLayout === "simple" ? "✓" : ""}</b>
+            </label>
+            <label class="home-layout-option${homeLayout === "carousel" ? " is-selected" : ""}">
+              <input type="radio" name="homeLayout" value="carousel" ${homeLayout === "carousel" ? "checked" : ""} onchange="alterarHomeLayout(this.value)">
+              <span>${renderUiIcon("preferencias")}</span>
+              <span><strong>Carrossel 3D</strong><small>Mantém seus cartões, ordem e preferências já salvos.</small></span>
+              <b aria-hidden="true">${homeLayout === "carousel" ? "✓" : ""}</b>
+            </label>
+          </div>
+          ${homeLayout === "carousel" ? `<div class="home-layout-carousel-tools"><p class="muted">A personalização existente do carrossel foi preservada.</p><button class="btn secondary compact-action" type="button" onclick="abrirEditorCarrosselHome()">${renderUiIcon("edit")} Editar e organizar cartões</button></div>` : ""}
+        ` })}
         ${renderUiSection({ id: "aparencia-tema", title: "Tema", subtitle: "Modo visual, cor principal e glow", icon: "◐", open: true, group: "aparencia", content: `
           <div class="sync-grid">
             <label class="field">
