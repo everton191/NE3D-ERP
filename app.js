@@ -10626,7 +10626,8 @@ function buscarGlobal(event, valor) {
     registrarSelecaoAutocomplete(resultado, contexto);
     if (resultado.action) resultado.action();
     else if (input) input.value = resultado.value;
-    fecharAutocompletePesquisa(input);
+    if (contexto === "global") encerrarPesquisaGlobalControlada(input);
+    else fecharAutocompletePesquisa(input);
     return;
   }
   mostrarToast(`Nada encontrado para “${valorOriginal}”. Confira a escrita ou tente outro termo.`, "info", 4200);
@@ -10654,6 +10655,8 @@ function normalizarItemAutocompletePesquisa(item = {}) {
     value: String(item.value || label).trim(),
     keywords: String(item.keywords || "").trim(),
     kind: String(item.kind || "").trim(),
+    groupLabel: String(item.groupLabel || "").trim(),
+    access: String(item.access || "").trim(),
     action: typeof item.action === "function" ? item.action : null
   };
 }
@@ -10746,6 +10749,13 @@ function pontuarAutocomplete(item = {}, termo = "", recentes = []) {
 function pesquisarAutocomplete(contexto = "global", termo = "", limite = 8) {
   const busca = normalizarTextoBusca(termo);
   if (!busca) return [];
+  if (contexto === "global") {
+    const api = window.SimplificaHomeGlobalSearch;
+    if (!api) return [];
+    const resultados = api.search(criarIndicePesquisaGlobalControlada(), busca, { limit: limite });
+    api.updateState(homeGlobalSearchState, termo, resultados);
+    return resultados.map(criarOpcaoAutocompletePesquisaGlobal);
+  }
   const recentes = getSelecoesRecentesAutocomplete();
   const unicos = new Map();
   opcoesAutocompletePesquisa(contexto).forEach((item) => {
@@ -10757,6 +10767,87 @@ function pesquisarAutocomplete(contexto = "global", termo = "", limite = 8) {
     .filter((item) => item.score >= 0)
     .sort((a, b) => b.score - a.score || a.label.localeCompare(b.label, "pt-BR"))
     .slice(0, Math.max(1, Number(limite) || 8));
+}
+
+const homeGlobalSearchState = window.SimplificaHomeGlobalSearch?.createState?.()
+  || { open: false, query: "", results: [] };
+
+function listarTelasPesquisaGlobalControlada() {
+  const telasRegistradas = window.SimplificaScreenRegistry?.registry?.list?.() || [];
+  return telasRegistradas
+    .filter((tela) => canAccessScreen(tela.id))
+    .map((tela) => ({ route: tela.id, title: tela.title, aliases: tela.aliases }));
+}
+
+function criarIndicePesquisaGlobalControlada() {
+  const api = window.SimplificaHomeGlobalSearch;
+  if (!api) return [];
+  let produtos = [];
+  try {
+    produtos = canAccessScreen("lojaAdmin") ? getStorefrontAdminProductsLocal() : [];
+  } catch (erro) {
+    produtos = [];
+  }
+  return api.buildIndex({
+    orders: pedidos.map((pedido) => ({
+      id: pedido.id,
+      clienteNome: clienteDoPedido(pedido),
+      status: pedido.status,
+      itens: Array.isArray(pedido.itens)
+        ? pedido.itens.map((item) => ({ nome: item.nome, descricao: item.descricao }))
+        : []
+    })),
+    customers: coletarClientesOperacionaisParaSync().map((cliente) => ({ nome: cliente.nome })),
+    inventory: normalizarEstoque().map((item) => ({
+      id: item.id,
+      nome: item.nome,
+      descricao: item.descricao,
+      codigo: item.codigo,
+      sku: item.sku,
+      codigoBarras: item.codigoBarras,
+      cor: item.cor,
+      material: item.material,
+      tipo: item.tipo,
+      marca: item.marca
+    })),
+    products: (Array.isArray(produtos) ? produtos : []).map((produto) => ({
+      id: produto.id,
+      title: produto.title,
+      slug: produto.slug,
+      category: produto.category
+    })),
+    production: productionJobs.map((job) => ({
+      id: job.id,
+      title: job.title,
+      name: job.name,
+      productionCode: job.productionCode,
+      orderId: job.orderId || job.order_id,
+      status: job.status
+    })),
+    screens: listarTelasPesquisaGlobalControlada()
+  });
+}
+
+function executarResultadoPesquisaGlobal(item) {
+  if (!item) return;
+  if (item.type === "pedido" && item.entityId) {
+    visualizarPedido(item.entityId);
+    return;
+  }
+  if (item.route && canAccessScreen(item.route)) trocarTela(item.route);
+}
+
+function criarOpcaoAutocompletePesquisaGlobal(item) {
+  return normalizarItemAutocompletePesquisa({
+    label: item.title,
+    value: item.title,
+    detail: item.subtitle,
+    keywords: item.searchText,
+    kind: item.type,
+    groupLabel: item.typeLabel,
+    access: item.access,
+    action: () => executarResultadoPesquisaGlobal(item)
+  });
 }
 
 function opcoesAutocompletePesquisa(contexto = "global") {
@@ -10803,7 +10894,7 @@ function opcoesAutocompletePesquisa(contexto = "global") {
   const itensRelatoriosBusca = ["Vendas", "Pedidos", "Caixa", "Estoque", "Clientes", "Produção", "Financeiro"]
     .map((label) => ({ label, value: label, detail: "Relatório", kind: "relatorio" }));
   const mapa = {
-    global: [...itensNavegacaoBusca, ...itensPedidoBusca, ...itensClientesBusca, ...itensEstoqueBusca],
+    global: [],
     pedidos: itensPedidoBusca,
     estoque: itensEstoqueBusca,
     clientes: itensClientesBusca,
@@ -10825,9 +10916,20 @@ function fecharAutocompletePesquisa(input = null) {
   host?.querySelector?.(".search-autocomplete-panel")?.remove();
 }
 
+function encerrarPesquisaGlobalControlada(input = null) {
+  fecharAutocompletePesquisa(input);
+  window.SimplificaHomeGlobalSearch?.resetState?.(homeGlobalSearchState);
+  if (input) input.value = "";
+  const label = input?.closest?.(".search-compact");
+  label?.classList?.remove("is-expanded", "expanded");
+  label?.closest?.(".dashboard-home-header")?.classList?.remove("is-global-search-open");
+}
+
 function agendarFechamentoAutocompletePesquisa(input) {
   setTimeout(() => {
-    if (!input?.closest?.("label")?.contains?.(document.activeElement)) fecharAutocompletePesquisa(input);
+    if (input?.closest?.("label")?.contains?.(document.activeElement)) return;
+    if (input?.dataset?.searchContext === "global") encerrarPesquisaGlobalControlada(input);
+    else fecharAutocompletePesquisa(input);
   }, 180);
 }
 
@@ -10837,6 +10939,12 @@ function selecionarAutocompletePesquisa(input, index) {
   const opcoes = pesquisarAutocomplete(contexto, termo, 8);
   const item = opcoes[Number(index)];
   if (!item || !input) return;
+  if (contexto === "global") {
+    registrarSelecaoAutocomplete(item, contexto);
+    if (item.action) item.action();
+    encerrarPesquisaGlobalControlada(input);
+    return;
+  }
   input.value = item.value;
   input.dispatchEvent(new Event("input", { bubbles: true }));
   fecharAutocompletePesquisa(input);
@@ -10851,7 +10959,8 @@ function navegarAutocompletePesquisa(event) {
   if (!panel) return false;
   if (event.key === "Escape") {
     event.preventDefault();
-    fecharAutocompletePesquisa(input);
+    if (input?.dataset?.searchContext === "global") encerrarPesquisaGlobalControlada(input);
+    else fecharAutocompletePesquisa(input);
     return true;
   }
   const opcoes = Array.from(panel.querySelectorAll("[role='option']"));
@@ -10878,6 +10987,10 @@ function atualizarAutocompletePesquisa(input) {
   const termo = normalizarTextoBusca(input.value || "");
   if (!termo) return;
   const contexto = input.dataset.searchContext || "global";
+  if (contexto === "global") {
+    homeGlobalSearchState.open = true;
+    input.closest?.(".dashboard-home-header")?.classList?.add("is-global-search-open");
+  }
   const opcoes = pesquisarAutocomplete(contexto, termo, 8);
   if (!opcoes.length) return;
   const host = input.closest("label") || input.parentElement;
@@ -10888,6 +11001,7 @@ function atualizarAutocompletePesquisa(input) {
   panel.setAttribute("role", "listbox");
   panel.innerHTML = opcoes.map((item, index) => `
     <button type="button" role="option" aria-selected="false" onpointerdown="event.preventDefault();selecionarAutocompletePesquisa(this.closest('.search-autocomplete-panel').parentElement.querySelector('input'),${index})">
+      ${contexto === "global" && item.groupLabel ? `<span class="search-autocomplete-kind">${escaparHtml(item.groupLabel)}</span>` : ""}
       <strong>${escaparHtml(item.label)}</strong>
       ${item.detail ? `<small>${escaparHtml(item.detail)}</small>` : ""}
     </button>
@@ -10930,6 +11044,12 @@ function ativarBuscaCompacta(label) {
 
 function expandirBuscaGlobal(elemento) {
   const label = elemento?.closest?.(".search-compact") || elemento;
+  const input = label?.querySelector?.("input[data-search-context='global']");
+  const homeHeader = label?.closest?.(".dashboard-home-header");
+  if (input) {
+    homeGlobalSearchState.open = true;
+    homeHeader?.classList?.add("is-global-search-open");
+  }
   ativarBuscaCompacta(label);
 }
 
@@ -10954,7 +11074,12 @@ function recolherBuscaGlobal(input) {
   const label = input?.closest?.(".search-compact");
   if (!label) return;
   setTimeout(() => {
-    if (document.activeElement === input || String(input.value || "").trim()) return;
+    if (document.activeElement === input) return;
+    if (input?.dataset?.searchContext === "global") {
+      encerrarPesquisaGlobalControlada(input);
+      return;
+    }
+    if (String(input.value || "").trim()) return;
     label.classList.remove("is-expanded");
     label.classList.remove("expanded");
   }, 140);
@@ -13222,7 +13347,7 @@ function renderDashboardHomeHeader() {
   const usuario = getUsuarioAtual();
   const nome = String(usuario?.nome || usuario?.email || appConfig.businessName || "Operação").split(/\s+/)[0] || "Operação";
   return `
-    <section class="dashboard-home-header">
+    <section class="dashboard-home-header${homeGlobalSearchState.open ? " is-global-search-open" : ""}">
       <button class="icon-button dashboard-menu-trigger" type="button" onclick="abrirMenuPopup()" title="Abrir menu" aria-label="Abrir menu">${renderMenuHandleIcon()}</button>
       <div class="dashboard-greeting">
         <h1>Olá, ${escaparHtml(nome)}!</h1>
@@ -13230,8 +13355,8 @@ function renderDashboardHomeHeader() {
       </div>
       <div class="dashboard-header-actions">
         ${renderDashboardInterfaceModeButton()}
-        <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
-          <button class="search-action-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
+        <label class="dashboard-search search-compact" onclick="this.closest('.dashboard-home-header').classList.add('is-global-search-open');expandirBuscaGlobal(this)">
+          <button class="search-action-button" type="button" tabindex="-1" onpointerdown="event.preventDefault()" onclick="event.preventDefault();event.stopPropagation();this.closest('.dashboard-home-header').classList.add('is-global-search-open');expandirBuscaGlobal(this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
           <input data-search-context="global" placeholder="Buscar no app..." oninput="atualizarAutocompletePesquisa(this)" onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this); agendarFechamentoAutocompletePesquisa(this)">
         </label>
         ${renderDashboardCommunicationActions()}

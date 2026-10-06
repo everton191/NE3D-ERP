@@ -707,6 +707,15 @@ body.mobile-mode:has(#app > .mobile-panel) #app{
   color:var(--text-muted);
 }
 
+.search-autocomplete-kind{
+  color:var(--primary);
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.08em;
+  line-height:1.1;
+  text-transform:uppercase;
+}
+
 @media(max-width:520px){
   .search-autocomplete-panel{
     position:fixed;
@@ -50216,6 +50225,91 @@ body[data-ui-profile="android_apk"].mobile-mode .dashboard-header-actions,
 body[data-ui-profile="web_pwa"].mobile-mode .dashboard-header-actions{
   width:max-content;
   max-width:100%;
+}
+
+/* A busca aberta ocupa a coluna útil da Home. Sem este estado, a coluna
+   automática de ações espremia a saudação até uma letra por linha. */
+body[data-ui-profile="android_apk"] .dashboard-home-header.is-global-search-open,
+body[data-ui-profile="android_apk"].mobile-mode .dashboard-home-header.is-global-search-open,
+body[data-ui-profile="web_pwa"].mobile-mode .dashboard-home-header.is-global-search-open{
+  grid-template-columns:40px minmax(0,1fr);
+  min-height:57px;
+}
+
+body[data-ui-profile="android_apk"] .dashboard-home-header.is-global-search-open .dashboard-greeting,
+body[data-ui-profile="android_apk"].mobile-mode .dashboard-home-header.is-global-search-open .dashboard-greeting,
+body[data-ui-profile="web_pwa"].mobile-mode .dashboard-home-header.is-global-search-open .dashboard-greeting{
+  position:absolute;
+  visibility:hidden;
+  pointer-events:none;
+}
+
+body[data-ui-profile="android_apk"] .dashboard-home-header.is-global-search-open .dashboard-header-actions,
+body[data-ui-profile="android_apk"].mobile-mode .dashboard-home-header.is-global-search-open .dashboard-header-actions,
+body[data-ui-profile="web_pwa"].mobile-mode .dashboard-home-header.is-global-search-open .dashboard-header-actions{
+  grid-column:2;
+  width:100%;
+  max-width:100%;
+}
+
+body[data-ui-profile="android_apk"] .dashboard-home-header.is-global-search-open .dashboard-header-actions > :not(.dashboard-search),
+body[data-ui-profile="android_apk"].mobile-mode .dashboard-home-header.is-global-search-open .dashboard-header-actions > :not(.dashboard-search),
+body[data-ui-profile="web_pwa"].mobile-mode .dashboard-home-header.is-global-search-open .dashboard-header-actions > :not(.dashboard-search){
+  display:none;
+}
+
+body[data-ui-profile="android_apk"] .dashboard-home-header.is-global-search-open .dashboard-search.search-compact,
+body[data-ui-profile="android_apk"].mobile-mode .dashboard-home-header.is-global-search-open .dashboard-search.search-compact,
+body[data-ui-profile="web_pwa"].mobile-mode .dashboard-home-header.is-global-search-open .dashboard-search.search-compact{
+  width:100%;
+  min-width:0;
+  max-width:none;
+}
+
+@media(max-width:700px){
+  .dashboard-home-header .dashboard-greeting{
+    min-width:0;
+    overflow:hidden;
+  }
+  .dashboard-home-header .dashboard-greeting p{
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .dashboard-home-header.is-global-search-open{
+    grid-template-columns:40px minmax(0,1fr);
+    min-height:57px;
+  }
+  .dashboard-home-header.is-global-search-open .dashboard-greeting{
+    position:absolute;
+    visibility:hidden;
+    pointer-events:none;
+  }
+  .dashboard-home-header.is-global-search-open .dashboard-header-actions{
+    grid-column:2;
+    width:100%;
+    max-width:100%;
+  }
+  .dashboard-home-header.is-global-search-open .dashboard-header-actions > :not(.dashboard-search){
+    display:none;
+  }
+  .dashboard-home-header.is-global-search-open .dashboard-search.search-compact{
+    width:100%;
+    min-width:0;
+    max-width:none;
+  }
+  .dashboard-home-header.is-global-search-open .dashboard-search .search-action-button{
+    display:none;
+  }
+  .dashboard-home-header.is-global-search-open .search-autocomplete-panel{
+    position:absolute;
+    top:calc(100% + 6px);
+    right:0;
+    bottom:auto;
+    left:0;
+    min-width:100%;
+    max-height:min(16rem, calc(100dvh - 12rem));
+  }
 }
 
 /* ===== SPB TILE KIT - fase 1: card Producao (baseline fdcb0a0) ===== */
