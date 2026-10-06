@@ -43,6 +43,20 @@ test("integração carrega o módulo antes do aplicativo e inclui o build", () =
   assert(appSource.includes('function renderHomeShell(payload)'));
 });
 
+test("Home simples preserva o cabeçalho real e não cria outro menu inferior", () => {
+  assert(appSource.includes('${renderDashboardHomeHeader()}'));
+  assert(appSource.includes('data-home-layout="simple"'));
+  assert(!appSource.includes('home-simple-bottom-nav'));
+  assert(appSource.includes('class="home-date-card"'));
+});
+
+test("Home simples usa ações, módulos e indicadores operacionais reais", () => {
+  ["Novo pedido", "Calculadora", "Adicionar material", "Iniciar produção", "Novo cliente", "Nova venda"].forEach((label) => assert(appSource.includes(label)));
+  ["Pedidos abertos", "Em produção", "Vendas hoje", "Estoque baixo"].forEach((label) => assert(appSource.includes(label)));
+  assert(appSource.includes("getPedidoRecenteDashboard().slice(0, 4)"));
+  assert(appSource.includes("canAccessScreen(item.screen)"));
+});
+
 let passed = 0;
 for (const { name, fn } of tests) {
   fn();

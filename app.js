@@ -18641,82 +18641,89 @@ function getExcecoesOperacionaisDashboard(stats = getDashboardStats()) {
   return alertas;
 }
 
-function renderDashboardSimplifica({ stats, totaisCaixa }) {
-  const usuario = getUsuarioAtual();
-  const nome = String(usuario?.nome || usuario?.email || appConfig.businessName || "Operação").split(/\s+/)[0] || "Operação";
-  const pedidosProntos = pedidos.filter((pedido) => normalizarStatusPedidoFiltro(pedido) === "prontos").length;
-  const loja = canUseStorefrontLocal() ? getStorefrontAdminViewModel() : null;
-  const lojaPublicada = loja?.store?.active === true;
-  const produtosVisiveis = loja ? loja.products.filter((product) => product.visible).length : 0;
-  const alertas = [
-    ...getExcecoesOperacionaisDashboard(stats),
-    stats.estoqueBaixo > 0 ? {
-      action: "trocarTela('estoque')",
-      title: `${stats.estoqueBaixo} item(ns) com estoque baixo.`,
-      detail: "Confira materiais e produtos"
-    } : null,
-    loja && !lojaPublicada ? {
-      action: "trocarTela('lojaOnline')",
-      title: "Sua loja ainda não foi publicada.",
-      detail: `${produtosVisiveis} produto(s) visíveis`
-    } : null
-  ].filter(Boolean).slice(0, 7);
-  const cards = [
-    { label: "Vendas hoje", value: formatarMoeda(stats.faturamentoDia), icon: "caixa", action: "trocarTela('caixa')" },
-    { label: "Pedidos pendentes", value: String(stats.pedidosAbertos || 0), icon: "pedidos", action: "window.__pedidosFiltroDashboard='abertos';trocarTela('pedidos')" },
-    { label: "Pedidos prontos", value: String(pedidosProntos || 0), icon: "pedido", action: "window.__pedidosFiltroDashboard='prontos';trocarTela('pedidos')" },
-    { label: "Caixa atual", value: formatarMoeda(totaisCaixa.saldo), icon: "caixa", action: "trocarTela('caixa')" }
-  ];
+function getSimpleHomeDate() {
+  const now = new Date();
+  const label = new Intl.DateTimeFormat("pt-BR", {
+    weekday: "long", day: "numeric", month: "short", year: "numeric"
+  }).format(now).replace(/^./, (letter) => letter.toUpperCase());
+  return { iso: dataLocalIso(now), label };
+}
+
+function getSimpleHomeRecentActivities() {
+  return getPedidoRecenteDashboard().slice(0, 4).map((pedido) => {
+    const id = getNumeroSequencialPedido(pedido);
+    const timestamp = Date.parse(pedido.updatedAt || pedido.criadoEm || pedido.createdAt || pedido.data || "") || 0;
+    const cliente = clienteDoPedido(pedido) || "Cliente não informado";
+    return {
+      title: `Pedido #${id}`,
+      detail: cliente,
+      when: timestamp ? formatarTempoRelativo(timestamp) : labelStatusPedido(pedido.status),
+      icon: String(pedido.status || "").toLowerCase() === "producao" ? "producao" : "pedido"
+    };
+  });
+}
+
+function renderSimpleHomeSectionHeader(title, action = "", actionLabel = "") {
+  return `<div class="home-simple-section-header"><h2>${escaparHtml(title)}</h2>${action && actionLabel ? `<button class="text-link" type="button" onclick="${action}">${escaparHtml(actionLabel)} ›</button>` : ""}</div>`;
+}
+
+function renderDashboardSimplifica({ stats }) {
+  const date = getSimpleHomeDate();
+  const quickActions = [
+    { label: "Novo pedido", icon: "pedido", action: "trocarTela('pedido')", screen: "pedido" },
+    { label: "Calculadora", icon: "calculadora", action: "trocarTela('calculadora')", screen: "calculadora" },
+    { label: "Adicionar material", icon: "estoque", action: "abrirCadastroItemEstoque()", screen: "estoque" },
+    { label: "Iniciar produção", icon: "producao", action: "trocarTela('producao')", screen: "producao" },
+    { label: "Novo cliente", icon: "clientes", action: "abrirPedidoRapidoOperacional({reset:true})", screen: "pedido" },
+    { label: "Nova venda", icon: "caixa", action: "trocarTela('pedido')", screen: "pedido" }
+  ].filter((item) => canAccessScreen(item.screen));
+  const modules = [
+    { label: "Pedidos", detail: "Gerencie e acompanhe", icon: "pedidos", screen: "pedidos" },
+    { label: "Produção", detail: "Impressões e processos", icon: "producao", screen: "producao" },
+    { label: "Estoque", detail: "Materiais e insumos", icon: "estoque", screen: "estoque" },
+    { label: "Vendas", detail: "Resultados comerciais", icon: "relatorios", screen: "relatorios" },
+    { label: "Clientes", detail: "Contatos e histórico", icon: "clientes", screen: "clientes" },
+    { label: "Caixa", detail: "Fluxo e movimentações", icon: "caixa", screen: "caixa" },
+    { label: "Calculadora", detail: "Tempo e material", icon: "calculadora", screen: "calculadora" },
+    { label: "Loja Online", detail: "Produtos e pedidos", icon: "lojaOnline", screen: "lojaOnline" }
+  ].filter((item) => canAccessScreen(item.screen));
+  const summary = [
+    { label: "Pedidos abertos", value: String(stats.pedidosAbertos || 0), icon: "pedidos", screen: "pedidos", state: "teal" },
+    { label: "Em produção", value: String(stats.producoesAtivas || 0), icon: "producao", screen: "producao", state: "blue" },
+    { label: "Vendas hoje", value: formatarMoeda(stats.faturamentoDia || 0), icon: "relatorios", screen: "relatorios", state: "green" },
+    { label: "Estoque baixo", value: String(stats.estoqueBaixo || 0), icon: "alerta", screen: "estoque", state: stats.estoqueBaixo ? "red" : "neutral" }
+  ].filter((item) => canAccessScreen(item.screen));
+  const activities = getSimpleHomeRecentActivities();
   return `
-    <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-5 ui3-dashboard ui3-dashboard-simple" data-ui-version="v3" data-ui3-screen="dashboard" data-interface-mode="simplifica">
-      <div class="dashboard-simplifica-header" role="region" aria-label="Boas-vindas">
-        <div class="dashboard-simplifica-welcome">
-          ${renderDashboardProfileButton(usuario)}
-          <div>
-            <h1>Olá, ${escaparHtml(nome)}!</h1>
-            <p>Bem-vindo. Aqui está o resumo do seu negócio hoje.</p>
+    <section class="ui3-real-screen ui3-page ui3-dashboard ui3-dashboard-simple home-shell" data-ui-version="v3" data-ui3-screen="dashboard" data-interface-mode="simplifica" data-home-layout="simple">
+      ${renderDashboardHomeHeader()}
+      <div class="home-simple-view">
+        <section class="home-simple-intro" aria-label="Data atual">
+          <div><span>Visão geral</span><strong>Tudo em dia para manter sua produção em movimento.</strong></div>
+          <time class="home-date-card" datetime="${escaparAttr(date.iso)}"><i>${renderUiIcon("agenda")}</i><span><small>Hoje é</small><strong>${escaparHtml(date.label)}</strong></span></time>
+        </section>
+        <section class="home-simple-section home-simple-quick-section">
+          ${renderSimpleHomeSectionHeader("Atalhos rápidos")}
+          <div class="home-simple-quick-list">
+            ${quickActions.map((item, index) => `<button class="home-simple-quick-card${index === 0 ? " is-primary" : ""}" type="button" onclick="${item.action}"><span>${renderUiIcon(item.icon)}</span><strong>${escaparHtml(item.label)}</strong></button>`).join("")}
           </div>
-        </div>
-      </div>
-      <div class="ui3-grid ui3-dashboard-metrics">
-        ${cards.map((card) => `
-          <button class="metric dashboard-simplifica-metric" type="button" onclick="${card.action}">
-            <span>${renderUiIcon(card.icon)}</span>
-            <small>${escaparHtml(card.label)}</small>
-            <strong>${escaparHtml(card.value)}</strong>
-          </button>
-        `).join("")}
-      </div>
-      <section class="card dashboard-simplifica-actions">
-        <div class="card-header">
-          <h2>Ações rápidas</h2>
-          <span class="status-badge">Essencial</span>
-        </div>
-        <div class="actions ui3-simple-actions-grid">
-          <button class="btn" type="button" onclick="trocarTela('pedido')">${renderUiIcon("pedido")} Novo pedido</button>
-          <button class="btn secondary" type="button" onclick="trocarTela('calculadora')">${renderUiIcon("calculadora")} Calcular</button>
-          <button class="btn secondary" type="button" onclick="trocarTela('estoque')">${renderUiIcon("estoque")} Estoque</button>
-          <button class="btn ghost" type="button" onclick="trocarTela('lojaOnline')">${renderUiIcon("lojaOnline")} Loja</button>
-        </div>
-      </section>
-      <div class="ui3-grid ui3-dashboard-content-grid">
-        ${alertas.length ? `
-          <section class="card">
-            <div class="card-header">
-              <h2>Alertas</h2>
-              <span class="status-badge badge-alerta">Atenção</span>
-            </div>
-            <div class="dashboard-simple-alerts">
-              ${alertas.map((alerta) => `
-                <button type="button" onclick="${alerta.action}">
-                  <strong>${escaparHtml(alerta.title)}</strong>
-                  <small>${escaparHtml(alerta.detail)}</small>
-                </button>
-              `).join("")}
-            </div>
-          </section>
-        ` : ""}
-        ${renderPedidosRecentesDashboard()}
+        </section>
+        <section class="home-simple-section">
+          ${renderSimpleHomeSectionHeader("Módulos do sistema")}
+          <div class="home-simple-modules">
+            ${modules.map((item) => `<button class="home-simple-module-card" type="button" onclick="trocarTela('${escaparAttr(item.screen)}')"><span>${renderUiIcon(item.icon)}</span><span><strong>${escaparHtml(item.label)}</strong><small>${escaparHtml(item.detail)}</small></span><b aria-hidden="true">›</b></button>`).join("")}
+          </div>
+        </section>
+        <section class="home-simple-section">
+          ${renderSimpleHomeSectionHeader("Resumo de hoje")}
+          <div class="home-simple-summary">
+            ${summary.map((item) => `<button class="home-simple-summary-card is-${item.state}" type="button" onclick="trocarTela('${escaparAttr(item.screen)}')"><span>${renderUiIcon(item.icon)}</span><strong>${escaparHtml(item.value)}</strong><small>${escaparHtml(item.label)}</small></button>`).join("")}
+          </div>
+        </section>
+        <section class="home-simple-section">
+          ${renderSimpleHomeSectionHeader("Atividades recentes", activities.length ? "trocarTela('pedidos')" : "", activities.length ? "Ver todas" : "")}
+          ${activities.length ? `<div class="home-simple-activities">${activities.map((item) => `<button type="button" onclick="trocarTela('pedidos')"><span>${renderUiIcon(item.icon)}</span><span><strong>${escaparHtml(item.title)}</strong><small>${escaparHtml(item.detail)}</small></span><time>${escaparHtml(item.when)}</time><b aria-hidden="true">›</b></button>`).join("")}</div>` : `<p class="home-simple-empty">Nenhuma atividade recente. Seus pedidos aparecerão aqui.</p>`}
+        </section>
       </div>
     </section>
   `;

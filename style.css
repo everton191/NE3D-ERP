@@ -50372,6 +50372,234 @@ body .home-carousel-3d-host.dashboard-action-carousel .dashboard-carousel-card.c
 .app-bootstrap-mark{display:grid;place-items:center;width:64px;height:64px;border-radius:20px;background:linear-gradient(145deg,#1ce6d8,#0b7785);font-weight:900;letter-spacing:.04em;color:#061016}
 .app-bootstrap-state strong{font-size:22px}.app-bootstrap-state small{color:#a9c8ca}
 
+/* Home simples: composição própria do Simplifica 3D, sem substituir o shell existente. */
+.home-shell[data-home-layout="simple"]{
+  gap:18px;
+  min-width:0;
+}
+
+.home-simple-view{
+  display:grid;
+  gap:16px;
+  min-width:0;
+}
+
+.home-simple-intro,
+.home-simple-section{
+  min-width:0;
+  border:1px solid var(--border-soft);
+  border-radius:18px;
+  background:var(--surface-primary);
+  box-shadow:0 8px 24px rgba(17,49,53,.06);
+}
+
+.home-simple-intro{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:16px 18px;
+}
+
+.home-simple-intro > div{
+  display:grid;
+  gap:4px;
+}
+
+.home-simple-intro > div > span,
+.home-date-card small{
+  color:var(--text-muted);
+  font-size:12px;
+}
+
+.home-simple-intro > div > strong{
+  color:var(--text-primary);
+  font-size:17px;
+  line-height:1.35;
+}
+
+.home-date-card{
+  display:flex;
+  align-items:center;
+  gap:11px;
+  flex:0 0 auto;
+  padding:10px 13px;
+  border:1px solid var(--border-soft);
+  border-radius:14px;
+  color:var(--text-primary);
+  background:var(--surface-secondary, var(--surface-primary));
+}
+
+.home-date-card > i,
+.home-simple-quick-card > span,
+.home-simple-module-card > span:first-child,
+.home-simple-summary-card > span,
+.home-simple-activities button > span:first-child{
+  display:grid;
+  place-items:center;
+  color:var(--accent-text, var(--color-primary));
+}
+
+.home-date-card svg{width:23px;height:23px}
+.home-date-card > span{display:grid;gap:1px;font-style:normal}
+.home-date-card strong{font-size:13px;white-space:nowrap}
+
+.home-simple-section{
+  padding:17px;
+}
+
+.home-simple-section-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:14px;
+}
+
+.home-simple-section-header h2{
+  margin:0;
+  color:var(--text-primary);
+  font-size:19px;
+}
+
+.home-simple-quick-list{
+  display:grid;
+  grid-template-columns:repeat(6,minmax(105px,1fr));
+  gap:11px;
+}
+
+.home-simple-quick-card{
+  display:grid;
+  justify-items:center;
+  align-content:center;
+  gap:9px;
+  min-width:0;
+  min-height:112px;
+  padding:13px 9px;
+  border:1px solid var(--border-soft);
+  border-radius:15px;
+  color:var(--text-primary);
+  background:var(--surface-secondary, var(--surface-primary));
+  text-align:center;
+}
+
+.home-simple-quick-card > span{
+  width:42px;
+  height:42px;
+  border-radius:13px;
+  background:color-mix(in srgb,var(--color-primary) 10%,transparent);
+}
+
+.home-simple-quick-card svg{width:23px;height:23px}
+.home-simple-quick-card strong{font-size:13px;line-height:1.2}
+.home-simple-quick-card.is-primary{border-color:color-mix(in srgb,var(--color-primary) 42%,var(--border-soft));background:color-mix(in srgb,var(--color-primary) 8%,var(--surface-primary))}
+
+.home-simple-modules{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:11px;
+}
+
+.home-simple-module-card{
+  display:grid;
+  grid-template-columns:42px minmax(0,1fr) auto;
+  align-items:center;
+  gap:11px;
+  min-width:0;
+  min-height:88px;
+  padding:14px;
+  border:1px solid var(--border-soft);
+  border-radius:15px;
+  color:var(--text-primary);
+  background:var(--surface-secondary, var(--surface-primary));
+  text-align:left;
+}
+
+.home-simple-module-card > span:first-child{width:42px;height:42px;border-radius:13px;background:color-mix(in srgb,var(--color-primary) 9%,transparent)}
+.home-simple-module-card svg{width:23px;height:23px}
+.home-simple-module-card > span:nth-child(2){display:grid;gap:3px;min-width:0}
+.home-simple-module-card strong{font-size:14px}
+.home-simple-module-card small{overflow:hidden;color:var(--text-muted);font-size:11px;text-overflow:ellipsis;white-space:nowrap}
+.home-simple-module-card > b{color:var(--text-muted);font-size:21px;font-weight:400}
+
+.home-simple-summary{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:11px;
+}
+
+.home-simple-summary-card{
+  display:grid;
+  grid-template-columns:34px minmax(0,1fr);
+  gap:2px 9px;
+  min-width:0;
+  min-height:105px;
+  padding:14px;
+  border:1px solid var(--border-soft);
+  border-radius:15px;
+  color:var(--text-primary);
+  background:var(--surface-secondary, var(--surface-primary));
+  text-align:left;
+}
+
+.home-simple-summary-card > span{grid-row:1/3;width:34px;height:34px;border-radius:11px;background:color-mix(in srgb,var(--color-primary) 10%,transparent)}
+.home-simple-summary-card svg{width:19px;height:19px}
+.home-simple-summary-card strong{align-self:end;overflow:hidden;font-size:21px;text-overflow:ellipsis;white-space:nowrap}
+.home-simple-summary-card small{color:var(--text-muted);font-size:12px}
+.home-simple-summary-card.is-red{border-color:color-mix(in srgb,#dc3545 34%,var(--border-soft));background:color-mix(in srgb,#dc3545 5%,var(--surface-primary))}
+
+.home-simple-activities{display:grid}
+.home-simple-activities button{
+  display:grid;
+  grid-template-columns:38px minmax(0,1fr) auto 12px;
+  align-items:center;
+  gap:11px;
+  width:100%;
+  min-width:0;
+  padding:11px 4px;
+  border:0;
+  border-bottom:1px solid var(--border-soft);
+  color:var(--text-primary);
+  background:transparent;
+  text-align:left;
+}
+.home-simple-activities button:last-child{border-bottom:0}
+.home-simple-activities button > span:first-child{width:38px;height:38px;border-radius:12px;background:color-mix(in srgb,var(--color-primary) 9%,transparent)}
+.home-simple-activities button > span:nth-child(2){display:grid;gap:2px;min-width:0}
+.home-simple-activities strong,.home-simple-activities small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.home-simple-activities small,.home-simple-activities time{color:var(--text-muted);font-size:11px}
+.home-simple-activities b{font-size:19px;font-weight:400}
+.home-simple-empty{margin:0;color:var(--text-muted);font-size:13px}
+
+body.theme-light .home-shell[data-home-layout="simple"] :is(.home-simple-intro,.home-simple-section){background:#fff;border-color:#dce6e7;box-shadow:0 7px 20px rgba(31,51,53,.055)}
+body.theme-light .home-shell[data-home-layout="simple"] :is(.home-date-card,.home-simple-quick-card,.home-simple-module-card,.home-simple-summary-card){background:#f8fbfb;border-color:#dce6e7;box-shadow:none}
+
+@media (max-width:900px){
+  .home-simple-quick-list{display:flex;overflow-x:auto;scroll-snap-type:x proximity;padding:1px 1px 5px}
+  .home-simple-quick-card{flex:0 0 116px;scroll-snap-align:start}
+  .home-simple-modules{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .home-simple-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+@media (max-width:560px){
+  .home-shell[data-home-layout="simple"]{gap:12px}
+  .home-simple-view{gap:12px}
+  .home-simple-intro{align-items:stretch;padding:13px;flex-direction:column}
+  .home-simple-intro > div > strong{font-size:15px}
+  .home-date-card{align-self:stretch}
+  .home-date-card strong{white-space:normal}
+  .home-simple-section{padding:13px;border-radius:15px}
+  .home-simple-section-header h2{font-size:17px}
+  .home-simple-module-card{grid-template-columns:36px minmax(0,1fr) auto;min-height:78px;padding:11px;gap:8px}
+  .home-simple-module-card > span:first-child{width:36px;height:36px}
+  .home-simple-module-card strong{font-size:13px}
+  .home-simple-summary-card{grid-template-columns:30px minmax(0,1fr);min-height:92px;padding:11px;gap:2px 8px}
+  .home-simple-summary-card > span{width:30px;height:30px}
+  .home-simple-summary-card strong{font-size:17px}
+  .home-simple-activities button{grid-template-columns:34px minmax(0,1fr) auto 9px;gap:8px}
+  .home-simple-activities button > span:first-child{width:34px;height:34px}
+}
+
 @media (max-width:700px){
   .mobile-panel-calculator .calc-modern-grid{
     grid-template-columns:repeat(3, minmax(0, 1fr)) !important;
