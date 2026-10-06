@@ -9,6 +9,7 @@ const layoutApi = require(path.join(root, "src", "features", "home", "home-layou
 const appSource = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const indexSource = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const prepareSource = fs.readFileSync(path.join(root, "scripts", "prepare-web.js"), "utf8");
+const appUiSource = fs.readFileSync(path.join(root, "src", "features", "app-ui", "app-ui-renderers.js"), "utf8");
 
 const tests = [];
 function test(name, fn) { tests.push({ name, fn }); }
@@ -63,6 +64,14 @@ test("Aparência oferece escolha imediata entre os dois layouts", () => {
   assert(appSource.includes('name="homeLayout" value="carousel"'));
   assert(appSource.includes('onchange="alterarHomeLayout(this.value)"'));
   assert(appSource.includes('Editar e organizar cartões'));
+});
+
+test("carrossel só monta quando o layout selecionado fornece um host", () => {
+  assert(appUiSource.includes('if (deps.getHomeLayout() !== "carousel") return ""'));
+  assert(appUiSource.includes('const carouselHost = isDashboard ? app.querySelector("[data-home-carousel-host]") : null'));
+  assert(appUiSource.includes("if (!carouselHost) deps.unmountHomeCarousel()"));
+  assert(appUiSource.includes("else if (interfaceChanged) deps.mountHomeCarousel(carouselHost)"));
+  assert(!appUiSource.includes('deps.mountHomeCarousel(app.querySelector("[data-home-carousel-host]"))'));
 });
 
 let passed = 0;

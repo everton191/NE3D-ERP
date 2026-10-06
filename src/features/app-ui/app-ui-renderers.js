@@ -87,15 +87,17 @@
     deps.document.body.classList.toggle("tablet-mode", viewportMode === "tablet");
     deps.document.body.classList.toggle("desktop-mode", viewportMode === "desktop");
     deps.document.body.dataset.interfaceMode = deps.getInterfaceMode();
+    deps.document.body.dataset.homeLayout = deps.getHomeLayout();
     deps.document.body.classList.toggle("auth-screen-active", !deps.getUsuarioAtual() && telaAtual === "admin");
     deps.document.body.classList.toggle("visitor-public-screen", !deps.getUsuarioAtual() && deps.isTelaPublica(telaAtual));
     const modoSuperadminIsolado = deps.isSuperAdmin() && telaAtual === "superadmin";
     const homeDestination = telaAtual === "dashboard" || telaAtual === "superadmin";
     if (homeDestination) deps.window.SimplificaAuthCommands.traceLogin(telaAtual === "dashboard" ? "NAV_HOME" : "NAV_SUPERADMIN");
     const isDashboard = telaAtual === "dashboard";
-    if (!isDashboard) deps.unmountHomeCarousel();
     const interfaceChanged = deps.atualizarArvoreInterface(app, mobile ? deps.renderMobile() : deps.renderDesktop(), { chaveEstrutural: deps.getChaveEstruturalInterface(mobile) });
-    if (isDashboard && (interfaceChanged || !app.querySelector("[data-home-carousel-host]"))) deps.mountHomeCarousel(app.querySelector("[data-home-carousel-host]"));
+    const carouselHost = isDashboard ? app.querySelector("[data-home-carousel-host]") : null;
+    if (!carouselHost) deps.unmountHomeCarousel();
+    else if (interfaceChanged) deps.mountHomeCarousel(carouselHost);
     deps.compactarBarrasAcoesMobile(); deps.sincronizarShellUiV3(); deps.renderizarFabEstoqueGlobal(); deps.renderizarAtalhoSecretariaIaGlobal(); deps.configurarFechamentoMenusEstoque(); deps.configurarAcoesCadastroImpressora(); deps.configurarAcoesPerfil(); deps.atualizarMenu();
     if (!modoSuperadminIsolado) {
       deps.ajustarJanelasDashboardAoWorkspace(false); deps.renderCalculadoraFlutuante(); deps.sincronizarBannersSeNecessario(); deps.hidratarLojaPublicaSeNecessario(); deps.preencherImpressoras(); deps.preencherMateriaisCalculadora();
@@ -138,7 +140,7 @@
   }
 
   function renderDashboardMobileAdvancedPanel(stats, totaisCaixa, deps) {
-    if (!deps.isProfissionalMode()) return "";
+    if (deps.getHomeLayout() !== "carousel") return "";
     const itens = [{ id: "orders", tela: "pedidos", icon: "P", detail: `${stats.pedidosAbertos || 0} abertos`, live: [`Hoje ${stats.pedidosHoje || 0}`, `Concluídos ${stats.pedidosConcluidos || 0}`] }, { id: "inventory", tela: "estoque", icon: "E", detail: stats.estoqueBaixo ? `${stats.estoqueBaixo} alerta(s)` : "Estoque OK", live: [`Materiais ${stats.totalMateriais || 0}`, `Consumo ${(Number(stats.consumoHojeKg) || 0).toFixed(3)} kg`] }, { id: "production", tela: "producao", icon: "P", detail: `${stats.producoesAtivas || 0} em produção`, live: [`Abertos ${stats.pedidosAbertos || 0}`, `Prontos ${stats.pedidosConcluidos || 0}`] }, { id: "cash", tela: "caixa", icon: "C", detail: deps.formatarMoeda(totaisCaixa.saldo), live: [`Entradas ${deps.formatarMoeda(totaisCaixa.entradas)}`, `Saídas ${deps.formatarMoeda(totaisCaixa.saidas)}`] }, { id: "sales", tela: "relatorios", icon: "V", detail: deps.formatarMoeda(stats.faturamentoDia || 0), live: [`Lucro ${deps.formatarMoeda(stats.lucroEstimado || 0)}`, `Pedidos ${stats.pedidosHoje || 0}`] }, { id: "printers", tela: "impressoras", icon: "I", detail: "Impressoras", live: [`Produção ${stats.producoesAtivas || 0}`] }, { id: "customers", tela: "clientes", icon: "C", detail: `${stats.clientesAtivos || 0} clientes`, live: [`Pedidos ${deps.pedidos.length}`] }, { id: "storefront", tela: "lojaOnline", icon: "L", detail: "Loja Online", live: [`Vendas ${deps.formatarMoeda(stats.faturamentoDia || 0)}`] }, { id: "quotes", tela: "calculadora", icon: "O", detail: "Orçamentos", live: [`Pedidos ${stats.pedidosAbertos || 0}`] }, { id: "calculator", tela: "calculadora", icon: "K", detail: "Calculadora", live: [`Faturamento ${deps.formatarMoeda(stats.faturamentoDia || 0)}`] }].filter((item) => deps.canAccessScreen(item.tela));
     if (!itens.length) return "";
     const presentations = Object.fromEntries(itens.map(({ id, icon, detail, live }) => [id, { icon, detail, live }]));

@@ -3,7 +3,8 @@ const fs = require("fs");
 const app = fs.readFileSync("app.js", "utf8").replace(/\r\n/g, "\n");
 const css = fs.readFileSync("style.css", "utf8").replace(/\r\n/g, "\n");
 const interfaceMode = fs.readFileSync("src/features/config/config-interface-mode.js", "utf8").replace(/\r\n/g, "\n");
-const body = `${app}\n${interfaceMode}`;
+const appUi = fs.readFileSync("src/features/app-ui/app-ui-renderers.js", "utf8").replace(/\r\n/g, "\n");
+const body = `${app}\n${interfaceMode}\n${appUi}`;
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -52,7 +53,7 @@ assert(app.includes("localStorage.setItem(INTERFACE_MODE_STORAGE_KEY, serializeI
 assert(app.includes("function sincronizarPreferenciaModoInterface()"), "Modo deve sincronizar com preferencia remota");
 assert(body.includes('/rest/v1/user_preferences?on_conflict=user_id'), "Modo deve salvar em user_preferences");
 assert(app.includes("function renderDashboardSimplifica"), "Modo Simplifica deve ter dashboard simples dedicado");
-assert(app.includes("if (isSimplificaMode()) return renderDashboardSimplifica(payload);"), "Dashboard deve escolher a versao Simplifica");
+assert(app.includes("return renderHomeShell(payload);") && app.includes('if (getHomeLayout() === "simple") return renderDashboardSimplifica(payload);'), "Dashboard deve escolher a Home simples pelo layout configurado");
 assert(app.includes('if (!isContextAdvancedVisible("caixa")) return "movimentos";'), "Caixa simplificado deve evitar extrato avancado");
 const inventoryScreen = fs.readFileSync("src/features/inventory/inventory-screen-renderer.js", "utf8").replace(/\r\n/g, "\n");
 const stockHaystack = `${app}\n${inventoryScreen}`;
@@ -64,7 +65,7 @@ assert(app.includes("function renderEstoqueRolosPreview"), "Estoque deve ter pre
 assert(app.includes("security-account-online-section"), "Seguranca deve manter area online dedicada");
 assert(app.includes("Ativar 2FA por e-mail"), "Seguranca deve manter 2FA por e-mail");
 assert(app.includes("Solicitar exclusão da conta"), "Seguranca deve manter exclusao de conta");
-assert(app.includes("document.body.dataset.interfaceMode = getInterfaceMode();"), "Body deve receber o modo atual para ajustes visuais");
+assert(body.includes("document.body.dataset.interfaceMode = getInterfaceMode();") || body.includes("deps.document.body.dataset.interfaceMode = deps.getInterfaceMode();"), "Body deve receber o modo atual para ajustes visuais");
 assert(css.includes(".dashboard-simplifica"), "CSS do dashboard Simplifica deve existir");
 assert(css.includes(".stock-roll-preview"), "CSS deve contemplar previa de rolos");
 assert(css.includes(".account-security-roadmap"), "CSS deve contemplar seguranca futura");
