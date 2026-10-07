@@ -91,7 +91,7 @@ const LOGIN_MAX_ATTEMPTS = 5;
 // TODO: Reativar WhatsApp 2FA somente com Edge Function/backend, provedor oficial, armazenamento com expiração e validação server-side.
 const WHATSAPP_2FA_BACKEND_ENABLED = false;
 const PRINTER_FEATURE_ENABLED = true;
-const PERSONALIZATION_SCREEN_ENABLED = false;
+const PERSONALIZATION_SCREEN_ENABLED = true;
 const ERP_THEME_PREFERENCE_STORAGE_KEY = "simplifica3d:erp-theme-preference";
 const FREE_ACTION_CREDIT_LIMIT = 5;
 const FREE_ACTION_AD_BONUS_LIMIT = 5;
@@ -18678,12 +18678,9 @@ function renderDashboardSimplifica({ stats }) {
     { label: "Nova venda", icon: "caixa", action: "trocarTela('pedido')", screen: "pedido" }
   ].filter((item) => canAccessScreen(item.screen));
   const modules = [
-    { label: "Pedidos", detail: "Gerencie e acompanhe", icon: "pedidos", screen: "pedidos" },
-    { label: "Produção", detail: "Impressões e processos", icon: "producao", screen: "producao" },
     { label: "Estoque", detail: "Materiais e insumos", icon: "estoque", screen: "estoque" },
     { label: "Vendas", detail: "Resultados comerciais", icon: "relatorios", screen: "relatorios" },
     { label: "Clientes", detail: "Contatos e histórico", icon: "clientes", screen: "clientes" },
-    { label: "Caixa", detail: "Fluxo e movimentações", icon: "caixa", screen: "caixa" },
     { label: "Calculadora", detail: "Tempo e material", icon: "calculadora", screen: "calculadora" },
     { label: "Loja Online", detail: "Produtos e pedidos", icon: "lojaOnline", screen: "lojaOnline" }
   ].filter((item) => canAccessScreen(item.screen));
@@ -26314,7 +26311,7 @@ function renderAparenciaConfig() {
       </div>
       <p class="muted">Somente visual do aplicativo: tema, cores, densidade, navegação e proporção das telas.</p>
       <div class="settings-accordion-list">
-        ${renderUiSection({ id: "aparencia-home", title: "Tela inicial", subtitle: "Escolha entre a visão simples e o carrossel 3D", icon: "dashboard", open: true, group: "aparencia", content: `
+        ${renderUiSection({ id: "aparencia-home", title: "Tela inicial", subtitle: "Escolha entre a visão simples e o carrossel 3D", icon: renderUiIcon("dashboard"), open: true, group: "aparencia", content: `
           <div class="home-layout-options" role="radiogroup" aria-label="Formato da tela inicial">
             <label class="home-layout-option${homeLayout === "simple" ? " is-selected" : ""}">
               <input type="radio" name="homeLayout" value="simple" ${homeLayout === "simple" ? "checked" : ""} onchange="alterarHomeLayout(this.value)">

@@ -10,6 +10,7 @@ const appSource = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const indexSource = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const prepareSource = fs.readFileSync(path.join(root, "scripts", "prepare-web.js"), "utf8");
 const appUiSource = fs.readFileSync(path.join(root, "src", "features", "app-ui", "app-ui-renderers.js"), "utf8");
+const styleSource = fs.readFileSync(path.join(root, "style.css"), "utf8");
 
 const tests = [];
 function test(name, fn) { tests.push({ name, fn }); }
@@ -58,8 +59,18 @@ test("Home simples usa ações, módulos e indicadores operacionais reais", () =
   assert(appSource.includes("canAccessScreen(item.screen)"));
 });
 
+test("módulos não repetem destinos fixos do menu inferior", () => {
+  const start = appSource.indexOf("const modules = [", appSource.indexOf("function renderDashboardSimplifica"));
+  const end = appSource.indexOf("].filter((item) => canAccessScreen(item.screen));", start);
+  const modulesSource = appSource.slice(start, end);
+  ["Pedidos", "Produção", "Caixa"].forEach((label) => assert(!modulesSource.includes(`label: "${label}"`)));
+  ["Estoque", "Vendas", "Clientes", "Calculadora", "Loja Online"].forEach((label) => assert(modulesSource.includes(`label: "${label}"`)));
+});
+
 test("Aparência oferece escolha imediata entre os dois layouts", () => {
+  assert(appSource.includes("const PERSONALIZATION_SCREEN_ENABLED = true"));
   assert(appSource.includes('id: "aparencia-home"'));
+  assert(appSource.includes('icon: renderUiIcon("dashboard")'));
   assert(appSource.includes('name="homeLayout" value="simple"'));
   assert(appSource.includes('name="homeLayout" value="carousel"'));
   assert(appSource.includes('onchange="alterarHomeLayout(this.value)"'));
@@ -72,6 +83,21 @@ test("carrossel só monta quando o layout selecionado fornece um host", () => {
   assert(appUiSource.includes("if (!carouselHost) deps.unmountHomeCarousel()"));
   assert(appUiSource.includes("else if (interfaceChanged) deps.mountHomeCarousel(carouselHost)"));
   assert(!appUiSource.includes('deps.mountHomeCarousel(app.querySelector("[data-home-carousel-host]"))'));
+});
+
+test("Home simples tem grades responsivas sem criar overflow horizontal na página", () => {
+  assert(styleSource.includes(".home-simple-quick-list"));
+  assert(styleSource.includes("overflow-x:auto"));
+  assert(styleSource.includes(".home-simple-modules{grid-template-columns:repeat(2,minmax(0,1fr))}"));
+  assert(styleSource.includes(".home-simple-summary{grid-template-columns:repeat(2,minmax(0,1fr))}"));
+  assert(styleSource.includes('body.theme-light .home-shell[data-home-layout="simple"]'));
+  assert(!styleSource.includes("home-simple-bottom-nav"));
+});
+
+test("atalhos rápidos usam densidade compacta com toque seguro", () => {
+  assert(styleSource.includes("min-height:70px"));
+  assert(styleSource.includes("flex:0 0 82px"));
+  assert(styleSource.includes(".home-simple-quick-card svg{width:17px;height:17px}"));
 });
 
 let passed = 0;

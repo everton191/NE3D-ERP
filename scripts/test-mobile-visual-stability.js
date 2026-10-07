@@ -97,7 +97,7 @@ if (app.includes('class="item-cube-icon"')) {
 if (!app.includes("<span>Sugestão</span>") || app.includes("<span>Sugestão discreta</span>")) {
   throw new Error("Card inteligente da Home deve usar apenas o rotulo Sugestão.");
 }
-if (!css.includes(".dashboard-search.search-compact .search-action-button") ||
+if (!css.includes(".search-action-button{") ||
     !css.includes("body.theme-light .cash-top-search input")) {
   throw new Error("Pesquisas devem manter um unico fundo, sem botao ou campo interno duplicado.");
 }

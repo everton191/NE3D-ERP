@@ -2,6 +2,8 @@ const fs = require("fs");
 
 const css = fs.readFileSync("style.css", "utf8");
 const app = fs.readFileSync("app.js", "utf8");
+const reportsRenderer = fs.readFileSync("src/features/reports/reports-renderer.js", "utf8");
+const appMarkup = `${app}\n${reportsRenderer}`;
 
 const checks = [
   "overflow-x:hidden",
@@ -23,7 +25,7 @@ if (!css.includes("@media (max-width: 820px)") || !css.includes("@media (max-wid
   throw new Error("Breakpoints mobile principais nao foram encontrados.");
 }
 
-if (!css.includes(".dashboard-home-header .dashboard-search.search-compact.is-expanded")) {
+if (!css.includes(".dashboard-home-header.is-global-search-open .home-global-search")) {
   throw new Error("Busca compacta do dashboard mobile nao possui regra expandida.");
 }
 
@@ -35,7 +37,7 @@ if (!app.includes("function ativarBuscaCompacta") || !app.includes("function enc
   throw new Error("Helpers de foco/expansao da busca compacta nao foram encontrados.");
 }
 
-if (!app.includes("reports-search-compact") || !app.includes("aria-label=\"Buscar relatórios\"")) {
+if (!appMarkup.includes("reports-search-compact") || !appMarkup.includes("aria-label=\"Buscar relatórios\"")) {
   throw new Error("Relatorios deve renderizar campo de busca compacto, nao apenas icone.");
 }
 
