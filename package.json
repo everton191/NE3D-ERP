@@ -168,6 +168,7 @@
     "test:quick-order-multiselect": "node scripts/test-quick-order-multiselect.js",
     "test:interface-modes": "node scripts/test-interface-modes.js",
     "test:onboarding-core-guide": "node scripts/test-onboarding-core-guide.js",
+    "test:onboarding-android": "node scripts/android-onboarding-smoke.js",
     "test:stock-stage-1": "node scripts/test-stock-stage-1.js",
     "test:stock-batch-compact-ui": "node scripts/test-stock-batch-compact-ui.js",
     "test:order-stock-calculator-flow": "node scripts/test-order-stock-calculator-flow.js",

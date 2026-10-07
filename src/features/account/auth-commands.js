@@ -667,7 +667,7 @@
     const onboardingRemotoConcluido = perfil.onboarding_completed === true || perfil.onboardingCompleted === true;
     usuario.onboardingCompleted = usuario.onboardingCompleted === true || onboardingRemotoConcluido || deps.onboardingConcluidoLocalmente(usuario);
     usuario.onboardingStep = usuario.onboardingCompleted
-      ? 4
+      ? Number(deps.onboardingLastStep) || 8
       : Math.max(Number(usuario.onboardingStep) || 0, Number(perfil.onboarding_step ?? perfil.onboardingStep) || 0);
     if (usuario.onboardingCompleted) {
       deps.appConfig.companySetupCompleted = true;

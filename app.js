@@ -248,6 +248,9 @@ const ONBOARDING_PRINT_TYPES = [
   { id: "ambos", label: "Ambos" }
 ];
 const ONBOARDING_MATERIALS = ["PLA", "ABS", "PETG", "TPU", "Resina", "Outro"];
+const ONBOARDING_TOTAL_STEPS = 9;
+const ONBOARDING_LAST_STEP = ONBOARDING_TOTAL_STEPS - 1;
+const ONBOARDING_LEGACY_LAST_STEP = 4;
 const LIST_PAGE_SIZE = 50;
 const SUPERADMIN_PAGE_SIZE = 50;
 const LOCAL_SESSION_CACHE_KEY = "simplifica3dSessionCache";
@@ -1519,7 +1522,7 @@ const StateStore = {
         const combinado = { ...item, ...usuario };
         if (item.papel === "superadmin" || usuario.papel === "superadmin" || usuario.role === "superadmin") combinado.papel = "superadmin";
         combinado.onboardingCompleted = item.onboardingCompleted === true || usuario.onboardingCompleted === true;
-        combinado.onboardingStep = combinado.onboardingCompleted ? 4 : Math.max(Number(item.onboardingStep) || 0, Number(usuario.onboardingStep) || 0);
+        combinado.onboardingStep = combinado.onboardingCompleted ? ONBOARDING_LAST_STEP : Math.max(Number(item.onboardingStep) || 0, Number(usuario.onboardingStep) || 0);
         return normalizarUsuario(combinado);
       })
       : [...lista, normalizarUsuario(usuario)];
@@ -4225,7 +4228,7 @@ function normalizarUsuario(usuario) {
     trialDays: 0,
     acceptedTermsAt: usuario?.acceptedTermsAt || usuario?.accepted_terms_at || "",
     onboardingCompleted,
-    onboardingStep: onboardingCompleted ? 4 : Math.max(0, Math.min(4, Number(usuario?.onboardingStep ?? usuario?.onboarding_step ?? 0) || 0)),
+    onboardingStep: onboardingCompleted ? ONBOARDING_LAST_STEP : Math.max(0, Math.min(ONBOARDING_LAST_STEP, Number(usuario?.onboardingStep ?? usuario?.onboarding_step ?? 0) || 0)),
     supabaseUserId: usuario?.supabaseUserId || usuario?.supabase_user_id || usuario?.user_id || "",
     supabasePending: usuario?.supabasePending === true || usuario?.onlineRegistrationPending === true,
     supabaseLastSyncAt: usuario?.supabaseLastSyncAt || usuario?.updated_at || "",
@@ -4295,7 +4298,7 @@ function mesclarUsuariosSupabase(usuariosAtuais = [], perfis = []) {
       mustChangePassword: deveTrocarSenha,
       senhaTemporaria: deveTrocarSenha,
       onboardingCompleted,
-      onboardingStep: onboardingCompleted ? 4 : Math.max(Number(local?.onboardingStep) || 0, Number(remoto.onboardingStep) || 0),
+      onboardingStep: onboardingCompleted ? ONBOARDING_LAST_STEP : Math.max(Number(local?.onboardingStep) || 0, Number(remoto.onboardingStep) || 0),
       senha: local?.senha || "",
       passwordHash: local?.passwordHash || "",
       passwordUpdatedAt: local?.passwordUpdatedAt || "",
@@ -11205,13 +11208,13 @@ function registrarOnboardingConcluidoLocalmente(usuario = getUsuarioAtual(), con
 function onboardingEstaConcluido(usuario = getUsuarioAtual()) {
   if (!usuario || isSuperAdmin(usuario)) return false;
   if (usuario.onboardingCompleted === true || onboardingConcluidoLocalmente(usuario)) return true;
-  return appConfig.companySetupCompleted === true && etapaOnboardingAtual(usuario) >= 4;
+  return appConfig.companySetupCompleted === true && etapaOnboardingAtual(usuario) >= ONBOARDING_LEGACY_LAST_STEP;
 }
 
 function reconciliarOnboardingConcluido(usuario = getUsuarioAtual()) {
   if (!usuario || isSuperAdmin(usuario) || !onboardingEstaConcluido(usuario)) return false;
   usuario.onboardingCompleted = true;
-  usuario.onboardingStep = 4;
+  usuario.onboardingStep = ONBOARDING_LAST_STEP;
   appConfig.companySetupCompleted = true;
   appConfig.onboardingFirstOrderPending = false;
   registrarOnboardingConcluidoLocalmente(usuario, true);
@@ -11225,13 +11228,13 @@ function deveMostrarOnboarding(usuario = getUsuarioAtual()) {
 }
 
 function etapaOnboardingAtual(usuario = getUsuarioAtual()) {
-  return Math.max(0, Math.min(4, Number(usuario?.onboardingStep) || 0));
+  return Math.max(0, Math.min(ONBOARDING_LAST_STEP, Number(usuario?.onboardingStep) || 0));
 }
 
 function salvarOnboardingLocal(step, completed = false) {
   const usuario = getUsuarioAtual();
   if (!usuario) return;
-  usuario.onboardingStep = Math.max(0, Math.min(4, Number(step) || 0));
+  usuario.onboardingStep = Math.max(0, Math.min(ONBOARDING_LAST_STEP, Number(step) || 0));
   usuario.onboardingCompleted = completed === true;
   appConfig.companySetupCompleted = completed === true || appConfig.companySetupCompleted === true;
   appConfig.onboardingLastUpdatedAt = new Date().toISOString();
@@ -11255,24 +11258,24 @@ function selecionarTipoImpressaoOnboarding(tipo) {
   const permitido = ONBOARDING_PRINT_TYPES.some((item) => item.id === tipo) ? tipo : "fdm";
   appConfig.defaultPrintType = permitido;
   appConfig.defaultPrinterType = permitido === "resina" ? "Resina" : "FDM";
-  salvarOnboardingLocal(2, false);
+  salvarOnboardingLocal(1, false);
   renderApp();
 }
 
 function selecionarMaterialOnboarding(material) {
   appConfig.defaultMaterial = String(material || "").trim();
-  salvarOnboardingLocal(3, false);
+  salvarOnboardingLocal(1, false);
   renderApp();
 }
 
 function pularMaterialOnboarding() {
-  salvarOnboardingLocal(3, false);
+  salvarOnboardingLocal(2, false);
   renderApp();
 }
 
 function abrirPrimeiroPedidoOnboarding() {
   appConfig.onboardingFirstOrderPending = true;
-  salvarOnboardingLocal(4, false);
+  salvarOnboardingLocal(ONBOARDING_LAST_STEP, false);
   trocarTela("pedido");
 }
 
@@ -11286,7 +11289,7 @@ function abrirModuloGuiadoOnboarding(tela) {
   const permitidos = ["pedido", "calculadora", "estoque", "caixa", "secretaria_ia"];
   if (!permitidos.includes(String(tela))) return;
   appConfig.onboardingGuidedModules = [...getModulosGuiadosOnboarding(), tela].filter((item, index, lista) => lista.indexOf(item) === index);
-  salvarOnboardingLocal(3, false);
+  salvarOnboardingLocal(etapaOnboardingAtual(), false);
   if (tela === "secretaria_ia") {
     abrirSecretariaIaLocal3d({ mostrarTutorial: true });
     return;
@@ -11297,7 +11300,7 @@ function abrirModuloGuiadoOnboarding(tela) {
 function finalizarOnboarding(abrirPedido = false) {
   appConfig.onboardingFirstOrderPending = false;
   appConfig.onboardingGuidedModules = [];
-  salvarOnboardingLocal(4, true);
+  salvarOnboardingLocal(ONBOARDING_LAST_STEP, true);
   mostrarToast("Pronto! Seu sistema está configurado.", "sucesso");
   trocarTela(abrirPedido ? "pedido" : "dashboard");
 }
@@ -11320,10 +11323,42 @@ function reiniciarOnboarding() {
 
 function renderIndicadorOnboarding(step) {
   return `
-    <div class="progress-steps" aria-label="Progresso da introdução">
-      ${[0, 1, 2, 3, 4].map((item) => `<span class="${item <= step ? "active" : ""}"></span>`).join("")}
+    <div class="onboarding-progress" aria-label="Etapa ${step + 1} de ${ONBOARDING_TOTAL_STEPS}">
+      <div class="onboarding-progress-track" aria-hidden="true">
+        ${Array.from({ length: ONBOARDING_TOTAL_STEPS }, (_, item) => `<span class="${item <= step ? "active" : ""}"></span>`).join("")}
+      </div>
+      <p><strong>${step + 1}</strong> de ${ONBOARDING_TOTAL_STEPS}</p>
     </div>
-    <p class="muted">Etapa ${step + 1} de 5</p>
+  `;
+}
+
+function renderNavegacaoOnboarding(step, proximoTexto = "Continuar") {
+  return `
+    <footer class="onboarding-navigation">
+      ${step > 0 ? `<button class="btn secondary" type="button" onclick="avancarOnboarding(${step - 1})">Voltar</button>` : `<span aria-hidden="true"></span>`}
+      <button class="btn ghost onboarding-skip" type="button" onclick="finalizarOnboarding(false)">Pular apresentação</button>
+      <button class="btn" type="button" onclick="avancarOnboarding(${Math.min(step + 1, ONBOARDING_LAST_STEP)})">${escaparHtml(proximoTexto)}</button>
+    </footer>
+  `;
+}
+
+function renderEtapaFuncionalidadeOnboarding({ step, icon, eyebrow, title, description, items, preview, nextLabel = "Continuar" }) {
+  return `
+    <div class="onboarding-stage">
+      <div class="onboarding-feature-visual" aria-hidden="true">
+        <span class="onboarding-feature-icon">${renderUiIcon(icon)}</span>
+        ${preview}
+      </div>
+      <div class="onboarding-feature-copy">
+        <span class="onboarding-eyebrow">${escaparHtml(eyebrow)}</span>
+        <h2>${escaparHtml(title)}</h2>
+        <p class="onboarding-lead">${escaparHtml(description)}</p>
+        <ul class="onboarding-feature-list">
+          ${items.map((item) => `<li><span>${renderUiIcon("check")}</span>${escaparHtml(item)}</li>`).join("")}
+        </ul>
+      </div>
+    </div>
+    ${renderNavegacaoOnboarding(step, nextLabel)}
   `;
 }
 
@@ -11333,72 +11368,144 @@ function renderOnboarding() {
   const step = etapaOnboardingAtual(usuario);
   const tipoAtual = appConfig.defaultPrintType || "";
   const materialAtual = appConfig.defaultMaterial || "";
-  const modulosGuiados = getModulosGuiadosOnboarding();
-  const botoesPular = `<button class="btn ghost" onclick="finalizarOnboarding(false)">Pular e ir para o painel</button>`;
 
   const telasOnboarding = [
     `
-      <h2>Bem-vindo ao Simplifica 3D</h2>
-      <p class="muted">Vamos configurar o básico para você começar em poucos minutos.</p>
-      <div class="actions">
-        <button class="btn" onclick="avancarOnboarding(1)">Começar</button>
-        ${botoesPular}
+      <div class="onboarding-stage onboarding-welcome-stage">
+        <div class="onboarding-feature-visual onboarding-welcome-visual" aria-hidden="true">
+          <span class="onboarding-feature-icon">${renderUiIcon("home")}</span>
+          <div class="onboarding-welcome-orbit orbit-one">${renderUiIcon("calculadora")}</div>
+          <div class="onboarding-welcome-orbit orbit-two">${renderUiIcon("producao")}</div>
+          <div class="onboarding-welcome-orbit orbit-three">${renderUiIcon("estoque")}</div>
+        </div>
+        <div class="onboarding-feature-copy">
+          <span class="onboarding-eyebrow">Primeiros passos</span>
+          <h2>Conheça o Simplifica 3D</h2>
+          <p class="onboarding-lead">Um tour rápido para você entender o fluxo completo, da formação do preço até a entrega do pedido.</p>
+          <div class="onboarding-value-grid">
+            <span><strong>9</strong> passos rápidos</span>
+            <span><strong>1</strong> fluxo conectado</span>
+            <span><strong>Sempre</strong> disponível nas configurações</span>
+          </div>
+        </div>
       </div>
+      ${renderNavegacaoOnboarding(0, "Começar o tour")}
     `,
     `
-      <h2>Tipo de uso</h2>
-      <p class="muted">Você trabalha principalmente com qual tipo de impressão?</p>
-      <div class="actions">
-        ${ONBOARDING_PRINT_TYPES.map((tipo) => `<button class="btn ${tipoAtual === tipo.id ? "" : "secondary"}" onclick="selecionarTipoImpressaoOnboarding('${tipo.id}')">${escaparHtml(tipo.label)}</button>`).join("")}
+      <div class="onboarding-config-stage">
+        <div class="onboarding-config-heading">
+          <span class="onboarding-eyebrow">Configuração básica</span>
+          <h2>Deixe a calculadora mais próxima da sua rotina</h2>
+          <p class="onboarding-lead">Estas escolhas viram sugestões iniciais e podem ser alteradas depois.</p>
+        </div>
+        <fieldset class="onboarding-choice-group">
+          <legend>Qual tipo de impressão você mais usa?</legend>
+          <div class="onboarding-choice-grid onboarding-choice-grid-print">
+            ${ONBOARDING_PRINT_TYPES.map((tipo) => `<button class="onboarding-choice ${tipoAtual === tipo.id ? "selected" : ""}" type="button" aria-pressed="${tipoAtual === tipo.id}" onclick="selecionarTipoImpressaoOnboarding('${tipo.id}')"><span>${renderUiIcon(tipo.id === "resina" ? "resina" : "impressoras")}</span><strong>${escaparHtml(tipo.label)}</strong></button>`).join("")}
+          </div>
+        </fieldset>
+        <fieldset class="onboarding-choice-group">
+          <legend>Qual material aparece com mais frequência?</legend>
+          <div class="onboarding-choice-grid onboarding-choice-grid-material">
+            ${ONBOARDING_MATERIALS.map((material) => `<button class="onboarding-choice onboarding-material-choice ${materialAtual === material ? "selected" : ""}" type="button" aria-pressed="${materialAtual === material}" onclick="selecionarMaterialOnboarding('${escaparAttr(material)}')"><strong>${escaparHtml(material)}</strong></button>`).join("")}
+          </div>
+        </fieldset>
       </div>
-      <div class="actions">${botoesPular}</div>
+      ${renderNavegacaoOnboarding(1, "Ver a calculadora")}
     `,
+    renderEtapaFuncionalidadeOnboarding({
+      step: 2,
+      icon: "calculadora",
+      eyebrow: "Calculadora 3D",
+      title: "Forme preços com mais segurança",
+      description: "Informe os dados da peça e veja uma composição clara dos custos antes de vender.",
+      items: ["Calcule material, tempo de impressão e energia", "Inclua taxas, margem e acabamento", "Use o resultado como base para orçamento ou pedido"],
+      preview: `<div class="onboarding-calc-preview"><span>Material <strong>R$ 18,40</strong></span><span>Tempo <strong>R$ 24,00</strong></span><span class="total">Preço sugerido <strong>R$ 68,90</strong></span></div>`,
+      nextLabel: "Conhecer a Home"
+    }),
+    renderEtapaFuncionalidadeOnboarding({
+      step: 3,
+      icon: "dashboard",
+      eyebrow: "Home",
+      title: "Sua operação começa aqui",
+      description: "A tela inicial reúne o que precisa de atenção sem repetir o menu principal.",
+      items: ["Consulte a data e o resumo do dia", "Acesse tarefas frequentes pelos atalhos rápidos", "Escolha entre Home simples e carrossel 3D em Aparência"],
+      preview: `<div class="onboarding-home-preview"><span>${renderUiIcon("agenda")} Hoje</span><span>${renderUiIcon("pedido")} Novo pedido</span><span>${renderUiIcon("calculadora")} Calcular</span><span>${renderUiIcon("clientes")} Cliente</span></div>`,
+      nextLabel: "Ver pedidos"
+    }),
+    renderEtapaFuncionalidadeOnboarding({
+      step: 4,
+      icon: "pedidos",
+      eyebrow: "Pedidos",
+      title: "Acompanhe cada venda do início ao fim",
+      description: "Centralize cliente, itens, valores e andamento para não perder informações no caminho.",
+      items: ["Crie pedidos e orçamentos organizados", "Acompanhe status, prazos e histórico", "Mantenha os dados vinculados ao cliente correto"],
+      preview: `<div class="onboarding-order-preview"><span class="done">Orçamento</span><span class="active">Aprovado</span><span>Produção</span><span>Entrega</span></div>`,
+      nextLabel: "Ver produção"
+    }),
+    renderEtapaFuncionalidadeOnboarding({
+      step: 5,
+      icon: "producao",
+      eyebrow: "Produção",
+      title: "Transforme pedidos em uma fila de trabalho",
+      description: "Visualize o que está aguardando, em andamento ou pronto para entrega.",
+      items: ["Organize trabalhos por etapa e prioridade", "Registre impressoras, tempo e progresso", "Atualize o pedido conforme a produção avança"],
+      preview: `<div class="onboarding-production-preview"><span><i></i>Aguardando <strong>3</strong></span><span><i></i>Imprimindo <strong>2</strong></span><span><i></i>Finalizados <strong>8</strong></span></div>`,
+      nextLabel: "Ver estoque"
+    }),
+    renderEtapaFuncionalidadeOnboarding({
+      step: 6,
+      icon: "estoque",
+      eyebrow: "Estoque",
+      title: "Saiba o que você tem antes de produzir",
+      description: "Mantenha materiais e insumos organizados para planejar compras e evitar paradas.",
+      items: ["Cadastre filamentos, resinas e outros insumos", "Registre entradas, saídas e consumo", "Identifique materiais próximos do estoque mínimo"],
+      preview: `<div class="onboarding-stock-preview"><div><span>PLA Preto</span><strong>72%</strong></div><progress max="100" value="72"></progress><div><span>PETG Azul</span><strong>28%</strong></div><progress max="100" value="28"></progress></div>`,
+      nextLabel: "Ver caixa"
+    }),
+    renderEtapaFuncionalidadeOnboarding({
+      step: 7,
+      icon: "caixa",
+      eyebrow: "Caixa",
+      title: "Mantenha as movimentações sob controle",
+      description: "Registre o que entrou e saiu para enxergar o resultado financeiro da operação.",
+      items: ["Lance entradas e despesas", "Consulte saldo e movimentações do período", "Relacione recebimentos ao fluxo comercial"],
+      preview: `<div class="onboarding-cash-preview"><span>Entradas <strong>+ R$ 840,00</strong></span><span>Saídas <strong>− R$ 215,00</strong></span><span class="balance">Saldo <strong>R$ 625,00</strong></span></div>`,
+      nextLabel: "Concluir apresentação"
+    }),
     `
-      <h2>Material padrão</h2>
-      <p class="muted">Qual material você mais usa?</p>
-      <div class="actions">
-        ${ONBOARDING_MATERIALS.map((material) => `<button class="btn ${materialAtual === material ? "" : "secondary"}" onclick="selecionarMaterialOnboarding('${escaparAttr(material)}')">${escaparHtml(material)}</button>`).join("")}
-      </div>
-      <div class="actions">
-        <button class="btn ghost" onclick="pularMaterialOnboarding()">Pular por agora</button>
-        ${botoesPular}
-      </div>
-    `,
-    `
-      <h2>Conheça o essencial</h2>
-      <p class="muted">Abra cada área quando quiser. O roteiro continua disponível até você finalizar.</p>
-      <div class="onboarding-module-guide" aria-label="Roteiro de funções principais">
-        ${[
-          { id: "pedido", icon: "pedido", title: "Pedido", text: "Crie orçamento, itens e acompanhe o status." },
-          { id: "calculadora", icon: "calculadora", title: "Calculadora", text: "Use peso e tempo para formar o preço." },
-          { id: "estoque", icon: "estoque", title: "Estoque", text: "Cadastre materiais e veja o saldo disponível." },
-          { id: "caixa", icon: "caixa", title: "Caixa", text: "Registre entradas e saídas do dia." },
-          { id: "secretaria_ia", icon: "assistente", title: "IA Fácil", text: "Converse por texto ou voz e peça consultas com segurança." }
-        ].map((modulo) => `<button class="${modulosGuiados.includes(modulo.id) ? "seen" : ""}" type="button" onclick="abrirModuloGuiadoOnboarding('${modulo.id}')"><span>${renderUiIcon(modulo.icon)}</span><strong>${escaparHtml(modulo.title)}</strong><small>${escaparHtml(modulo.text)}</small>${modulosGuiados.includes(modulo.id) ? `<em>Visto</em>` : ""}</button>`).join("")}
-      </div>
-      <div class="actions">
-        <button class="btn" onclick="avancarOnboarding(4)">Continuar</button>
-        <button class="btn secondary" onclick="abrirModuloGuiadoOnboarding('pedido')">Criar primeiro pedido</button>
-      </div>
-    `,
-    `
-      <h2>Pronto! Seu sistema está configurado.</h2>
-      <p class="muted">Você pode ir para o painel ou criar um novo pedido quando quiser.</p>
-      <div class="actions">
-        <button class="btn" onclick="finalizarOnboarding(false)">Ir para o painel</button>
-        <button class="btn secondary" onclick="finalizarOnboarding(true)">Criar novo pedido</button>
+      <div class="onboarding-finish-stage">
+        <span class="onboarding-finish-icon">${renderUiIcon("check")}</span>
+        <span class="onboarding-eyebrow">Tudo pronto</span>
+        <h2>Agora você já conhece o fluxo do Simplifica 3D</h2>
+        <p class="onboarding-lead">Comece pela Home ou registre seu primeiro pedido. Esta apresentação pode ser refeita em Configurações.</p>
+        <div class="onboarding-finish-summary">
+          <span>${renderUiIcon("calculadora")} Calcular</span>
+          <span>${renderUiIcon("pedido")} Vender</span>
+          <span>${renderUiIcon("producao")} Produzir</span>
+          <span>${renderUiIcon("estoque")} Controlar</span>
+        </div>
+        <div class="onboarding-finish-actions">
+          <button class="btn" type="button" onclick="finalizarOnboarding(false)">Ir para a Home</button>
+          <button class="btn secondary" type="button" onclick="finalizarOnboarding(true)">Criar primeiro pedido</button>
+        </div>
+        <button class="btn ghost" type="button" onclick="avancarOnboarding(7)">Voltar</button>
       </div>
     `
   ];
 
   return `
-    <section class="card onboarding-card">
-      <div class="card-header">
-        <h2>Introdução</h2>
-        <span class="status-badge">Simplifica 3D</span>
+    <section class="card onboarding-card onboarding-presentation" data-onboarding-step="${step}">
+      <div class="onboarding-presentation-header">
+        <div>
+          <span class="onboarding-product-mark">S3D</span>
+          <strong>Apresentação do aplicativo</strong>
+        </div>
+        ${renderIndicadorOnboarding(step)}
       </div>
-      ${renderIndicadorOnboarding(step)}
-      ${telasOnboarding[step] || telasOnboarding[0]}
+      <div class="onboarding-presentation-body">
+        ${telasOnboarding[step] || telasOnboarding[0]}
+      </div>
     </section>
   `;
 }
@@ -30030,7 +30137,7 @@ function mesclarUsuarios(local, remoto) {
     const mesclado = dataNova >= dataAtual ? { ...atual, ...usuario } : { ...usuario, ...atual };
     const onboardingCompleted = atual?.onboardingCompleted === true || usuario?.onboardingCompleted === true;
     mesclado.onboardingCompleted = onboardingCompleted;
-    mesclado.onboardingStep = onboardingCompleted ? 4 : Math.max(Number(atual?.onboardingStep) || 0, Number(usuario?.onboardingStep) || 0);
+    mesclado.onboardingStep = onboardingCompleted ? ONBOARDING_LAST_STEP : Math.max(Number(atual?.onboardingStep) || 0, Number(usuario?.onboardingStep) || 0);
     mapa.set(usuario.email, mesclado);
   });
   return Array.from(mapa.values());
@@ -36826,6 +36933,7 @@ function getAuthCommandsDeps() {
     alert,
     accountSecurityState,
     appConfig,
+    onboardingLastStep: ONBOARDING_LAST_STEP,
     billingConfig,
     carregarSegurancaConta,
     confirm,
