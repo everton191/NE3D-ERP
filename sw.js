@@ -1,5 +1,5 @@
 const BUILD_ID = "__SIMPLIFICA_BUILD_ID__";
-const CACHE_NAME = "simplifica-3d-v1041-build-__SIMPLIFICA_BUILD_ID__";
+const CACHE_NAME = "simplifica-3d-v1042-auth-status-build-__SIMPLIFICA_BUILD_ID__";
 const CACHE_PREFIX = "simplifica-3d-";
 const APP_FILES = [
   "./",
@@ -152,6 +152,8 @@ self.addEventListener("fetch", (event) => {
     "/index.html",
     "/app.js",
     "/style.css",
+    "/src/app/bootstrap.js",
+    "/src/features/app-ui/app-ui-renderers.js",
     "/styles/ui-v3/index.css",
     "/styles/ui-v3/screens/operational.css",
     "/styles/ui-v3/screens/finance.css",

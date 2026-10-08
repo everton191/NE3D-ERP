@@ -38,6 +38,8 @@
 [data-ui-version="v3"] .password-change-form .password-row{min-width:0;display:grid;grid-template-columns:minmax(0,1fr) 44px;align-items:stretch;gap:var(--ui3-space-2)}
 [data-ui-version="v3"] .password-change-form .password-row input{width:100%;min-width:0;color:var(--ui3-text);background:var(--ui3-bg);border-color:var(--ui3-border)}
 [data-ui-version="v3"] .password-change-form .password-visibility-button{width:44px;min-width:44px;height:44px;color:var(--ui3-text);background:var(--ui3-surface-muted);border:1px solid var(--ui3-border)}
+[data-ui-version="v3"].ui3-administration .administration-subpage .admin-user-row .icon-action-button{width:42px!important;min-width:42px!important;height:42px!important;min-height:42px!important}
+[data-ui-version="v3"].ui3-administration .administration-subpage .password-row>.password-visibility-button{width:42px!important;min-width:42px!important;height:42px!important;min-height:42px!important}
 [data-ui-version="v3"] .password-change-form .password-strength{color:var(--ui3-muted)}
 [data-ui-version="v3"] .password-change-form>.actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:var(--ui3-space-2)}
 [data-ui-version="v3"] .password-change-form>.actions .btn{width:auto;min-width:0}

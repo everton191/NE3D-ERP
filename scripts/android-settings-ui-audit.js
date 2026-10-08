@@ -8,7 +8,7 @@ const VERBOSE = process.argv.includes("--verbose");
 const ADB = process.env.ANDROID_ADB || `${process.env.LOCALAPPDATA || ""}\\Android\\Sdk\\platform-tools\\adb.exe`;
 const adb = (...args) => execFileSync(ADB, args, { encoding: "utf8" }).trim();
 
-async function evaluate(socketUrl, expression, timeoutMs = 30000) {
+async function evaluate(socketUrl, expression, timeoutMs = 60000) {
   const socket = new WebSocket(socketUrl);
   await new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("CDP_CONNECT_TIMEOUT")), 5000);
@@ -41,13 +41,26 @@ async function evaluate(socketUrl, expression, timeoutMs = 30000) {
     const result = await evaluate(target.webSocketDebuggerUrl, `(async () => {
       const screens = ["config", "personalizacao", "preferencias", "empresa", "pdf", "conta", "seguranca", "administracao"];
       const screenSelectors = { personalizacao:"aparencia" };
-      const sessionBackup = { usuarioAtualEmail, adminLogado, telaAtual, theme: appConfig.theme, companySetupCompleted:appConfig.companySetupCompleted };
+      const administrationSections = ["funcionarios", "permissoes", "caixa", "estoque", "loja", "backup", "logs"];
+      const sessionBackup = {
+        usuarioAtualEmail,
+        adminLogado,
+        telaAtual,
+        theme:appConfig.theme,
+        companySetupCompleted:appConfig.companySetupCompleted,
+        administrationSection:window.__adminCompanySection,
+        bootstrapState:document.documentElement.dataset.simplificaBootstrap,
+        sessionVisualState:window.__simplificaSessionCheckVisualState
+      };
+      delete document.documentElement.dataset.simplificaBootstrap;
+      delete window.__simplificaSessionCheckVisualState;
       const usuario = normalizarUsuario({ id:"settings-ui-audit", nome:"Auditoria visual", email:"settings-audit@local.invalid", papel:"admin", ativo:true, onboardingCompleted:true, onboardingStep:ONBOARDING_LAST_STEP });
       usuarios.push(usuario);
       usuarioAtualEmail = usuario.email;
       adminLogado = true;
       const userEmail = normalizarEmail(usuario.email || "");
       const getMutableUser = () => usuarios.find((item) => normalizarEmail(item.email || "") === userEmail) || getUsuarioAtual();
+      const nextFrames = () => new Promise((resolve) => setTimeout(resolve, 40));
       const auditVisibleArea = (scope, label) => {
         const scopeRect = scope?.getBoundingClientRect();
         const visible = (element) => {
@@ -86,6 +99,18 @@ async function evaluate(socketUrl, expression, timeoutMs = 30000) {
           offenders
         };
       };
+      const auditNestedDetails = async (scope, prefix, areas) => {
+        const details = [...(scope?.querySelectorAll("details:not(.ui-section)") || [])];
+        for (let index = 0; index < details.length; index += 1) {
+          const detail = details[index];
+          const wasOpen = detail.open;
+          detail.open = true;
+          await nextFrames();
+          const identity = detail.dataset.uiSection || detail.classList[0] || "details-" + (index + 1);
+          areas.push(auditVisibleArea(detail, prefix + "/" + identity));
+          detail.open = wasOpen;
+        }
+      };
       const reports = [];
       try {
         appConfig.companySetupCompleted = true;
@@ -98,6 +123,7 @@ async function evaluate(socketUrl, expression, timeoutMs = 30000) {
             mutableUser.superadminMaintenance = false;
             mutableUser.maintenanceSuperadminEmail = "";
             mutableUser.onboardingCompleted = true;
+            if (screen === "administracao") window.__adminCompanySection = "home";
             telaAtual = screen;
             renderApp();
             await new Promise((resolve) => setTimeout(resolve, 300));
@@ -124,9 +150,32 @@ async function evaluate(socketUrl, expression, timeoutMs = 30000) {
             const sections = [...(panel?.querySelectorAll("details.ui-section") || [])];
             for (const section of sections) {
               abrirSubmenuConfiguracao({ preventDefault(){}, stopPropagation(){} }, section);
-              await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-              report.sections.push(auditVisibleArea(section, section.dataset.uiSection || "section"));
+              await nextFrames();
+              const sectionLabel = section.dataset.uiSection || "section";
+              report.sections.push(auditVisibleArea(section, sectionLabel));
+              await auditNestedDetails(section, sectionLabel, report.sections);
               fecharSubmenuConfiguracao(section, true);
+            }
+            const rootNestedDetails = [...(panel?.querySelectorAll("details:not(.ui-section)") || [])].filter((detail) => !detail.closest(".ui-section"));
+            for (let index = 0; index < rootNestedDetails.length; index += 1) {
+              const detail = rootNestedDetails[index];
+              const wasOpen = detail.open;
+              detail.open = true;
+              await nextFrames();
+              report.sections.push(auditVisibleArea(detail, "nested/" + (detail.classList[0] || "details-" + (index + 1))));
+              detail.open = wasOpen;
+            }
+            if (screen === "administracao") {
+              for (const subsection of administrationSections) {
+                window.__adminCompanySection = subsection;
+                telaAtual = "administracao";
+                renderApp();
+                await new Promise((resolve) => setTimeout(resolve, 120));
+                const subpanel = document.querySelector('[data-ui3-screen="administracao"]');
+                report.sections.push(auditVisibleArea(subpanel, "administracao/" + subsection));
+                await auditNestedDetails(subpanel, "administracao/" + subsection, report.sections);
+              }
+              window.__adminCompanySection = "home";
             }
             reports.push(report);
           }
@@ -137,6 +186,11 @@ async function evaluate(socketUrl, expression, timeoutMs = 30000) {
         adminLogado = sessionBackup.adminLogado;
         appConfig.theme = sessionBackup.theme;
         appConfig.companySetupCompleted = sessionBackup.companySetupCompleted;
+        window.__adminCompanySection = sessionBackup.administrationSection;
+        if (sessionBackup.bootstrapState === undefined) delete document.documentElement.dataset.simplificaBootstrap;
+        else document.documentElement.dataset.simplificaBootstrap = sessionBackup.bootstrapState;
+        if (sessionBackup.sessionVisualState === undefined) delete window.__simplificaSessionCheckVisualState;
+        else window.__simplificaSessionCheckVisualState = sessionBackup.sessionVisualState;
         telaAtual = sessionBackup.telaAtual;
         aplicarPersonalizacao();
         renderApp();
@@ -156,6 +210,7 @@ async function evaluate(socketUrl, expression, timeoutMs = 30000) {
         ok:failures.length === 0,
         viewport:{ width:innerWidth, height:innerHeight },
         reportCount:reports.length,
+        areaCount:reports.reduce((total, report) => total + 1 + report.sections.length, 0),
         failures,
         reports,
         cssContract:{ resource:settingsCssResource, hasSettingsActionRule:settingsCssText.includes("min-height: 42px !important") }
@@ -165,6 +220,7 @@ async function evaluate(socketUrl, expression, timeoutMs = 30000) {
       ok: result?.ok,
       viewport: result?.viewport,
       reportCount: result?.reportCount,
+      areaCount: result?.areaCount,
       cssContract: result?.cssContract,
       failureCount: result?.failures?.length || 0,
       failures: (result?.failures || []).map((failure) => ({

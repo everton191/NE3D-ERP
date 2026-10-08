@@ -169,6 +169,7 @@
     "test:interface-modes": "node scripts/test-interface-modes.js",
     "test:onboarding-core-guide": "node scripts/test-onboarding-core-guide.js",
     "test:onboarding-android": "node scripts/android-onboarding-smoke.js",
+    "test:auth-status-android": "node scripts/android-auth-status-audit.js",
     "test:settings-android": "node scripts/android-settings-ui-audit.js",
     "test:settings-ui-contract": "node scripts/test-settings-ui-contract.js",
     "test:stock-stage-1": "node scripts/test-stock-stage-1.js",

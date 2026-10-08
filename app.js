@@ -23600,7 +23600,7 @@ function renderAuthPublica({ verificacaoSessao = null } = {}) {
   const progressoVerificacao = Math.min(100, Math.max(0, Number(verificacaoSessao?.progress) || 0));
   const etapaVerificacao = Math.min(5, Math.max(1, Number(verificacaoSessao?.step) || 1));
   return `
-    <section class="auth-page${verificandoSessao ? " auth-session-check" : ""}" aria-label="Acesso ao Simplifica 3D"${verificandoSessao ? ' data-auth-session-check role="status" aria-live="polite" aria-busy="true"' : ""}>
+    <section class="auth-page${verificandoSessao ? " auth-session-check" : ""}" aria-label="Acesso ao Simplifica 3D"${verificandoSessao ? ' data-auth-session-check aria-busy="true"' : ""}>
       <div class="auth-card card">
         <div class="auth-brand">
           ${renderMarcaOficialProjeto("auth-logo", "Simplifica 3D", "icon")}
@@ -23609,20 +23609,6 @@ function renderAuthPublica({ verificacaoSessao = null } = {}) {
             <p>${escaparHtml(appConfig.customLoginMessage || "Organize seus pedidos sem complicação")}</p>
           </div>
         </div>
-
-        ${verificandoSessao ? `
-          <div class="auth-session-status" aria-hidden="true">
-            <span class="sync-spinner"></span>
-            <div>
-              <strong>${escaparHtml(tituloVerificacao)}</strong>
-              <p>${escaparHtml(mensagemVerificacao)}</p>
-            </div>
-          </div>
-          <div class="auth-session-progress" role="progressbar" aria-label="Progresso da verificação de login" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressoVerificacao}">
-            <div><span>Etapa ${etapaVerificacao} de 5</span><strong>${progressoVerificacao}%</strong></div>
-            <i><b style="width:${progressoVerificacao}%"></b></i>
-          </div>
-        ` : ""}
 
         <div class="auth-tabs${verificandoSessao ? " is-verifying" : ""}" role="tablist" aria-label="Escolha o fluxo de autenticação">
           <button type="button" class="${tab === "signin" ? "active" : ""}" role="tab" aria-selected="${tab === "signin"}" onclick="trocarAbaAuth('signin')">Entrar</button>
@@ -23634,6 +23620,21 @@ function renderAuthPublica({ verificacaoSessao = null } = {}) {
           ${tab === "signup" ? renderAuthCriarConta() : renderAuthEntrar()}
         </div>
       </div>
+      ${verificandoSessao ? `
+        <aside class="auth-session-dock" role="status" aria-live="polite" aria-atomic="true">
+          <div class="auth-session-status">
+            <span class="sync-spinner" aria-hidden="true"></span>
+            <div>
+              <strong>${escaparHtml(tituloVerificacao)}</strong>
+              <p>${escaparHtml(mensagemVerificacao)}</p>
+            </div>
+          </div>
+          <div class="auth-session-progress" role="progressbar" aria-label="Progresso da verificação de login" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressoVerificacao}">
+            <div><span>Etapa ${etapaVerificacao} de 5</span><strong>${progressoVerificacao}%</strong></div>
+            <i><b style="width:${progressoVerificacao}%"></b></i>
+          </div>
+        </aside>
+      ` : ""}
     </section>
   `;
 }

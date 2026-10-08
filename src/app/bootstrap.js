@@ -183,7 +183,7 @@
       ];
       global.__simplificaSessionCheckVisualState = etapasVerificacao[0];
       renderApp();
-      [1300, 2800, 4200].forEach((delay, index) => {
+      [700, 1500, 2300].forEach((delay, index) => {
         setTimeoutRef(() => {
           if (documentRef.documentElement.dataset.simplificaBootstrap !== "restoring") return;
           global.__simplificaSessionCheckVisualState = etapasVerificacao[index + 1];
@@ -191,7 +191,7 @@
         }, delay);
       });
       await new Promise((resolve) => {
-        const afterFrame = () => setTimeoutRef(resolve, 5000);
+        const afterFrame = () => setTimeoutRef(resolve, 3000);
         if (typeof global.requestAnimationFrame === "function") global.requestAnimationFrame(afterFrame);
         else afterFrame();
       });

@@ -9691,15 +9691,33 @@ body[data-motion="low"]{
   opacity:1;
 }
 
+.auth-session-dock{
+  position:fixed;
+  left:50%;
+  transform:translateX(-50%);
+  bottom:calc(var(--app-safe-bottom, 0px) + 14px);
+  z-index:calc(var(--z-toast, 900) - 1);
+  width:min(390px, calc(100vw - 28px));
+  display:grid;
+  gap:8px;
+  padding:10px 12px;
+  color:var(--color-text-primary, #f8fafc);
+  background:color-mix(in srgb, var(--color-surface, #101820) 94%, transparent);
+  border:1px solid color-mix(in srgb, var(--color-primary, #22d3ee) 32%, var(--color-border, transparent));
+  border-radius:16px;
+  box-shadow:0 16px 40px rgba(0,0,0,.26);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  pointer-events:none;
+  box-sizing:border-box;
+}
+
 .auth-session-status{
   display:grid;
   grid-template-columns:24px minmax(0, 1fr);
   align-items:center;
   gap:10px;
-  padding:12px;
-  border:1px solid color-mix(in srgb, var(--color-accent, #22d3ee) 35%, transparent);
-  border-radius:14px;
-  background:color-mix(in srgb, var(--surface, #101820) 82%, transparent);
+  min-width:0;
 }
 
 .auth-session-status .sync-spinner{
@@ -9717,6 +9735,7 @@ body[data-motion="low"]{
   margin:3px 0 0;
   color:var(--color-text-muted, #b9c6d2);
   font-size:13px;
+  overflow-wrap:anywhere;
 }
 
 .auth-session-progress{
@@ -9761,6 +9780,28 @@ body[data-motion="low"]{
 
 body.theme-light .auth-page.auth-session-check::before{
   background:#f7f9fc;
+}
+
+body.theme-light .auth-session-dock{
+  background:color-mix(in srgb, var(--color-surface, #ffffff) 96%, transparent);
+  border-color:color-mix(in srgb, var(--color-primary, #009688) 28%, var(--color-border, #d7e0e7));
+  box-shadow:0 14px 34px rgba(21,39,52,.16);
+}
+
+@media(max-height:720px){
+  .auth-page.auth-session-check{
+    align-content:start;
+    gap:12px;
+    overflow:auto;
+    padding-bottom:12px;
+  }
+
+  .auth-session-dock{
+    position:static;
+    width:min(390px, 100%);
+    margin:0 auto;
+    transform:none;
+  }
 }
 
 .side-brand.side-brand-official{
