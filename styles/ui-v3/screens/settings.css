@@ -61,3 +61,293 @@
 [data-ui-version="v3"][data-ui3-screen="empresa"] .settings-section-save{display:flex;justify-content:flex-end;gap:var(--ui3-space-2);padding-top:var(--ui3-space-3);border-top:1px solid var(--ui3-border)}
 
 @media(max-width:767px){[data-ui-version="v3"][data-ui3-screen="empresa"]>.company-settings-summary{grid-template-columns:40px minmax(0,1fr) auto;padding:var(--ui3-space-2)}[data-ui-version="v3"][data-ui3-screen="empresa"]>.company-settings-summary>span:first-child{width:40px;height:40px}[data-ui-version="v3"][data-ui3-screen="empresa"]>.settings-accordion-list{gap:var(--ui3-space-2)}[data-ui-version="v3"][data-ui3-screen="empresa"]>.settings-accordion-list>.ui-section>summary{min-height:60px;padding:var(--ui3-space-2) var(--ui3-space-3)}[data-ui-version="v3"][data-ui3-screen="empresa"]>.settings-accordion-list>.ui-section[open]>.ui-section-body{padding:var(--ui3-space-3)}[data-ui-version="v3"][data-ui3-screen="empresa"] .ui-section-body .field{padding:var(--ui3-space-2)}[data-ui-version="v3"][data-ui3-screen="empresa"] .settings-section-save{position:sticky;bottom:0;z-index:3;display:grid;grid-template-columns:1fr 1fr;padding:var(--ui3-space-2);margin:0 calc(var(--ui3-space-2)*-1) calc(var(--ui3-space-2)*-1);background:color-mix(in srgb,var(--ui3-bg) 92%,transparent);backdrop-filter:blur(12px)}[data-ui-version="v3"][data-ui3-screen="empresa"] .settings-section-save .btn{width:100%;min-width:0}}
+
+/* Configurações: contrato único de largura, tema e ações. */
+[data-ui-version="v3"].ui3-settings-screen,
+[data-ui-version="v3"].ui3-administration {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
+  color: var(--ui3-text);
+  background: var(--ui3-bg);
+}
+
+[data-ui-version="v3"].ui3-settings-screen > *,
+[data-ui-version="v3"].ui3-settings-screen :where(.settings-accordion-list,.ui-section,.ui-section-body,.sync-grid,.field,.checkbox-row,.metric,.actions),
+[data-ui-version="v3"].ui3-administration > * {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+[data-ui-version="v3"].ui3-settings-screen .settings-accordion-list {
+  width: 100%;
+}
+
+[data-ui-version="v3"].ui3-settings-screen .settings-accordion-list > details.ui-section:not([open]) > .ui-section-body {
+  display: none !important;
+}
+
+[data-ui-version="v3"].ui3-settings-screen .ui-section > summary {
+  min-width: 0;
+}
+
+[data-ui-version="v3"].ui3-settings-screen .ui-section-title,
+[data-ui-version="v3"].ui3-settings-screen .ui-section-title :where(strong,small) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+[data-ui-version="v3"].ui3-settings-screen .ui-section-icon svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+[data-ui-version="v3"].ui3-settings-screen :where(input,select,textarea,output,progress) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+[data-ui-version="v3"][data-ui3-screen="empresa"] > .company-settings-summary > .status-badge {
+  min-width: max-content;
+  justify-self: end;
+  white-space: nowrap;
+}
+
+body :is(
+  [data-ui-version="v3"].ui3-settings-screen,
+  [data-ui-version="v3"].ui3-administration,
+  .ui-section.ui-subscreen-active
+) :where(.btn,.app-button):not(.danger):not(.warning) {
+  background-image: none !important;
+}
+
+body :is(
+  [data-ui-version="v3"].ui3-settings-screen,
+  [data-ui-version="v3"].ui3-administration,
+  .ui-section.ui-subscreen-active
+) :where(.btn,.app-button):not(.secondary):not(.ghost):not(.danger):not(.warning):not(.outline):not(.icon) {
+  color: #fff !important;
+  background-color: var(--ui3-primary) !important;
+  border-color: var(--ui3-primary) !important;
+}
+
+body :is(
+  [data-ui-version="v3"].ui3-settings-screen,
+  [data-ui-version="v3"].ui3-administration,
+  .ui-section.ui-subscreen-active
+) :where(.btn.secondary,.app-button.secondary) {
+  color: var(--ui3-text) !important;
+  background-color: var(--ui3-surface-muted) !important;
+  border-color: var(--ui3-border) !important;
+}
+
+body :is(
+  [data-ui-version="v3"].ui3-settings-screen,
+  [data-ui-version="v3"].ui3-administration,
+  .ui-section.ui-subscreen-active
+) :where(.btn.ghost,.app-button.ghost) {
+  color: var(--ui3-text) !important;
+  background-color: transparent !important;
+  border-color: var(--ui3-border) !important;
+}
+
+body.mobile-mode .ui-section.ui-subscreen-active {
+  color: var(--ui3-text);
+  background-color: var(--ui3-bg);
+}
+
+body.mobile-mode .ui-section.ui-subscreen-active > summary,
+body.mobile-mode .ui-section.ui-subscreen-active > .ui-section-body {
+  color: var(--ui3-text);
+  background-color: var(--ui3-bg);
+}
+
+body.mobile-mode .ui-section.ui-subscreen-active > summary {
+  border-color: var(--ui3-border);
+}
+
+body.mobile-mode .ui-section.ui-subscreen-active > .ui-section-body :where(.field,.checkbox-row,.metric,.settings-group) {
+  min-width: 0;
+  max-width: 100%;
+  color: var(--ui3-text);
+}
+
+body.mobile-mode .ui-section.ui-subscreen-active > .ui-section-body :where(input,select,textarea) {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--ui3-text);
+  background-color: var(--ui3-surface);
+  border-color: var(--ui3-border);
+}
+
+body.mobile-mode .ui-section.ui-subscreen-active .file-label {
+  position: relative;
+}
+
+body.mobile-mode .ui-section.ui-subscreen-active .file-label > .file-input {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  min-height: 1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  opacity: 0;
+  pointer-events: none;
+}
+
+body.app-shell-ready :is(
+  [data-ui-version="v3"].ui3-settings-screen,
+  [data-ui-version="v3"].ui3-administration,
+  .ui-section.ui-subscreen-active
+) :is(.actions:not(.quick-actions):not(.pagination-actions):not(.compact-actions):not(.stacked-actions):not(.legal-actions):not(.superadmin-company-actions),.ui3-action-row,.security-card-actions,.security-page-actions,.settings-section-save) {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  grid-template-columns: none !important;
+  grid-auto-rows: auto !important;
+  align-items: stretch !important;
+  justify-content: flex-end;
+  gap: var(--ui3-space-2) !important;
+}
+
+body.app-shell-ready :is(
+  [data-ui-version="v3"].ui3-settings-screen,
+  [data-ui-version="v3"].ui3-administration,
+  .ui-section.ui-subscreen-active
+) :is(.actions:not(.quick-actions):not(.pagination-actions):not(.compact-actions):not(.stacked-actions):not(.legal-actions):not(.superadmin-company-actions),.ui3-action-row,.security-card-actions,.security-page-actions,.settings-section-save) > * {
+  grid-column: auto !important;
+}
+
+body.app-shell-ready :is(
+  [data-ui-version="v3"].ui3-settings-screen,
+  [data-ui-version="v3"].ui3-administration,
+  .ui-section.ui-subscreen-active
+) :is(.actions:not(.quick-actions):not(.pagination-actions):not(.compact-actions):not(.stacked-actions):not(.legal-actions):not(.superadmin-company-actions),.ui3-action-row,.security-card-actions,.security-page-actions,.settings-section-save) > :is(button,.btn,label.btn,.app-button) {
+  width: auto !important;
+  max-width: 100% !important;
+  min-width: 120px !important;
+  min-height: 42px !important;
+  height: auto !important;
+  padding: 8px 12px !important;
+  overflow: visible !important;
+  border-radius: var(--ui3-radius-sm) !important;
+  font-size: 0.78rem !important;
+  line-height: 1.25 !important;
+  text-align: center !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+
+@media (max-width: 767px) {
+  [data-ui-version="v3"].ui3-settings-screen {
+    --ui3-stack-gap: var(--ui3-space-3);
+  }
+
+  [data-ui-version="v3"].ui3-settings-screen .settings-accordion-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ui3-space-2);
+    overflow: visible;
+    background: transparent;
+    border: 0;
+  }
+
+  [data-ui-version="v3"].ui3-settings-screen .settings-accordion-list > .ui-section {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    background: var(--ui3-surface);
+    border: 1px solid var(--ui3-border);
+    border-radius: var(--ui3-radius-md);
+    box-shadow: none;
+  }
+
+  [data-ui-version="v3"].ui3-settings-screen .settings-accordion-list > .ui-section > summary {
+    min-height: 58px;
+    display: grid;
+    grid-template-columns: 38px minmax(0,1fr) auto;
+    align-items: center;
+    gap: var(--ui3-space-2);
+    padding: var(--ui3-space-2) var(--ui3-space-3);
+  }
+
+  [data-ui-version="v3"].ui3-settings-screen .settings-accordion-list > .ui-section > summary .ui-section-icon {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  }
+
+  [data-ui-version="v3"].ui3-settings-screen .sync-grid,
+  body.mobile-mode .ui-section.ui-subscreen-active .sync-grid {
+    grid-template-columns: minmax(0,1fr) !important;
+  }
+
+  body.mobile-mode :is(
+    [data-ui-version="v3"].ui3-settings-screen,
+    [data-ui-version="v3"].ui3-administration,
+    .ui-section.ui-subscreen-active
+  ) :is(.actions:not(.quick-actions):not(.pagination-actions):not(.compact-actions):not(.stacked-actions):not(.legal-actions):not(.superadmin-company-actions),.ui3-action-row,.security-card-actions,.security-page-actions,.settings-section-save) {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit,minmax(min(145px,100%),1fr)) !important;
+    grid-auto-rows: auto !important;
+    align-items: stretch !important;
+    gap: var(--ui3-space-2) !important;
+  }
+
+  body.mobile-mode :is(
+    [data-ui-version="v3"].ui3-settings-screen,
+    [data-ui-version="v3"].ui3-administration,
+    .ui-section.ui-subscreen-active
+  ) :is(.actions:not(.quick-actions):not(.pagination-actions):not(.compact-actions):not(.stacked-actions):not(.legal-actions):not(.superadmin-company-actions),.ui3-action-row,.security-card-actions,.security-page-actions,.settings-section-save) > * {
+    grid-column: auto !important;
+  }
+
+  body.mobile-mode :is(
+    [data-ui-version="v3"].ui3-settings-screen,
+    [data-ui-version="v3"].ui3-administration,
+    .ui-section.ui-subscreen-active
+  ) :is(.actions:not(.quick-actions):not(.pagination-actions):not(.compact-actions):not(.stacked-actions):not(.legal-actions):not(.superadmin-company-actions),.ui3-action-row,.security-card-actions,.security-page-actions,.settings-section-save):has(> :first-child:nth-last-child(3)) > :last-child {
+    grid-column: 1 / -1 !important;
+  }
+
+  body.mobile-mode :is(
+    [data-ui-version="v3"].ui3-settings-screen,
+    [data-ui-version="v3"].ui3-administration,
+    .ui-section.ui-subscreen-active
+  ) :is(.actions:not(.quick-actions):not(.pagination-actions):not(.compact-actions):not(.stacked-actions):not(.legal-actions):not(.superadmin-company-actions),.ui3-action-row,.security-card-actions,.security-page-actions,.settings-section-save) > :is(button,.btn,label.btn,.app-button) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    min-height: 42px !important;
+    height: auto !important;
+    padding: 8px 11px !important;
+    overflow: visible !important;
+    border-radius: var(--ui3-radius-sm) !important;
+    font-size: 12px !important;
+    line-height: 1.25 !important;
+    text-align: center !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+  }
+
+  body.mobile-mode :is(
+    [data-ui-version="v3"].ui3-settings-screen,
+    .ui-section.ui-subscreen-active
+  ) .calc-margin-presets > .actions {
+    grid-template-columns: repeat(3,minmax(0,1fr)) !important;
+  }
+
+  body.mobile-mode [data-ui-version="v3"].ui3-settings-screen .icon-action-button {
+    width: 42px;
+    min-width: 42px;
+    height: 42px;
+    min-height: 42px;
+  }
+}

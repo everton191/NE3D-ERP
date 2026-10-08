@@ -23209,10 +23209,21 @@ function renderUiTabs(group, tabs = [], active = "") {
 }
 
 function renderUiSection({ id = "", title = "", subtitle = "", icon = "", content = "", open = false, group = "" } = {}) {
+  const iconValue = String(icon || "");
+  const normalizedIcon = normalizeUiIconKey(iconValue);
+  const knownIcon = UI_ICON_ALIASES[normalizedIcon]
+    || (UI_ICON_TOKEN_REGISTRY[iconValue] ? iconValue : "")
+    || (UI_ICON_TOKEN_REGISTRY[iconValue.toLowerCase()] ? iconValue.toLowerCase() : "")
+    || (UI_ICON_TOKEN_REGISTRY[normalizedIcon] ? normalizedIcon : "");
+  const sectionIcon = iconValue.includes("<svg")
+    ? iconValue
+    : knownIcon
+      ? renderUiIcon(knownIcon)
+      : escaparHtml(iconValue || "▦");
   return `
     <details class="ui-section app-section" data-ui-section="${escaparAttr(id)}" data-accordion-group="${escaparAttr(group)}" ${open && !isMobile() ? "open" : ""} ontoggle="sincronizarAcordeaoUi(this)">
       <summary onclick="abrirSubmenuConfiguracao(event, this.parentElement)">
-        <span class="ui-section-icon" aria-hidden="true">${icon || "▦"}</span>
+        <span class="ui-section-icon" aria-hidden="true">${sectionIcon}</span>
         <span class="ui-section-title">
           <strong>${escaparHtml(title)}</strong>
           ${subtitle ? `<small>${escaparHtml(subtitle)}</small>` : ""}
@@ -26500,7 +26511,7 @@ function renderCalculadoraConfigPage() {
   const materiais = normalizarEstoque();
   const margemAtual = Number(appConfig.defaultMargin) || 100;
   return `
-    <section class="card organized-page settings-page">
+    <section class="ui3-real-screen ui3-settings-screen ui3-page ui3-stack ui3-gap-5" data-ui-version="v3" data-ui3-screen="preferencias">
       <div class="card-header">
         <h2>Configurar calculadora</h2>
         <button class="btn secondary compact-action" type="button" onclick="abrirCalculadora()">${renderUiIcon("calculadora")} Abrir calculadora 3D</button>
@@ -26569,7 +26580,7 @@ function renderCalculadoraConfigPage() {
 
 function renderPdfConfig() {
   return `
-    <section class="card organized-page settings-page">
+    <section class="ui3-real-screen ui3-settings-screen ui3-page ui3-stack ui3-gap-5" data-ui-version="v3" data-ui3-screen="pdf">
       <div class="card-header">
         <h2>PDF</h2>
         <span class="status-badge">Documento</span>
