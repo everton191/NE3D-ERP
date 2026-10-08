@@ -27721,7 +27721,7 @@ function renderAssinatura() {
         </div>
         <div class="plans-current-bottom">
           <span><small>Loja pública</small><strong>${policy.publicStore ? "Liberada" : "Somente visualização"}</strong></span>
-          <button class="btn ghost" type="button" ${accessState.canCancelRenewal ? "data-action=\"plan-cancel\"" : accessState.canReactivateRenewal ? "data-action=\"plan-reactivate\"" : "data-action=\"open-payment\" data-slug=\"pro\""}>${renderUiIcon("config")} ${accessState.canCancelRenewal ? "Cancelar renovação" : accessState.canReactivateRenewal ? "Reativar renovação" : "Assinar Pro"}</button>
+          <button class="btn ghost success plan-primary-button" type="button" ${accessState.canCancelRenewal ? "data-action=\"plan-cancel\"" : accessState.canReactivateRenewal ? "data-action=\"plan-reactivate\"" : "data-action=\"open-payment\" data-slug=\"pro\""}>${renderUiIcon("config")} ${accessState.canCancelRenewal ? "Cancelar renovação" : accessState.canReactivateRenewal ? "Reativar renovação" : "Assinar Pro"}</button>
         </div>
         ${renderPlanPaymentNotice(accessState, checkoutState)}
       </div>

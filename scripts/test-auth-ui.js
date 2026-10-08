@@ -73,6 +73,9 @@ assert.match(index, /src\/app\/bootstrap\.js\?v=auth-status-dock-20261008/, "o b
 assert.match(index, /src\/features\/app-ui\/app-ui-renderers\.js\?v=auth-status-dock-20261008/, "o renderizador do login deve ter versão nova");
 assert.match(index, /app\.js\?v=1\.0\.41-auth-status-dock-20261008/, "o app principal deve ter versão nova");
 assert.match(serviceWorker, /simplifica-3d-v1042-auth-status-build-__SIMPLIFICA_BUILD_ID__/, "o cache deve ser renovado para a nova tela de login");
+assert(index.indexOf('id="app-shell"') < index.indexOf('/assets/vendor/jspdf.umd.min.js'), "o shell inicial deve ser montado antes das bibliotecas de PDF e QR");
+assert(index.indexOf('/assets/vendor/jspdf.umd.min.js') < index.indexOf('/app.js?'), "a biblioteca de PDF deve continuar disponível antes do app principal");
+assert(index.indexOf('/assets/vendor/qrcode.min.js') < index.indexOf('/app.js?'), "a biblioteca de QR deve continuar disponível antes do app principal");
 for (const resource of ["/src/app/bootstrap.js", "/src/features/app-ui/app-ui-renderers.js"]) {
   assert.match(serviceWorker, new RegExp(resource.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `${resource} deve ignorar cache antigo`);
 }

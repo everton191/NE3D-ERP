@@ -49,6 +49,7 @@ assert(render.includes('cta: isStartCurrent ? "Plano atual" : isProCurrent ? "In
 assert(render.includes('action: startEnabled ? "start" : "start-unavailable"'), "Start ativo deve encaminhar ao checkout");
 assert(checkout.includes('plano.slug === "start" ? "mercadopago-create-subscription" : "mercadopago-create-payment"'), "checkout Start deve usar assinatura recorrente");
 assert(render.includes('"Assinar Pro"'), "Pro deve possuir CTA funcional");
+assert(render.includes('class="btn ghost success plan-primary-button"'), "CTA do plano atual deve reutilizar o botão de ação com altura consistente");
 assert(render.includes('data-action=\\"open-payment\\" data-slug=\\"pro\\"'), "resumo Free deve direcionar para Pro");
 assert(render.includes("isProCurrent"), "Pro ativo deve ser derivado do helper central");
 assert(render.includes("renderPlanPaymentNotice(accessState, checkoutState)"), "estado visual de pagamento deve depender do helper");
