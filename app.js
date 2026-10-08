@@ -113,9 +113,6 @@ const PRO_MONTHLY_PRICE = 59.9;
 const PREMIUM_FIRST_MONTH_PRICE = START_MONTHLY_PRICE;
 const PREMIUM_MONTHLY_PRICE = PRO_MONTHLY_PRICE;
 const START_PLAN_ENABLED = true;
-// Homologacao da loja: libera publicacao, compartilhamento e recursos visuais
-// sem conceder plano por estado local nem contornar a autoridade de cobranca.
-const STOREFRONT_REAL_TEST_FULL_ACCESS = true;
 const PLAN_REGISTRY = Object.freeze({
   free: Object.freeze({
     slug: "free",
@@ -4465,10 +4462,6 @@ function getPlanCapabilityContract(plan = "free") {
 
 function isStartPlanCommerciallyEnabled() {
   return START_PLAN_ENABLED === true;
-}
-
-function isStorefrontRealTestFullAccessEnabled() {
-  return STOREFRONT_REAL_TEST_FULL_ACCESS === true;
 }
 
 function isPlanoStartSlug(slug = "free") {
@@ -9984,7 +9977,6 @@ function getStorefrontAdminRemoteDeps() {
     iniciarOperacaoUX,
     isStorefrontDemoPreviewAllowed,
     isStorefrontPubliclyAccessible,
-    isStorefrontRealTestFullAccessEnabled,
     limparStorefrontAlteracoesPendentes,
     localStorage,
     mostrarToast,
@@ -10354,7 +10346,6 @@ function getStorefrontPublicationDeps() {
     getStorefrontPublicViewModel,
     getUsuarioAtual,
     isAmbienteLocal,
-    isStorefrontRealTestFullAccessEnabled,
     isSuperAdmin,
     localStorage,
     location,
@@ -10436,21 +10427,6 @@ function getStorefrontLimitsLocal(userPlan = getPlanoAtual()?.slug || "free") {
   const limits = getPlanLimits(plano);
   const pro = plano === "pro";
   const publicationAccess = getStorefrontPublicationAccess();
-  if (isStorefrontRealTestFullAccessEnabled()) {
-    return {
-      enabled: true,
-      publishEnabled: true,
-      shareEnabled: true,
-      productLimit: Number.POSITIVE_INFINITY,
-      leadsEnabled: true,
-      qrCodeEnabled: true,
-      customThemeEnabled: true,
-      premiumThemeEnabled: true,
-      metricsEnabled: true,
-      simplificaBrandingRequired: false,
-      testMode: true
-    };
-  }
   return {
     enabled: true,
     publishEnabled: entitlements.publicStore === true && publicationAccess.canPublish === true,
@@ -37129,7 +37105,6 @@ function getBillingCommandsDeps() {
     START_MONTHLY_PRICE,
     PRO_MONTHLY_PRICE,
     START_PLAN_ENABLED,
-    STOREFRONT_REAL_TEST_FULL_ACCESS,
     LOCAL_CHECKOUT_PENDING_TTL_MS,
     getClientIdAtual,
     getUsuarioAtual,

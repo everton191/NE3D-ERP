@@ -508,9 +508,9 @@ function renderStorefrontPublishedModal(store, context = {}) {
 }
 
 function exigirChecklistPublicacaoLoja({ intent = "publicar", silent = false } = {}, context = {}) {
-  const { document, getStorefrontPublicationAccess, getStorefrontPublicationChecklist, isStorefrontRealTestFullAccessEnabled, mostrarModalLimitePlano, mostrarToast } = context;
+  const { document, getStorefrontPublicationAccess, getStorefrontPublicationChecklist, mostrarModalLimitePlano, mostrarToast } = context;
   const publicationAccess = getStorefrontPublicationAccess();
-  if (!publicationAccess.canPublish && !isStorefrontRealTestFullAccessEnabled()) {
+  if (!publicationAccess.canPublish) {
     if (!silent) {
       const mensagem = intent === "compartilhar"
         ? "O link público e o compartilhamento da loja ficam disponíveis nos planos Start e Pro ativos."

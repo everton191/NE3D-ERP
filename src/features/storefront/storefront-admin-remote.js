@@ -750,13 +750,13 @@ async function salvarStorefrontAparencia(event, context = {}) {
 }
 
 async function alternarStatusLojaOnline(context = {}) {
-  const { STOREFRONT_PUBLICATION_STATUS, atualizarOperacaoUX, concluirOperacaoUX, confirmarStorefrontSalvamentoLocal, document, exigirChecklistPublicacaoLoja, falharOperacaoUX, getStorefrontAdminStoreLocal, getStorefrontPublicationAccess, iniciarOperacaoUX, isStorefrontRealTestFullAccessEnabled, limparStorefrontAlteracoesPendentes, mostrarToast, registrarStorefrontActivity, registrarStorefrontDebugLeve, renderApp, renderStorefrontPublishedModal, requestSensitiveActionConfirmation, storefrontAdminRemoteReady, storefrontQueuePendingAction } = context;
+  const { STOREFRONT_PUBLICATION_STATUS, atualizarOperacaoUX, concluirOperacaoUX, confirmarStorefrontSalvamentoLocal, document, exigirChecklistPublicacaoLoja, falharOperacaoUX, getStorefrontAdminStoreLocal, getStorefrontPublicationAccess, iniciarOperacaoUX, limparStorefrontAlteracoesPendentes, mostrarToast, registrarStorefrontActivity, registrarStorefrontDebugLeve, renderApp, renderStorefrontPublishedModal, requestSensitiveActionConfirmation, storefrontAdminRemoteReady, storefrontQueuePendingAction } = context;
   if (!storefrontBeginOperation("storefront-status-save", context)) return;
   let operacaoUX = "";
   try {
   const store = getStorefrontAdminStoreLocal();
   const publicationAccess = getStorefrontPublicationAccess();
-  if (!store.active && !publicationAccess.canPublish && !isStorefrontRealTestFullAccessEnabled()) {
+  if (!store.active && !publicationAccess.canPublish) {
     exigirChecklistPublicacaoLoja({ intent: "publicar" });
     return;
   }
