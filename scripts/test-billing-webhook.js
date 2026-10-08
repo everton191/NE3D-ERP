@@ -9,6 +9,7 @@ const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 const webhook = read("supabase/functions/mercadopago-webhook/index.ts");
 const shared = read("supabase/functions/_shared/mercadopago-billing.ts");
 const cancel = read("supabase/functions/mercadopago-cancel-subscription/index.ts");
+const cancelAuthorization = read("supabase/functions/_shared/mercadopago-cancel-authorization.ts");
 const createPayment = read("supabase/functions/mercadopago-create-payment/index.ts");
 const createSubscription = read("supabase/functions/mercadopago-create-subscription/index.ts");
 const migration = read("supabase/migrations/20260529213000_billing_webhook_hardening.sql");
@@ -56,6 +57,11 @@ for (const checkoutSource of [createPayment, createSubscription]) {
   assert(!checkoutSource.includes('erpProfile?.client_id || requestedClientId'), "checkout nao pode usar cliente enviado pelo navegador como fallback");
   assert(!checkoutSource.includes('req.headers.get("origin")'), "URL de retorno nao pode confiar na origem enviada pelo navegador");
 }
+assert(cancel.includes("resolveBillingCancellationScope"), "cancelamento deve resolver o escopo autenticado antes de consultar a assinatura");
+assert(cancel.includes("authorizeBillingCancellation"), "cancelamento deve validar cliente, empresa, papel e assinatura");
+assert(cancel.includes('.eq("id", authorization.subscriptionRowId).eq("client_id", clientId)'), "update da assinatura deve manter o cliente autorizado no filtro");
+assert(!cancel.includes("body.subscriptionId || subscription.mercado_pago_subscription_id"), "id recebido do navegador não pode substituir a assinatura persistida");
+assert(cancelAuthorization.includes('["owner", "admin"]'), "somente owner/admin e superadmin persistido podem cancelar renovação");
 assert(diagnostics.includes('"webhook_received"'), "diagnosticos devem aceitar webhook_received");
 assert(diagnostics.includes('"webhook_validation_failed"'), "diagnosticos devem aceitar webhook_validation_failed");
 assert(diagnostics.includes('"webhook_ignored_duplicate"'), "diagnosticos devem aceitar webhook_ignored_duplicate");

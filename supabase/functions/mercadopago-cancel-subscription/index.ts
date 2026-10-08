@@ -1,5 +1,10 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  authorizeBillingCancellation,
+  BillingAuthorizationError,
+  resolveBillingCancellationScope,
+} from "../_shared/mercadopago-cancel-authorization.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -29,29 +34,19 @@ function getBearerToken(req: Request) {
 
 async function getCurrentContext(req: Request, requestedClientId?: string) {
   const token = getBearerToken(req);
+  if (!token) throw new BillingAuthorizationError("UNAUTHENTICATED", 401);
   const { data: userData, error } = await supabase.auth.getUser(token);
-  if (error || !userData?.user) throw new Error("Usuário não autenticado");
+  if (error || !userData?.user) throw new BillingAuthorizationError("UNAUTHENTICATED", 401);
 
   const userId = userData.user.id;
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("client_id, role")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  const { data: erpProfile } = await supabase
-    .from("erp_profiles")
-    .select("client_id, role")
-    .eq("id", userId)
-    .maybeSingle();
-
-  const isSuperadmin = profile?.role === "superadmin" || erpProfile?.role === "superadmin";
-  const clientId = isSuperadmin && requestedClientId
-    ? requestedClientId
-    : (profile?.client_id || erpProfile?.client_id || requestedClientId || "");
-
-  if (!clientId) throw new Error("Cliente não vinculado");
-  return { userId, clientId, isSuperadmin };
+  const [{ data: profile, error: profileError }, { data: erpProfile, error: erpProfileError }] = await Promise.all([
+    supabase.from("profiles").select("client_id, company_id, role, status").eq("user_id", userId).maybeSingle(),
+    supabase.from("erp_profiles").select("client_id, company_id, role, status").eq("id", userId).maybeSingle(),
+  ]);
+  if (profileError || erpProfileError) {
+    throw new BillingAuthorizationError("BILLING_SCOPE_UNAVAILABLE", 503);
+  }
+  return resolveBillingCancellationScope({ authenticatedUserId: userId, requestedClientId, profile, erpProfile });
 }
 
 serve(async (req) => {
@@ -64,17 +59,40 @@ serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { userId, clientId } = await getCurrentContext(req, body.clienteId || body.clientId);
+    const scope = await getCurrentContext(req, body.clienteId || body.clientId);
+    const { data: client, error: clientError } = await supabase
+      .from("clients")
+      .select("id, company_id")
+      .eq("id", scope.clientId)
+      .maybeSingle();
+    if (clientError) throw new BillingAuthorizationError("BILLING_SCOPE_UNAVAILABLE", 503);
+    const companyId = String(client?.company_id || "").trim();
+    const [{ data: company, error: companyError }, { data: membership, error: membershipError }] = await Promise.all([
+      companyId
+        ? supabase.from("companies").select("id, owner_user_id, status").eq("id", companyId).maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      companyId
+        ? supabase.from("company_members").select("company_id, role, status").eq("company_id", companyId).eq("user_id", scope.userId).eq("status", "active").maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
+    if (companyError || membershipError) throw new BillingAuthorizationError("BILLING_SCOPE_UNAVAILABLE", 503);
 
     const { data: subscription, error } = await supabase
       .from("subscriptions")
-      .select("id, mercado_pago_subscription_id, current_period_end, plan_expires_at, premium_until, expires_at, next_billing_at, proximo_vencimento")
-      .eq("client_id", clientId)
+      .select("id, client_id, company_id, mercado_pago_subscription_id, current_period_end, plan_expires_at, premium_until, expires_at, next_billing_at, proximo_vencimento")
+      .eq("client_id", scope.clientId)
       .maybeSingle();
 
-    if (error || !subscription) throw new Error("Assinatura não encontrada");
-    const mpSubscriptionId = String(body.subscriptionId || subscription.mercado_pago_subscription_id || "");
-    if (!mpSubscriptionId) throw new Error("Assinatura Mercado Pago não vinculada");
+    if (error) throw new BillingAuthorizationError("BILLING_SCOPE_UNAVAILABLE", 503);
+    const authorization = authorizeBillingCancellation({
+      scope,
+      requestedSubscriptionId: body.subscriptionId,
+      client,
+      company,
+      membership,
+      subscription,
+    });
+    const { userId, clientId, companyId: authorizedCompanyId, mercadoPagoSubscriptionId: mpSubscriptionId } = authorization;
 
     const mpResponse = await fetch(`https://api.mercadopago.com/preapproval/${encodeURIComponent(mpSubscriptionId)}`, {
       method: "PUT",
@@ -90,12 +108,12 @@ serve(async (req) => {
       throw new Error(mpData.message || `Mercado Pago HTTP ${mpResponse.status}`);
     }
 
-    const accessEndsAt = subscription.current_period_end
-      || subscription.plan_expires_at
-      || subscription.premium_until
-      || subscription.expires_at
-      || subscription.next_billing_at
-      || subscription.proximo_vencimento
+    const accessEndsAt = subscription?.current_period_end
+      || subscription?.plan_expires_at
+      || subscription?.premium_until
+      || subscription?.expires_at
+      || subscription?.next_billing_at
+      || subscription?.proximo_vencimento
       || null;
     await supabase.from("subscriptions").update({
       status: "active",
@@ -104,7 +122,7 @@ serve(async (req) => {
       cancel_at_period_end: true,
       cancelled_at: new Date().toISOString(),
       metadata: { cancel: mpData, cancel_at_period_end: true, access_ends_at: accessEndsAt },
-    }).eq("id", subscription.id);
+    }).eq("id", authorization.subscriptionRowId).eq("client_id", clientId);
 
     await supabase.from("clients")
       .update({
@@ -114,7 +132,8 @@ serve(async (req) => {
         plan_expires_at: accessEndsAt,
         status: "active",
       })
-      .eq("id", clientId);
+      .eq("id", clientId)
+      .eq("company_id", authorizedCompanyId);
 
     await supabase.from("audit_logs").insert({
       user_id: userId,
@@ -125,6 +144,7 @@ serve(async (req) => {
 
     return jsonResponse({ ok: true, subscriptionId: mpSubscriptionId, cancelAtPeriodEnd: true, accessEndsAt });
   } catch (error) {
-    return jsonResponse({ ok: false, error: error instanceof Error ? error.message : "Erro desconhecido" }, 400);
+    const status = error instanceof BillingAuthorizationError ? error.status : 400;
+    return jsonResponse({ ok: false, error: error instanceof Error ? error.message : "Erro desconhecido" }, status);
   }
 });
