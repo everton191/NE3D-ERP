@@ -4,6 +4,8 @@ const { execFileSync } = require("node:child_process");
 
 const PACKAGE = "br.com.ne3d.erp";
 const PORT = "9229";
+const expectAiDisabled = process.argv.includes("--expect-ai=disabled");
+const expectAiEnabled = process.argv.includes("--expect-ai=enabled");
 const ADB = process.env.ANDROID_ADB || `${process.env.LOCALAPPDATA || ""}\\Android\\Sdk\\platform-tools\\adb.exe`;
 const adb = (...args) => execFileSync(ADB, args, { encoding: "utf8" }).trim();
 
@@ -57,6 +59,9 @@ async function evaluate(socketUrl, expression, timeoutMs = 30000) {
         nativePlatform: capacitor?.isNativePlatform?.() === true,
         appPlugin: capacitor?.isPluginAvailable?.("App") === true,
         admobPlugin: capacitor?.isPluginAvailable?.("AdMob") === true,
+        localAiPlugin: capacitor?.isPluginAvailable?.("SimplificaLocalAi") === true,
+        localAiSupportedByApp: globalThis.getPlatformAdapter?.().supportsLocalAI === true,
+        aiShortcutCount: document.querySelectorAll("[data-ai-assistant-shortcut]").length,
         viewportReady: innerWidth > 0 && innerHeight > 0,
         pdfBytes,
         qrNodes
@@ -68,6 +73,11 @@ async function evaluate(socketUrl, expression, timeoutMs = 30000) {
     if (!result?.nativePlatform) failures.push("nativePlatform");
     if (!result?.appPlugin) failures.push("App plugin");
     if (!result?.admobPlugin) failures.push("AdMob plugin");
+    if (expectAiEnabled && !result?.localAiPlugin) failures.push("local AI plugin missing");
+    if (expectAiEnabled && !result?.localAiSupportedByApp) failures.push("local AI hidden from app");
+    if (expectAiDisabled && result?.localAiPlugin) failures.push("local AI plugin enabled");
+    if (expectAiDisabled && result?.localAiSupportedByApp) failures.push("local AI exposed by app");
+    if (expectAiDisabled && result?.aiShortcutCount !== 0) failures.push("AI shortcut visible");
     if (!result?.viewportReady) failures.push("viewport");
     if (!(result?.pdfBytes > 500)) failures.push("PDF");
     if (!(result?.qrNodes > 0)) failures.push("QR Code");

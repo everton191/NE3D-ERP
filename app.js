@@ -5524,13 +5524,14 @@ function getPlatformAdapter() {
   const platform = String(capacitor?.getPlatform?.() || (isAndroid() ? "android-web" : "web")).toLowerCase();
   const isAPK = isAndroidNativeApp();
   const isPWA = !isAPK;
+  const supportsLocalAI = isAPK && capacitor?.isPluginAvailable?.("SimplificaLocalAi") === true;
   return {
     id: isAPK ? "android_apk" : "web_pwa",
     platform,
     isPWA,
     isAndroid: isAndroid(),
     isAPK,
-    supportsLocalAI: isAPK && !!window.Capacitor?.Plugins?.SimplificaFiles,
+    supportsLocalAI,
     supportsInstallPrompt: isPWA,
     supportsServiceWorker: isPWA && "serviceWorker" in navigator && location.protocol !== "file:",
     safeAreaInsets: {
@@ -9588,6 +9589,7 @@ function getAppUiRenderersDeps() {
     window, document, appLayerIds: APP_LAYER_IDS, realtimeSyncState, printerMonitoringState, bambuLanState, interfaceModePreferenceState, pedidos,
     getTelaAtual: () => telaAtual, setTelaAtual: (value) => (telaAtual = value), setTelaAnterior: (value) => (telaAnterior = value), getAdminLogado: () => adminLogado,
     getUsuarioAtual, getAssistantUiComponents3d, getEstadoVisualSecretariaIa, getDescricaoEstadoSecretariaIa, renderUiIcon, renderAuthPublica, configurarReposicionamentoAtalhoAssistenteIa, aplicarPosicaoAtalhoAssistenteIa,
+    supportsLocalAI: () => getPlatformAdapter().supportsLocalAI,
     ensureAppShellLayers, garantirSubmenusMobileComoTelas, applyViewportModeClasses, aplicarPersonalizacao, renderTravaLocal, renderCalculadoraFlutuante, sincronizarBannersSeNecessario, focarCampoSenha,
     isTelaPublica, isSuperAdmin, isModoErpSuperadminAtivo, normalizarAbaSuperAdmin, deveMostrarOnboarding, getInterfaceMode, getHomeLayout, atualizarArvoreInterface, renderMobile, renderDesktop, getChaveEstruturalInterface,
     compactarBarrasAcoesMobile, sincronizarShellUiV3, renderizarFabEstoqueGlobal, renderizarAtalhoSecretariaIaGlobal, configurarFechamentoMenusEstoque, configurarAcoesCadastroImpressora, configurarAcoesPerfil, atualizarMenu,
@@ -34120,6 +34122,7 @@ function getQuickActionById(id) {
 
 function quickActionDisponivel(acao = {}) {
   if (!acao || QUICK_ACTIONS_DANGEROUS.has(acao.id)) return false;
+  if (acao.id === "secretaria_ia" && !getPlatformAdapter().supportsLocalAI) return false;
   if (acao.requiresOrder && !pedidos.length) return false;
   if (acao.tela && !shouldShowMenuItem(acao)) return false;
   if (acao.tela && !canAccessScreen(acao.tela)) return false;
@@ -34656,6 +34659,11 @@ function atualizarIndicadorSecretariaIa() {
 }
 
 async function preaquecerAssistenteIa3d({ renderChat = false } = {}) {
+  if (!getPlatformAdapter().supportsLocalAI) {
+    assistenteIaAquecimento = { status: "unavailable", message: "IA local desativada nesta versão" };
+    atualizarIndicadorSecretariaIa();
+    return assistenteIaAquecimento;
+  }
   const provider = window.Simplifica3dAiRuntime?.provider;
   if (!provider?.status) {
     assistenteIaAquecimento = { status: "unavailable", message: "IA local indisponível" };
@@ -34725,6 +34733,11 @@ function formatarBytesAssistenteIa(bytes = 0) {
 }
 
 async function carregarConfiguracaoAssistenteIa({ render = true } = {}) {
+  if (!getPlatformAdapter().supportsLocalAI) {
+    assistenteIaConfigState = { ...assistenteIaConfigState, loaded: true, available: false, enabled: false, state: "DISABLED", reason: "IA local desativada nesta versão." };
+    clearTimeout(assistenteIaConfigPollTimer);
+    return assistenteIaConfigState;
+  }
   const provider = window.Simplifica3dAiRuntime?.provider;
   if (!provider?.status) {
     assistenteIaConfigState = { ...assistenteIaConfigState, loaded: true, available: false, state: "UNAVAILABLE", reason: "Provider local indisponível." };

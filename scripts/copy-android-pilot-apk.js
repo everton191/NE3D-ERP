@@ -3,7 +3,7 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const root = path.resolve(__dirname, "..");
-const source = path.join(root, "android", "app", "build", "outputs", "apk", "debug", "app-debug.apk");
+const source = path.join(root, "android", "app", "build", "outputs", "apk", "direct", "debug", "app-direct-debug.apk");
 const outputDir = path.join(root, "output", "bambu-pilot");
 const preferredDestination = path.join(outputDir, "Simplifica3D-Bambu-Pilot-0.9.0.apk");
 if (!fs.existsSync(source)) throw new Error(`APK piloto nao encontrado: ${source}`);

@@ -10,8 +10,9 @@ const sourceApk = path.join(
   "build",
   "outputs",
   "apk",
+  "direct",
   "debug",
-  "app-debug.apk"
+  "app-direct-debug.apk"
 );
 const downloadsDir = path.join(rootDir, "downloads");
 const simpleApk = path.join(downloadsDir, "NE3D-ERP.apk");

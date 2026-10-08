@@ -33,6 +33,22 @@ android {
             }
         }
     }
+    flavorDimensions += "distribution"
+    productFlavors {
+        direct {
+            dimension "distribution"
+            buildConfigField "boolean", "AI_ENABLED", "true"
+            buildConfigField "boolean", "SELF_UPDATE_ENABLED", "true"
+        }
+        play {
+            dimension "distribution"
+            applicationId "br.com.ne3d.erp"
+            resValue "string", "app_name", "Simplifica 3D"
+            resValue "string", "title_activity_main", "Simplifica 3D"
+            buildConfigField "boolean", "AI_ENABLED", "false"
+            buildConfigField "boolean", "SELF_UPDATE_ENABLED", "false"
+        }
+    }
     externalNativeBuild { cmake { path 'src/main/cpp/functiongemma/CMakeLists.txt' } }
     packaging {
         jniLibs {
@@ -65,6 +81,7 @@ android {
     buildFeatures {
         // Compose is required by the native SPB carousel host and its editor (see spbcore/).
         compose true
+        buildConfig true
     }
     signingConfigs {
         debug {

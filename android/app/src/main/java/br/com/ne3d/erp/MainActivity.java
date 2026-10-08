@@ -29,9 +29,11 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SimplificaNotificationsPlugin.class);
         registerPlugin(SimplificaUpdatePlugin.class);
         registerPlugin(SimplificaBambuLanPlugin.class);
-        registerPlugin(SimplificaLocalAiPlugin.class);
-        registerPlugin(SimplificaNeedlePlugin.class);
-        registerPlugin(SimplificaVoicePlugin.class);
+        if (BuildConfig.AI_ENABLED) {
+            registerPlugin(SimplificaLocalAiPlugin.class);
+            registerPlugin(SimplificaNeedlePlugin.class);
+            registerPlugin(SimplificaVoicePlugin.class);
+        }
         registerPlugin(SimplificaSystemUiPlugin.class);
         registerPlugin(SimplificaCarousel3DPlugin.class);
         super.onCreate(savedInstanceState);

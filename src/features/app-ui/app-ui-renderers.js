@@ -5,6 +5,7 @@
     const layer = deps.document.getElementById(deps.appLayerIds.shell) || deps.document.body;
     if (!layer) return;
     deps.document.querySelector("[data-ai-assistant-shortcut]")?.remove();
+    if (deps.supportsLocalAI?.() !== true) return;
     const telasSemAssistente = new Set(["admin", "superadmin", "privacy", "terms", "lojaPublica", "onboarding", "acessoNegado"]);
     if (!deps.getUsuarioAtual() || telasSemAssistente.has(deps.getTelaAtual())) return;
     const shortcut = deps.document.createElement("div");
