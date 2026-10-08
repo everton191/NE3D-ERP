@@ -155,6 +155,7 @@
     "test:mobile-render-stability": "node scripts/test-mobile-render-stability.js",
     "test:message-notification-relay": "node scripts/test-message-notification-relay.js",
     "test:android-in-app-update": "node scripts/test-android-in-app-update.js",
+    "test:capacitor-runtime-android": "node scripts/android-capacitor-runtime-smoke.js",
     "test:phone-contacts-order": "node scripts/test-phone-contacts-order.js",
     "test:search-autocomplete-standard": "node scripts/test-search-autocomplete-standard.js",
     "test:mobile-single-screen-navigation": "node scripts/test-mobile-single-screen-navigation.js",
@@ -316,14 +317,14 @@
     "test:storefront-category-auto-draft": "node scripts/test-storefront-category-auto-draft.js"
   },
   "dependencies": {
-    "@capacitor-community/admob": "^8.0.0",
-    "@capacitor/android": "^8.3.1",
-    "@capacitor/app": "^8.0.0",
-    "@capacitor/core": "^8.3.1",
+    "@capacitor-community/admob": "8.2.1",
+    "@capacitor/android": "8.4.3",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/core": "8.4.3",
     "@wllama/wllama": "3.6.0"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.3.1",
+    "@capacitor/cli": "8.4.3",
     "supabase": "^2.98.0"
   }
 }
