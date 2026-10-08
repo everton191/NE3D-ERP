@@ -6,6 +6,8 @@ const PACKAGE = "br.com.ne3d.erp";
 const PORT = "9229";
 const expectAiDisabled = process.argv.includes("--expect-ai=disabled");
 const expectAiEnabled = process.argv.includes("--expect-ai=enabled");
+const expectSelfUpdateDisabled = process.argv.includes("--expect-self-update=disabled");
+const expectSelfUpdateEnabled = process.argv.includes("--expect-self-update=enabled");
 const ADB = process.env.ANDROID_ADB || `${process.env.LOCALAPPDATA || ""}\\Android\\Sdk\\platform-tools\\adb.exe`;
 const adb = (...args) => execFileSync(ADB, args, { encoding: "utf8" }).trim();
 
@@ -59,6 +61,7 @@ async function evaluate(socketUrl, expression, timeoutMs = 30000) {
         nativePlatform: capacitor?.isNativePlatform?.() === true,
         appPlugin: capacitor?.isPluginAvailable?.("App") === true,
         admobPlugin: capacitor?.isPluginAvailable?.("AdMob") === true,
+        selfUpdatePlugin: capacitor?.isPluginAvailable?.("SimplificaUpdate") === true,
         localAiPlugin: capacitor?.isPluginAvailable?.("SimplificaLocalAi") === true,
         localAiSupportedByApp: globalThis.getPlatformAdapter?.().supportsLocalAI === true,
         aiShortcutCount: document.querySelectorAll("[data-ai-assistant-shortcut]").length,
@@ -73,6 +76,8 @@ async function evaluate(socketUrl, expression, timeoutMs = 30000) {
     if (!result?.nativePlatform) failures.push("nativePlatform");
     if (!result?.appPlugin) failures.push("App plugin");
     if (!result?.admobPlugin) failures.push("AdMob plugin");
+    if (expectSelfUpdateEnabled && !result?.selfUpdatePlugin) failures.push("self-update plugin missing");
+    if (expectSelfUpdateDisabled && result?.selfUpdatePlugin) failures.push("self-update plugin enabled");
     if (expectAiEnabled && !result?.localAiPlugin) failures.push("local AI plugin missing");
     if (expectAiEnabled && !result?.localAiSupportedByApp) failures.push("local AI hidden from app");
     if (expectAiDisabled && result?.localAiPlugin) failures.push("local AI plugin enabled");

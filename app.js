@@ -17068,6 +17068,7 @@ async function removerFotoPerfilUsuario() {
 }
 
 function renderAtualizacaoAndroidDownload() {
+  if (atualizacaoAndroidGerenciadaPelaLoja()) return "";
   if (!isAndroid() || !appConfig.updateAvailableVersion) return "";
   const nativeAndroid = isAndroidNativeApp();
   const manifestLocal = {
@@ -38343,11 +38344,21 @@ function garantirLinhaAtualizacaoAndroidAtual() {
 }
 
 function getPluginAtualizacaoAndroid() {
-  if (!isAndroid()) return null;
+  if (!isAndroidNativeApp()) return null;
+  if (window.Capacitor?.isPluginAvailable?.("SimplificaUpdate") !== true) return null;
   return window.Capacitor?.Plugins?.SimplificaUpdate || null;
 }
 
+function atualizacaoAndroidGerenciadaPelaLoja() {
+  return isAndroidNativeApp() && !getPluginAtualizacaoAndroid();
+}
+
 async function abrirDownloadAtualizacaoAndroid(url) {
+  if (atualizacaoAndroidGerenciadaPelaLoja()) {
+    salvarStatusAtualizacao("Atualizações pela Google Play");
+    mostrarToast("As atualizações desta versão são instaladas pela Google Play.", "info", 4200);
+    return { storeManaged: true };
+  }
   if (isPilotBuild()) {
     mostrarToast("Atualizações automáticas ficam desativadas no Piloto.", "info", 3600);
     return { pilotBuild: true };
@@ -38499,6 +38510,11 @@ function avisarAtualizacaoAndroid(manifest, forcarAviso = false) {
 async function verificarAtualizacaoAndroid(forcarAviso = false) {
   if (!isAndroid()) return false;
   if (isPilotBuild()) return false;
+  if (atualizacaoAndroidGerenciadaPelaLoja()) {
+    salvarStatusAtualizacao("Atualizações pela Google Play");
+    if (forcarAviso) mostrarToast("A Google Play mantém esta versão atualizada.", "info", 3600);
+    return true;
+  }
 
   try {
     const manifest = await buscarManifestAtualizacaoAndroid();
@@ -38536,6 +38552,11 @@ async function verificarAtualizacaoAndroid(forcarAviso = false) {
 }
 
 async function baixarAtualizacaoAndroid(forcarBusca = false) {
+  if (atualizacaoAndroidGerenciadaPelaLoja()) {
+    salvarStatusAtualizacao("Atualizações pela Google Play");
+    mostrarToast("As atualizações desta versão são instaladas pela Google Play.", "info", 4200);
+    return { storeManaged: true };
+  }
   if (isPilotBuild()) {
     mostrarToast("O Piloto não instala a versão estável automaticamente.", "info", 4200);
     return { pilotBuild: true };
@@ -38673,6 +38694,12 @@ function iniciarMonitorAtualizacao() {
   if (updateTimer) {
     clearInterval(updateTimer);
     updateTimer = null;
+  }
+
+  if (atualizacaoAndroidGerenciadaPelaLoja()) {
+    appConfig.updateStatus = "Atualizações pela Google Play";
+    salvarDados();
+    return;
   }
 
   if (appConfig.autoUpdateEnabled === false) {

@@ -27,7 +27,9 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SimplificaFilesPlugin.class);
         registerPlugin(SimplificaBiometricPlugin.class);
         registerPlugin(SimplificaNotificationsPlugin.class);
-        registerPlugin(SimplificaUpdatePlugin.class);
+        if (BuildConfig.SELF_UPDATE_ENABLED) {
+            registerPlugin(SimplificaUpdatePlugin.class);
+        }
         registerPlugin(SimplificaBambuLanPlugin.class);
         if (BuildConfig.AI_ENABLED) {
             registerPlugin(SimplificaLocalAiPlugin.class);

@@ -11,8 +11,8 @@ const updatePlugin = fs.readFileSync(
   path.join(root, "android", "app", "src", "main", "java", "br", "com", "ne3d", "erp", "SimplificaUpdatePlugin.java"),
   "utf8"
 );
-const manifest = fs.readFileSync(
-  path.join(root, "android", "app", "src", "main", "AndroidManifest.xml"),
+const directManifest = fs.readFileSync(
+  path.join(root, "android", "app", "src", "direct", "AndroidManifest.xml"),
   "utf8"
 );
 const filePaths = fs.readFileSync(
@@ -21,7 +21,7 @@ const filePaths = fs.readFileSync(
 );
 
 const checks = [
-  ["plugin registrado no Android", mainActivity.includes("registerPlugin(SimplificaUpdatePlugin.class)")],
+  ["plugin registrado somente quando habilitado", /if \(BuildConfig\.SELF_UPDATE_ENABLED\) \{[\s\S]*?registerPlugin\(SimplificaUpdatePlugin\.class\)/.test(mainActivity)],
   ["ponte Capacitor usada pelo app", app.includes("Capacitor?.Plugins?.SimplificaUpdate")],
   ["download e instalação nativos", updatePlugin.includes("downloadAndInstall") && updatePlugin.includes("Intent.ACTION_VIEW")],
   ["download exige HTTPS", updatePlugin.includes('downloadUrl.startsWith("https://")')],
@@ -31,7 +31,7 @@ const checks = [
   ["linha antiga de atualização é limpa uma vez", app.includes('ANDROID_UPDATE_LINE_ID = "package-1"') && app.includes("garantirLinhaAtualizacaoAndroidAtual")],
   ["manifesto legado do repositório principal foi removido", !app.includes("everton191/NE3D-ERP/main/downloads/update.json") && app.includes("erpne3d.vercel.app/downloads/update.json")],
   ["PWA Android mostra APK sem comparar com versão web", app.includes("!isAndroidNativeApp()") && app.includes("APK Android disponível") && app.includes("Baixar APK")],
-  ["permissão de instalação declarada", manifest.includes("android.permission.REQUEST_INSTALL_PACKAGES")],
+  ["permissão de instalação declarada no flavor direto", directManifest.includes("android.permission.REQUEST_INSTALL_PACKAGES")],
   ["APK compartilhado via FileProvider", updatePlugin.includes("FileProvider.getUriForFile") && filePaths.includes("external-files-path")],
   ["autorização do Android tratada", updatePlugin.includes("ACTION_MANAGE_UNKNOWN_APP_SOURCES") && app.includes("permissionRequired")]
 ];
