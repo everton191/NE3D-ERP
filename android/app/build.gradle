@@ -4,11 +4,37 @@ apply plugin: 'org.jetbrains.kotlin.plugin.compose'
 
 def simplificaSigningKeystore = rootProject.file("signing/simplifica-debug.keystore")
 def simplificaPilotBuild = project.hasProperty("simplificaPilot") && project.property("simplificaPilot").toString().toBoolean()
+def playSigningValue = { String name ->
+    def value = project.findProperty(name) ?: System.getenv(name)
+    return value == null ? "" : value.toString().trim()
+}
+def playUploadStorePath = playSigningValue("SIMPLIFICA_PLAY_UPLOAD_STORE_FILE")
+def playUploadStorePassword = playSigningValue("SIMPLIFICA_PLAY_UPLOAD_STORE_PASSWORD")
+def playUploadKeyAlias = playSigningValue("SIMPLIFICA_PLAY_UPLOAD_KEY_ALIAS")
+def playUploadKeyPassword = playSigningValue("SIMPLIFICA_PLAY_UPLOAD_KEY_PASSWORD")
+def playUploadSigningReady = [playUploadStorePath, playUploadStorePassword, playUploadKeyAlias, playUploadKeyPassword].every { !it.isEmpty() }
+def allowUnsignedPlayBundle = project.hasProperty("simplificaAllowUnsignedPlayBundle") && project.property("simplificaAllowUnsignedPlayBundle").toString().toBoolean()
 
 android {
     ndkVersion "28.2.13676358"
     namespace = "br.com.ne3d.erp"
     compileSdk = rootProject.ext.compileSdkVersion
+    signingConfigs {
+        debug {
+            if (!simplificaSigningKeystore.exists()) {
+                throw new GradleException("Chave Android estável não encontrada em android/signing/simplifica-debug.keystore")
+            }
+            storeFile simplificaSigningKeystore
+        }
+        playUpload {
+            if (playUploadSigningReady) {
+                storeFile rootProject.file(playUploadStorePath)
+                storePassword playUploadStorePassword
+                keyAlias playUploadKeyAlias
+                keyPassword playUploadKeyPassword
+            }
+        }
+    }
     defaultConfig {
         applicationId simplificaPilotBuild ? "br.com.ne3d.erp.pilot" : "br.com.ne3d.erp"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -47,6 +73,9 @@ android {
             resValue "string", "title_activity_main", "Simplifica 3D"
             buildConfigField "boolean", "AI_ENABLED", "false"
             buildConfigField "boolean", "SELF_UPDATE_ENABLED", "false"
+            if (playUploadSigningReady) {
+                signingConfig signingConfigs.playUpload
+            }
         }
     }
     externalNativeBuild { cmake { path 'src/main/cpp/functiongemma/CMakeLists.txt' } }
@@ -83,14 +112,6 @@ android {
         compose true
         buildConfig true
     }
-    signingConfigs {
-        debug {
-            if (!simplificaSigningKeystore.exists()) {
-                throw new GradleException("Chave Android estável não encontrada em android/signing/simplifica-debug.keystore")
-            }
-            storeFile simplificaSigningKeystore
-        }
-    }
     buildTypes {
         debug {
             manifestPlaceholders = [admobAppId: "ca-app-pub-1056970757696623~2135021978"]
@@ -106,6 +127,29 @@ android {
             }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+androidComponents {
+    onVariants(selector().all()) { variant ->
+        if (variant.productFlavors.any { flavor -> flavor.first == "distribution" && flavor.second == "play" }) {
+            variant.packaging.jniLibs.excludes.addAll([
+                "**/libggml*.so",
+                "**/libllama.so",
+                "**/liblocal_llama_jni.so",
+                "**/libneedle_jni.so"
+            ])
+        }
+    }
+}
+
+tasks.configureEach { task ->
+    if (task.name == "prePlayReleaseBuild") {
+        task.doFirst {
+            if (!playUploadSigningReady && !allowUnsignedPlayBundle) {
+                throw new GradleException("Assinatura Play ausente. Defina SIMPLIFICA_PLAY_UPLOAD_STORE_FILE, SIMPLIFICA_PLAY_UPLOAD_STORE_PASSWORD, SIMPLIFICA_PLAY_UPLOAD_KEY_ALIAS e SIMPLIFICA_PLAY_UPLOAD_KEY_PASSWORD. Para validação técnica sem upload, use -PsimplificaAllowUnsignedPlayBundle=true.")
+            }
         }
     }
 }
