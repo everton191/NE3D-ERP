@@ -1,6 +1,6 @@
 # Simplifica 3D — bundle Google Play
 
-O flavor `play` mantém o código-fonte da IA e do atualizador no repositório, mas não registra esses plugins e não empacota as bibliotecas nativas da IA. O bundle também não solicita microfone nem instalação de APK.
+O flavor `play` mantém o código-fonte da IA, do atualizador e do Mercado Pago no repositório, mas não registra a IA nem o instalador, não empacota as bibliotecas nativas da IA e não inicia checkout externo. Assinaturas já existentes continuam sendo reconhecidas. O bundle também não solicita microfone nem instalação de APK.
 
 ## Assinatura de upload
 

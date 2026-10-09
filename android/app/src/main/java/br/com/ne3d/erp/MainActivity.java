@@ -30,6 +30,9 @@ public class MainActivity extends BridgeActivity {
         if (BuildConfig.SELF_UPDATE_ENABLED) {
             registerPlugin(SimplificaUpdatePlugin.class);
         }
+        if (BuildConfig.EXTERNAL_CHECKOUT_ENABLED) {
+            registerPlugin(SimplificaExternalCheckoutPlugin.class);
+        }
         registerPlugin(SimplificaBambuLanPlugin.class);
         if (BuildConfig.AI_ENABLED) {
             registerPlugin(SimplificaLocalAiPlugin.class);

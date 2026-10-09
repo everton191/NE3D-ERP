@@ -8,6 +8,8 @@ const expectAiDisabled = process.argv.includes("--expect-ai=disabled");
 const expectAiEnabled = process.argv.includes("--expect-ai=enabled");
 const expectSelfUpdateDisabled = process.argv.includes("--expect-self-update=disabled");
 const expectSelfUpdateEnabled = process.argv.includes("--expect-self-update=enabled");
+const expectExternalCheckoutDisabled = process.argv.includes("--expect-external-checkout=disabled");
+const expectExternalCheckoutEnabled = process.argv.includes("--expect-external-checkout=enabled");
 const ADB = process.env.ANDROID_ADB || `${process.env.LOCALAPPDATA || ""}\\Android\\Sdk\\platform-tools\\adb.exe`;
 const adb = (...args) => execFileSync(ADB, args, { encoding: "utf8" }).trim();
 
@@ -62,6 +64,7 @@ async function evaluate(socketUrl, expression, timeoutMs = 30000) {
         appPlugin: capacitor?.isPluginAvailable?.("App") === true,
         admobPlugin: capacitor?.isPluginAvailable?.("AdMob") === true,
         selfUpdatePlugin: capacitor?.isPluginAvailable?.("SimplificaUpdate") === true,
+        externalCheckoutPlugin: capacitor?.isPluginAvailable?.("SimplificaExternalCheckout") === true,
         localAiPlugin: capacitor?.isPluginAvailable?.("SimplificaLocalAi") === true,
         localAiSupportedByApp: globalThis.getPlatformAdapter?.().supportsLocalAI === true,
         aiShortcutCount: document.querySelectorAll("[data-ai-assistant-shortcut]").length,
@@ -78,6 +81,8 @@ async function evaluate(socketUrl, expression, timeoutMs = 30000) {
     if (!result?.admobPlugin) failures.push("AdMob plugin");
     if (expectSelfUpdateEnabled && !result?.selfUpdatePlugin) failures.push("self-update plugin missing");
     if (expectSelfUpdateDisabled && result?.selfUpdatePlugin) failures.push("self-update plugin enabled");
+    if (expectExternalCheckoutEnabled && !result?.externalCheckoutPlugin) failures.push("external checkout marker missing");
+    if (expectExternalCheckoutDisabled && result?.externalCheckoutPlugin) failures.push("external checkout enabled");
     if (expectAiEnabled && !result?.localAiPlugin) failures.push("local AI plugin missing");
     if (expectAiEnabled && !result?.localAiSupportedByApp) failures.push("local AI hidden from app");
     if (expectAiDisabled && result?.localAiPlugin) failures.push("local AI plugin enabled");

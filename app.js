@@ -27576,6 +27576,7 @@ function renderAssinatura() {
   const sessoesAtivas = saasSessions.filter((sessao) => sessao.clientId === (usuario?.clientId || billingConfig.clientId) && sessao.active !== false).length || 1;
   const textoBackup = `${resumoBackup.usedMb.toFixed(resumoBackup.usedMb >= 10 ? 0 : 1)} MB / ${policy.backupLabel}${resumoBackup.backup_over_limit ? " · somente leitura" : ""}`;
   const startEnabled = isStartPlanCommerciallyEnabled();
+  const checkoutDisponivel = checkoutExternoDisponivel();
   let planos = [
     {
       slug: "free",
@@ -27637,7 +27638,7 @@ function renderAssinatura() {
   const apresentacaoPorSlug = Object.fromEntries(apresentacoes.map((plan) => [plan.slug, plan]));
   planos = planos.map((plano) => {
     const apresentacao = apresentacaoPorSlug[plano.slug] || {};
-    return {
+    const apresentacaoFinal = {
       ...plano,
       ...apresentacao,
       badge: plano.badge || apresentacao.badge,
@@ -27652,6 +27653,13 @@ function renderAssinatura() {
       period: apresentacao.period || plano.period,
       highlights: apresentacao.highlights || plano.highlights
     };
+    if (!checkoutDisponivel && ["start", "pro"].includes(plano.slug) && !plano.current) {
+      apresentacaoFinal.cta = "Contratação indisponível nesta versão";
+      apresentacaoFinal.disabled = true;
+      apresentacaoFinal.unavailable = false;
+      apresentacaoFinal.action = "";
+    }
+    return apresentacaoFinal;
   });
   registrarEventoPlanoSeguro("plans_screen_opened", { effectivePlan: accessState.effectivePlan }, "plans-screen-opened");
   planos.forEach((plano) => registrarEventoPlanoSeguro("plan_card_viewed", { plan: plano.slug, current: plano.current === true }, `plan-card-viewed:${plano.slug}`));
@@ -27686,6 +27694,8 @@ function renderAssinatura() {
         </div>
       </div>
 
+      ${!checkoutDisponivel ? `<div class="feedback-status info" role="status">Esta versão reconhece normalmente assinaturas existentes, mas não inicia novas compras ou upgrades.</div>` : ""}
+
       ${abaPlanos === "current" ? `<div class="plans-current-modern">
         <div class="row-title">
           <div>
@@ -27703,7 +27713,13 @@ function renderAssinatura() {
         </div>
         <div class="plans-current-bottom">
           <span><small>Loja pública</small><strong>${policy.publicStore ? "Liberada" : "Somente visualização"}</strong></span>
-          <button class="btn ghost success plan-primary-button" type="button" ${accessState.canCancelRenewal ? "data-action=\"plan-cancel\"" : accessState.canReactivateRenewal ? "data-action=\"plan-reactivate\"" : "data-action=\"open-payment\" data-slug=\"pro\""}>${renderUiIcon("config")} ${accessState.canCancelRenewal ? "Cancelar renovação" : accessState.canReactivateRenewal ? "Reativar renovação" : "Assinar Pro"}</button>
+          ${accessState.canCancelRenewal
+            ? `<button class="btn ghost success plan-primary-button" type="button" data-action="plan-cancel">${renderUiIcon("config")} Cancelar renovação</button>`
+            : accessState.canReactivateRenewal
+              ? `<button class="btn ghost success plan-primary-button" type="button" data-action="plan-reactivate">${renderUiIcon("config")} Reativar renovação</button>`
+              : checkoutDisponivel
+                ? `<button class="btn ghost success plan-primary-button" type="button" data-action="open-payment" data-slug="pro">${renderUiIcon("config")} Assinar Pro</button>`
+                : `<span class="muted">Compras e upgrades não são iniciados nesta versão.</span>`}
         </div>
         ${renderPlanPaymentNotice(accessState, checkoutState)}
       </div>
@@ -27921,7 +27937,7 @@ function renderMinhaAssinatura() {
           <div class="metric"><span>Subscription ID</span><strong>${escaparHtml(assinatura?.mercadoPagoSubscriptionId || "-")}</strong></div>
         </div>
         <div class="actions">
-          <button class="btn" type="button" data-action="plan-renew" data-slug="${escaparAttr(plano.slug === "free" ? "pro" : plano.slug)}">Renovar plano</button>
+          ${checkoutExternoDisponivel() ? `<button class="btn" type="button" data-action="plan-renew" data-slug="${escaparAttr(plano.slug === "free" ? "pro" : plano.slug)}">Renovar plano</button>` : ""}
           <button class="btn secondary" type="button" data-action="open-screen" data-screen="assinatura">Alterar plano</button>
           <button class="btn ghost" type="button" data-action="plan-cancel">Cancelar assinatura</button>
           <button class="btn ghost" type="button" data-action="plan-support">Falar com suporte</button>
@@ -28276,6 +28292,10 @@ function registrarDiagnosticoManual() {
 }
 
 function escolherPlanoSaas(slug = "free") {
+  if (["start", "pro"].includes(normalizarSlugPlano(slug)) && !checkoutExternoDisponivel()) {
+    mostrarToast("Compras e upgrades não são iniciados nesta versão.", "info", 4800);
+    return;
+  }
   return window.SimplificaBillingCommands.escolherPlanoSaas(slug, getBillingCommandsDeps());
 }
 
@@ -28359,6 +28379,10 @@ function registrarPagamentoLocalPendente(plano, dados = {}, tipo = "subscription
 }
 
 async function abrirLinkMercadoPago(slug = "pro") {
+  if (!checkoutExternoDisponivel()) {
+    mostrarToast("Compras e upgrades não são iniciados nesta versão.", "info", 4800);
+    return { externalCheckoutDisabled: true };
+  }
   const plano = getPlanoSaas(slug);
   if (plano.slug === "start" && !isStartPlanCommerciallyEnabled()) {
     registrarEventoPlanoSeguro("plan_start_unavailable_clicked", { plan: "start" });
@@ -28422,6 +28446,10 @@ async function abrirLinkMercadoPago(slug = "pro") {
 }
 
 async function criarPagamentoUnicoMercadoPago(slug = "pro") {
+  if (!checkoutExternoDisponivel()) {
+    mostrarToast("Compras e upgrades não são iniciados nesta versão.", "info", 4800);
+    return { externalCheckoutDisabled: true };
+  }
   const plano = getPlanoSaas(slug);
   if (plano.slug === "start" && !isStartPlanCommerciallyEnabled()) {
     registrarEventoPlanoSeguro("plan_start_unavailable_clicked", { plan: "start", origin: "single-payment" });
@@ -38397,6 +38425,11 @@ function getPluginAtualizacaoAndroid() {
   if (!isAndroidNativeApp()) return null;
   if (window.Capacitor?.isPluginAvailable?.("SimplificaUpdate") !== true) return null;
   return window.Capacitor?.Plugins?.SimplificaUpdate || null;
+}
+
+function checkoutExternoDisponivel() {
+  if (!isAndroidNativeApp()) return true;
+  return window.Capacitor?.isPluginAvailable?.("SimplificaExternalCheckout") === true;
 }
 
 function atualizacaoAndroidGerenciadaPelaLoja() {

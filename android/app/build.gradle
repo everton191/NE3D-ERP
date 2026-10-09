@@ -65,6 +65,7 @@ android {
             dimension "distribution"
             buildConfigField "boolean", "AI_ENABLED", "true"
             buildConfigField "boolean", "SELF_UPDATE_ENABLED", "true"
+            buildConfigField "boolean", "EXTERNAL_CHECKOUT_ENABLED", "true"
         }
         play {
             dimension "distribution"
@@ -73,6 +74,7 @@ android {
             resValue "string", "title_activity_main", "Simplifica 3D"
             buildConfigField "boolean", "AI_ENABLED", "false"
             buildConfigField "boolean", "SELF_UPDATE_ENABLED", "false"
+            buildConfigField "boolean", "EXTERNAL_CHECKOUT_ENABLED", "false"
             if (playUploadSigningReady) {
                 signingConfig signingConfigs.playUpload
             }
