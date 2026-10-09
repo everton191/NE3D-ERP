@@ -7999,7 +7999,7 @@ function mostrarModalLimitePlano(mensagem = "Você atingiu o limite do seu plano
 
 function getDocumentoLegal(tipo = "termos") {
   const nomeApp = appConfig.appName || SYSTEM_NAME;
-  const data = "04/05/2026";
+  const data = "08/10/2026";
   if (tipo === "privacidade") {
     return {
       titulo: "Política de Privacidade",
@@ -8051,13 +8051,16 @@ function getDocumentoLegal(tipo = "termos") {
         {
           titulo: "7. Direitos do usuário (LGPD)",
           itens: [
-            "Você pode solicitar acesso aos seus dados, corrigir informações, solicitar exclusão e revogar consentimento, quando aplicável."
+            "Você pode solicitar acesso aos seus dados, corrigir informações, solicitar exclusão e revogar consentimento, quando aplicável.",
+            "A exclusão pode ser solicitada dentro do aplicativo em Perfil > Segurança, dados e exclusão da conta, ou pela página pública https://erpne3d.vercel.app/excluir-conta."
           ]
         },
         {
           titulo: "8. Retenção de dados",
           itens: [
-            "Mantemos os dados apenas pelo tempo necessário para funcionamento do serviço, segurança, suporte e cumprimento de obrigações aplicáveis."
+            "Após a confirmação de uma solicitação, a conta entra em carência de 15 dias, período em que o proprietário pode cancelar a exclusão.",
+            "Encerrada a carência, o acesso à conta é desativado e os dados pessoais associados entram no processo de exclusão ou anonimização.",
+            "Registros fiscais, financeiros, antifraude, de segurança ou necessários ao cumprimento de obrigação legal podem ser mantidos apenas pelo prazo aplicável e com acesso restrito."
           ]
         },
         {
@@ -27957,6 +27960,10 @@ function renderSobre() {
 }
 
 function renderDocumentoLegalPage(tipo = "termos") {
+  const rotaLegal = String(location.pathname || "").replace(/\/+$/, "").toLowerCase();
+  if (tipo === "privacidade" && ["/excluir-conta", "/exclusao-de-conta", "/account-deletion"].includes(rotaLegal)) {
+    return renderExclusaoContaPublica();
+  }
   const documento = getDocumentoLegal(tipo);
   const consentimentoAnalytics = getStorefrontAnalyticsConsent();
   return `
@@ -33954,6 +33961,49 @@ function alternarTaxaExtraAtiva(ativa = false) {
   agendarCalculoTempoReal();
 }
 
+function renderExclusaoContaPublica() {
+  const assunto = encodeURIComponent("Solicitação de exclusão de conta - Simplifica 3D");
+  const corpo = encodeURIComponent("Solicito a exclusão da minha conta e dos dados pessoais associados ao Simplifica 3D. Enviarei esta mensagem pelo mesmo e-mail cadastrado na conta para confirmação de identidade.");
+  const usuarioLogado = !!getUsuarioAtual();
+  return `
+    <section class="card legal-page" data-public-account-deletion>
+      <div class="card-header">
+        <h2>Exclusão de conta e dados</h2>
+        <span class="status-badge">Simplifica 3D</span>
+      </div>
+      <p class="muted">Use esta página pública para iniciar a exclusão da sua conta do Simplifica 3D e dos dados pessoais associados.</p>
+      <div class="legal-content legal-page-content">
+        <section class="legal-section">
+          <h3>Como solicitar</h3>
+          <ol>
+            <li>No aplicativo, acesse <strong>Perfil > Segurança, dados e exclusão da conta</strong> e toque em <strong>Solicitar exclusão da conta</strong>; ou</li>
+            <li>Envie a solicitação pelo mesmo e-mail cadastrado na conta para que possamos confirmar sua identidade.</li>
+          </ol>
+          <div class="actions">
+            ${usuarioLogado ? `<button class="btn" type="button" onclick="trocarTela('seguranca')">Abrir segurança da conta</button>` : ""}
+            <a class="btn secondary" href="mailto:${escaparAttr(SUPPORT_EMAIL)}?subject=${assunto}&body=${corpo}">Solicitar por e-mail</a>
+          </div>
+        </section>
+        <section class="legal-section">
+          <h3>O que acontece depois</h3>
+          <ul>
+            <li>Solicitações feitas dentro do app exigem confirmação por código enviado ao e-mail da conta.</li>
+            <li>Após a confirmação, há uma carência de 15 dias para cancelar a solicitação.</li>
+            <li>Encerrada a carência, o acesso é desativado e os dados pessoais associados entram no processo de exclusão ou anonimização.</li>
+            <li>Dados que precisem ser preservados por obrigação legal, fiscal, antifraude ou de segurança ficam restritos pelo prazo aplicável.</li>
+          </ul>
+        </section>
+        <section class="legal-section">
+          <h3>Contato</h3>
+          <p>Responsável pelo aplicativo: Simplifica 3D.</p>
+          <p>E-mail: <a href="mailto:${escaparAttr(SUPPORT_EMAIL)}">${escaparHtml(SUPPORT_EMAIL)}</a></p>
+          <p><a href="${escaparAttr(APP_PUBLIC_URL)}/privacy">Consulte também a Política de Privacidade.</a></p>
+        </section>
+      </div>
+    </section>
+  `;
+}
+
 function selecionarTipoTaxaExtraCalculadora(tipo = "percent") {
   appConfig.calcExtraFeeMode = tipo === "fixed" ? "manual" : "percent";
   salvarDados();
@@ -38834,7 +38884,7 @@ function processarRotaPublicaLegal() {
     return;
   }
   const rota = String(location.pathname || "").replace(/\/+$/, "").toLowerCase();
-  if (rota === "/privacy" || rota === "/privacidade") {
+  if (["/privacy", "/privacidade", "/excluir-conta", "/exclusao-de-conta", "/account-deletion"].includes(rota)) {
     telaAtual = "privacy";
   }
   if (rota === "/terms" || rota === "/termos") {

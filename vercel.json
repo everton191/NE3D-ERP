@@ -39,7 +39,7 @@
       "handle": "filesystem"
     },
     {
-      "src": "/(privacy|privacidade|terms|termos|superadmin|store-admin)",
+      "src": "/(privacy|privacidade|excluir-conta|exclusao-de-conta|account-deletion|terms|termos|superadmin|store-admin)",
       "dest": "/index.html"
     },
     {
