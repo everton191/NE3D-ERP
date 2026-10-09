@@ -7704,7 +7704,7 @@ function getPlanAccessState(userSubscription = getAssinaturaSaas(), options = {}
     canUpgrade: upgradeOptions.length > 0,
     upgradeOptions,
     canCancelRenewal: isPaid && isActive && !isCancelingAtPeriodEnd,
-    canReactivateRenewal: isCancelingAtPeriodEnd,
+    canReactivateRenewal: false,
     canSubscribe: effectivePlan === "free",
     shouldShowPendingPayment: estado.pending === true && realPendingPayment,
     accessEndsAt: accessEndsAt || "",
@@ -27715,8 +27715,8 @@ function renderAssinatura() {
           <span><small>Loja pública</small><strong>${policy.publicStore ? "Liberada" : "Somente visualização"}</strong></span>
           ${accessState.canCancelRenewal
             ? `<button class="btn ghost success plan-primary-button" type="button" data-action="plan-cancel">${renderUiIcon("config")} Cancelar renovação</button>`
-            : accessState.canReactivateRenewal
-              ? `<button class="btn ghost success plan-primary-button" type="button" data-action="plan-reactivate">${renderUiIcon("config")} Reativar renovação</button>`
+            : accessState.isCancelingAtPeriodEnd
+              ? `<button class="btn ghost plan-primary-button" type="button" disabled>${renderUiIcon("config")} Renovação cancelada</button>`
               : checkoutDisponivel
                 ? `<button class="btn ghost success plan-primary-button" type="button" data-action="open-payment" data-slug="pro">${renderUiIcon("config")} Assinar Pro</button>`
                 : `<span class="muted">Compras e upgrades não são iniciados nesta versão.</span>`}
@@ -28498,41 +28498,8 @@ async function cancelarAssinaturaCliente() {
 }
 
 async function reativarRenovacaoAssinaturaCliente() {
-  const clientId = getClientIdAtual() || billingConfig.clientId;
-  const assinatura = garantirAssinaturaClienteLocal(clientId);
-  const accessState = getPlanAccessState(assinatura, { source: "reactivate-renewal" });
-  if (!accessState.isCancelingAtPeriodEnd) {
-    alert("Não há cancelamento de renovação agendado para reativar.");
-    return;
-  }
-  const confirmou = await solicitarConfirmacaoAcao({
-    titulo: "Reativar renovação automática",
-    mensagem: "Deseja reativar a renovação automática do seu plano Pro?",
-    confirmar: "Reativar renovação"
-  });
-  if (!confirmou) return;
-  assinatura.cancelAtPeriodEnd = false;
-  assinatura.subscriptionStatus = "active";
-  assinatura.status = "active";
-  assinatura.statusAssinatura = "active";
-  assinatura.updatedAt = new Date().toISOString();
-  const cliente = getClienteSaasPorId(clientId);
-  if (cliente) {
-    cliente.cancelAtPeriodEnd = false;
-    cliente.subscriptionStatus = "active";
-    cliente.statusAssinatura = "active";
-    cliente.updatedAt = new Date().toISOString();
-  }
-  if (String(clientId || "") === String(getClientIdAtual() || billingConfig.clientId || "")) {
-    billingConfig.cancelAtPeriodEnd = false;
-    billingConfig.subscriptionStatus = "active";
-    billingConfig.licenseStatus = "active";
-  }
-  salvarDados();
-  registrarAuditoria("reativacao renovacao", { plano: accessState.effectivePlan }, clientId);
-  registrarEventoPlanoSeguro("subscription_reactivated", { plan: accessState.effectivePlan });
-  alert("Renovação reativada. Sua assinatura continua ativa normalmente.");
-  renderApp();
+  alert("Uma assinatura cancelada no Mercado Pago não pode ser reativada. Seu acesso continua até o fim do período pago; depois, você poderá contratar um novo plano.");
+  return { ok: false, code: "REACTIVATION_UNAVAILABLE" };
 }
 
 function falarComSuporteAssinatura() {

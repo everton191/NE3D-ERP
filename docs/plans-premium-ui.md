@@ -53,7 +53,8 @@ Com os IDs remotos configurados no backend, a UI oferece os tres planos comercia
 
 - Mantem Pro ou Start legado ate `accessEndsAt`.
 - Exibe a data final claramente.
-- Permite reativar renovacao somente quando `canReactivateRenewal` estiver ativo.
+- Exibe `Renovacao cancelada` sem acao de reativacao.
+- Depois do fim do acesso, uma nova contratacao pode ser iniciada normalmente.
 
 ### Pagamento pendente real
 
@@ -104,7 +105,6 @@ Eventos registrados:
 - `plan_start_unavailable_clicked`;
 - `subscription_cancel_requested`;
 - `subscription_cancel_at_period_end`;
-- `subscription_reactivated`;
 - `payment_pending_real_viewed`.
 
 Nenhum evento salva token, segredo, autorizacao, cartao ou payload de pagamento.

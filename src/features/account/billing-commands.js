@@ -584,35 +584,46 @@ const idCliente = clientId || deps.getBillingConfig().clientId || deps.criarIdLo
   const accessState = deps.getPlanAccessState(assinatura, { source: "cancel-renewal" });
   if (accessState.isFree || !accessState.isActive) {
     deps.alert("O plano Free não possui renovação para cancelar.");
-    return;
+    return { ok: false, code: "PLAN_NOT_CANCELLABLE" };
   }
   if (accessState.isCancelingAtPeriodEnd) {
     deps.alert("A renovação já está cancelada. Seu acesso pago continua até o fim do período.");
-    return;
+    return { ok: false, code: "ALREADY_CANCELLED" };
   }
-  const fimPeriodo = accessState.accessEndsAt || assinatura.currentPeriodEnd || assinatura.planExpiresAt || assinatura.expiresAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-  const dataFim = fimPeriodo ? new Date(fimPeriodo).toLocaleDateString("pt-BR") : "o fim do período pago";
+  const fimPeriodoConhecido = accessState.accessEndsAt || assinatura.currentPeriodEnd || assinatura.planExpiresAt || assinatura.expiresAt || "";
+  const dataFimConhecida = fimPeriodoConhecido ? new Date(fimPeriodoConhecido).toLocaleDateString("pt-BR") : "o fim do período já pago";
   const confirmou = await deps.solicitarConfirmacaoAcao({
     titulo: "Cancelar renovação automática",
-    mensagem: `Deseja cancelar a renovação automática? Seu plano ${getPlanoSaas(accessState.effectivePlan).name} continuará ativo até ${dataFim}. Depois disso, sua conta voltará ao plano Free.`,
+    mensagem: `Deseja cancelar a renovação automática? Seu plano ${deps.getPlanoSaas(accessState.effectivePlan).name} continuará ativo até ${dataFimConhecida}. Depois disso, sua conta voltará ao plano Free.`,
     confirmar: "Cancelar renovação",
     perigo: true
   });
-  if (!confirmou) return;
-  deps.registrarEventoPlanoSeguro("subscription_cancel_requested", { plan: accessState.effectivePlan, accessEndsAt: fimPeriodo });
+  if (!confirmou) return { ok: false, code: "USER_ABORTED" };
+  deps.registrarEventoPlanoSeguro("subscription_cancel_requested", { plan: accessState.effectivePlan, accessEndsAt: fimPeriodoConhecido });
 
+  if (!deps.syncConfig.supabaseAccessToken) {
+    deps.registrarDiagnostico("Mercado Pago", "Cancelamento não iniciado", "Sessão online ausente");
+    deps.alert("Entre novamente na sua conta e tente cancelar a renovação. Nenhuma alteração foi feita.");
+    return { ok: false, code: "AUTH_REQUIRED" };
+  }
+
+  let cancelamentoRemoto;
   try {
-    if (deps.syncConfig.supabaseAccessToken && assinatura.mercadoPagoSubscriptionId) {
-      await deps.chamarFuncaoSaas("mercadopago-cancel-subscription", {
-        clienteId: clientId,
-        subscriptionId: assinatura.mercadoPagoSubscriptionId
-      });
+    cancelamentoRemoto = await deps.chamarFuncaoSaas("mercadopago-cancel-subscription", {
+      clienteId: clientId,
+      ...(assinatura.mercadoPagoSubscriptionId ? { subscriptionId: assinatura.mercadoPagoSubscriptionId } : {})
+    });
+    if (cancelamentoRemoto?.ok !== true || cancelamentoRemoto?.cancelAtPeriodEnd !== true) {
+      throw new Error("O backend não confirmou o cancelamento da renovação.");
     }
   } catch (erro) {
     deps.registrarDiagnostico("Mercado Pago", "Cancelamento online não confirmado", erro.message);
-    deps.alert("Não foi possível confirmar o cancelamento automático. Vamos manter a solicitação local e o suporte pode conferir a cobrança.");
+    deps.alert("Não foi possível confirmar o cancelamento da renovação. Nenhuma alteração foi feita e a cobrança continua ativa. Tente novamente ou fale com o suporte.");
+    return { ok: false, code: "REMOTE_CANCELLATION_FAILED" };
   }
 
+  const fimPeriodo = cancelamentoRemoto.accessEndsAt || fimPeriodoConhecido;
+  const dataFim = fimPeriodo ? new Date(fimPeriodo).toLocaleDateString("pt-BR") : "o fim do período já pago";
   const agora = new Date().toISOString();
   assinatura.cancelAtPeriodEnd = true;
   assinatura.subscriptionStatus = "canceling";
@@ -653,6 +664,7 @@ const idCliente = clientId || deps.getBillingConfig().clientId || deps.criarIdLo
   deps.registrarEventoPlanoSeguro("subscription_cancel_at_period_end", { plan: accessState.effectivePlan, accessEndsAt: fimPeriodo });
   deps.alert(`Renovação cancelada. O acesso pago continua liberado até ${dataFim}.`);
   deps.renderApp();
+  return { ok: true, cancelAtPeriodEnd: true, accessEndsAt: fimPeriodo || "" };
 
   }
 

@@ -55,18 +55,25 @@ assert(renderAssinatura.includes("Assinar Start"), "Start deve manter CTA comerc
 assert(renderAssinatura.includes("Assinar Pro"), "Free deve mostrar assinatura Pro");
 assert(renderAssinatura.includes("Upgrade para Pro"), "Start deve permitir upgrade para Pro");
 assert(renderAssinatura.includes("Cancelar renovação"), "plano pago deve permitir cancelar renovacao");
-assert(renderAssinatura.includes("Reativar renovação"), "cancelamento agendado deve permitir reativacao");
+assert(renderAssinatura.includes("Renovação cancelada"), "cancelamento confirmado deve ter estado informativo");
+assert(!renderAssinatura.includes("Reativar renovação"), "assinatura cancelada no provedor nao pode oferecer reativacao local");
 
 const cancelar = bodyOf("cancelarAssinaturaCliente");
 assert(!cancelar.includes("ativarPlanoClienteLocal(clientId, \"free\""), "cancelamento nao pode voltar para Free imediatamente");
 assert(cancelar.includes("cancelAtPeriodEnd = true"), "cancelamento deve marcar cancelAtPeriodEnd");
 assert(cancelar.includes("subscriptionStatus = \"canceling\""), "cancelamento deve marcar assinatura como canceling");
+assert(cancelar.includes('code: "AUTH_REQUIRED"'), "cancelamento deve exigir sessao online valida");
+assert(cancelar.includes('code: "REMOTE_CANCELLATION_FAILED"'), "falha remota deve interromper o cancelamento local");
+assert(cancelar.indexOf('code: "REMOTE_CANCELLATION_FAILED"') < cancelar.indexOf("assinatura.cancelAtPeriodEnd = true"), "estado local so pode mudar depois da confirmacao remota");
 
 assert(app.includes("status: \"checkout_opened\""), "checkout aberto deve ser transitorio");
 assert(!app.includes("assinatura.paymentStatus = \"pending\""), "checkout aberto nao deve virar pagamento pendente na assinatura");
 assert(!app.includes("billingConfig.paymentStatus = \"pending\""), "checkout aberto nao deve virar pagamento pendente global");
 
 assert(app.includes("function reativarRenovacaoAssinaturaCliente"), "reativacao de renovacao deve existir");
+const reativar = bodyOfFunction(app, "reativarRenovacaoAssinaturaCliente");
+assert(reativar.includes("REACTIVATION_UNAVAILABLE"), "ponte de compatibilidade deve rejeitar reativacao impossivel");
+assert(!reativar.includes("cancelAtPeriodEnd = false"), "ponte de compatibilidade nao pode reativar somente o cache local");
 assert(haystack.includes("assinatura.premiumUntil || assinatura.premium_until || assinatura.planExpiresAt"), "validade manual premium_until deve alimentar o vencimento exibido");
 assert(haystack.includes("const planoComVencimento") && haystack.includes("const vencimentoRegistrado") || haystack.includes("const expiringPlan") && haystack.includes("registeredExpiration"), "card pago deve consolidar a validade sem reaproveitar data antiga no Free");
 assert(haystack.includes('const plano = acessoVencido ? getPlanoSaas("free") : planoRegistrado') || haystack.includes('const plan = expired ? deps.plan("free") : registeredPlan'), "plano vencido deve voltar ao Free na apresentacao atual");

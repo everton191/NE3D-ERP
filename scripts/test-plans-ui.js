@@ -50,16 +50,20 @@ assert(render.includes('action: startEnabled ? "start" : "start-unavailable"'), 
 assert(checkout.includes('plano.slug === "start" ? "mercadopago-create-subscription" : "mercadopago-create-payment"'), "checkout Start deve usar assinatura recorrente");
 assert(render.includes('"Assinar Pro"'), "Pro deve possuir CTA funcional");
 assert(render.includes('class="btn ghost success plan-primary-button"'), "CTA do plano atual deve reutilizar o botão de ação com altura consistente");
-assert(render.includes('data-action=\\"open-payment\\" data-slug=\\"pro\\"'), "resumo Free deve direcionar para Pro");
+assert(render.includes('data-action="open-payment" data-slug="pro"'), "resumo Free deve direcionar para Pro");
 assert(render.includes("isProCurrent"), "Pro ativo deve ser derivado do helper central");
 assert(render.includes("renderPlanPaymentNotice(accessState, checkoutState)"), "estado visual de pagamento deve depender do helper");
-assert(app.includes("canReactivateRenewal"), "helper central deve expor reativacao valida");
+assert(app.includes("canReactivateRenewal: false"), "assinatura cancelada nao pode oferecer reativacao apenas local");
+assert(render.includes("Renovação cancelada"), "cancelamento confirmado deve aparecer como estado final da renovacao");
+assert(!render.includes('data-action="plan-reactivate"'), "tela nao pode oferecer reativacao impossivel no provedor");
 assert(app.includes("shouldShowPendingPayment: estado.pending === true && realPendingPayment"), "pending visual exige transacao real");
 assert(app.includes('plano.slug === "start" && !isStartPlanCommerciallyEnabled()'), "checkout deve manter fallback seguro se a flag for desligada");
 assert(app.includes("Você será direcionado ao pagamento seguro do Mercado Pago"), "checkout Pro deve confirmar redirecionamento seguro");
 assert(cancel.includes("Seu plano"), "cancelamento deve explicar permanencia do plano");
 assert(cancel.includes("Depois disso, sua conta voltará ao plano Free"), "cancelamento deve explicar retorno futuro ao Free");
-assert(reactivate.includes("Deseja reativar a renovação automática do seu plano Pro?"), "reativacao deve possuir confirmacao clara");
+assert(reactivate.includes("não pode ser reativada"), "compatibilidade antiga deve explicar que o cancelamento e irreversivel");
+assert(reactivate.includes("REACTIVATION_UNAVAILABLE"), "compatibilidade antiga deve falhar fechada");
+assert(!reactivate.includes("cancelAtPeriodEnd = false"), "reativacao indisponivel nao pode alterar o estado local");
 
 [
   "plans_screen_opened",
@@ -68,8 +72,7 @@ assert(reactivate.includes("Deseja reativar a renovação automática do seu pla
   "plan_start_unavailable_clicked",
   "payment_pending_real_viewed",
   "subscription_cancel_requested",
-  "subscription_cancel_at_period_end",
-  "subscription_reactivated"
+  "subscription_cancel_at_period_end"
 ].forEach((eventType) => assert(haystack.includes(eventType), `diagnostico de planos ausente: ${eventType}`));
 
 assert(css.includes(".plans-modern-screen.plans-pricing-screen"), "workspace de planos deve possuir container dedicado");

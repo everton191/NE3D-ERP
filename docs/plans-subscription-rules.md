@@ -61,7 +61,8 @@ Cancelamento agendado:
 
 - Mostra a data de encerramento.
 - Mantem recursos pagos ate o fim do periodo.
-- Permite reativar renovacao no fluxo local.
+- Nao oferece reativacao local: o cancelamento do assinante e irreversivel no Mercado Pago.
+- Depois do fim do acesso, o cliente pode iniciar uma nova contratacao.
 
 ## Helper central
 
@@ -98,7 +99,6 @@ Eventos preparados:
 - `subscription_created`;
 - `subscription_cancel_requested`;
 - `subscription_cancel_at_period_end`;
-- `subscription_reactivated`;
 - `subscription_expired`;
 - `webhook_received`;
 - `webhook_validation_failed`;
@@ -140,7 +140,9 @@ A tela de planos usa `getPlanAccessState()` como contrato central. Free, Start e
 
 O resumo do Free direciona para `Assinar Pro`. Pagamento pendente visual exige transacao real. Checkout aberto ou abandonado nao altera o plano efetivo e nao bloqueia a interface.
 
-Cancelamento mostra a data final do acesso pago. Reativacao aparece somente quando `canReactivateRenewal = true`.
+Cancelamento mostra a data final do acesso pago. Depois que o backend confirma o cancelamento, a tela exibe `Renovacao cancelada` e nao oferece reativacao local.
+
+Se a Edge Function nao confirmar `ok=true` e `cancelAtPeriodEnd=true`, o cache local permanece inalterado e a interface informa que a cobranca continua ativa.
 
 Detalhes visuais: `docs/plans-premium-ui.md` (nome historico do documento).
 
