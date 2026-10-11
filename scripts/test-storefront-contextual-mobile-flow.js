@@ -6,6 +6,7 @@ const renderer = fs.readFileSync("src/storefront/renderers/editorV3.js", "utf8")
 const publicRenderer = fs.readFileSync("src/storefront/renderers/publicV3.js", "utf8");
 const guidedModule = fs.readFileSync("src/features/storefront/storefront-guided.js", "utf8");
 const publicModule = fs.readFileSync("src/features/storefront/storefront-public.js", "utf8");
+const navigationEvents = require("../src/navigation/app-domain-events.js");
 const hay = `${app}\n${guidedModule}\n${publicModule}`;
 
 function assert(condition, message) {
@@ -77,7 +78,35 @@ assert(historySync.includes("window.history.replaceState"), "Fechamento manual d
 
 const historyClose = extractFunction("fecharPainelGuiadoLojaPorHistorico");
 assert(historyClose.includes("fecharPainelEdicaoGuiadaLoja({ syncHistory: false })"), "Popstate deve fechar painel sem recriar historico");
-assert(app.includes("if (fecharPainelGuiadoLojaPorHistorico()) return;"), "Popstate deve fechar painel contextual antes de renderizar/voltar rota");
+const listeners = new Map();
+const navigationCalls = [];
+let panelOpen = true;
+const navigationWindow = { addEventListener: (name, handler) => listeners.set(name, handler) };
+navigationEvents.configureNavigationPopstate({
+  window: navigationWindow,
+  deps: {
+    location: { pathname: "/loja/demo" },
+    atualizarHistoricoBrowserApp: () => {},
+    fecharPainelGuiadoLojaPorHistorico: () => {
+      navigationCalls.push("close-panel");
+      return panelOpen;
+    },
+    parseStorefrontAdminRoute: () => { navigationCalls.push("parse-admin"); return null; },
+    parseStorefrontPublicRoute: () => { navigationCalls.push("parse-public"); return null; },
+    handleAndroidBackPress: () => navigationCalls.push("android-back"),
+    configurarNavegacaoLojaPublica: () => {},
+    registrarAndroidBackHandler: () => {},
+    removerAndroidBackHandler: () => {}
+  }
+});
+assert(listeners.has("popstate"), "Navegacao deve registrar popstate");
+listeners.get("popstate")({ type: "popstate" });
+assert(navigationCalls.join(",") === "close-panel", "Popstate deve fechar painel contextual antes de renderizar/voltar rota");
+panelOpen = false;
+navigationCalls.length = 0;
+listeners.get("popstate")({ type: "popstate" });
+assert(navigationCalls.join(",") === "close-panel,parse-admin,parse-public,android-back",
+  "Sem painel aberto, popstate deve continuar a navegacao normal");
 
 const closePanel = extractFunction("fecharPainelEdicaoGuiadaLoja");
 assert(closePanel.includes("panelOpen: false"), "Fechar painel deve apenas fechar o contexto interno");
