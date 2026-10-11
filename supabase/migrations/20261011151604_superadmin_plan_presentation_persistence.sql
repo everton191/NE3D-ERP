@@ -19,6 +19,7 @@ declare
   v_old jsonb;
   v_saved jsonb;
   v_updated_at timestamptz;
+  v_text_limit integer;
 begin
   if v_actor is null then
     raise exception 'Usuario nao autenticado' using errcode = '28000';
@@ -48,8 +49,9 @@ begin
         into v_value from jsonb_array_elements_text(v_value) as benefits(value);
       v_clean := v_clean || jsonb_build_object(v_key, v_value);
     else
-      if jsonb_typeof(v_value) <> 'string' or length(trim(v_value #>> '{}')) >
-        case when v_key = 'description' then 600 when v_key = 'headline' then 120 else 80 end then
+      v_text_limit := case when v_key = 'description' then 600
+        when v_key = 'headline' then 120 else 80 end;
+      if jsonb_typeof(v_value) <> 'string' or length(trim(v_value #>> '{}')) > v_text_limit then
         raise exception 'Texto de apresentacao invalido: %', v_key using errcode = '22023';
       end if;
       if v_key in ('name', 'headline', 'description', 'priceLabel') and trim(v_value #>> '{}') = '' then

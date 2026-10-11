@@ -61,6 +61,9 @@ begin
       'source', 'subscriptions:none', 'updated_at', v_now);
   end if;
 
+  -- Keep the same lock order as manual plan changes before reconciling expiry.
+  perform 1 from public.clients c where c.id = v_client for update;
+
   select s.*, c.status as client_status, c.blocked_at as client_blocked_at,
     c.blocked_reason as client_blocked_reason, c.archived_at as client_archived_at,
     c.anonymized_at as client_anonymized_at
@@ -258,6 +261,12 @@ begin
   if v_client is null then
     raise exception 'Cliente alvo nao encontrado' using errcode = 'P0002';
   end if;
+  -- Serialize manual changes for the same company before checking/inserting its
+  -- subscription. The live schema also has a unique client_id constraint.
+  perform 1 from public.clients c where c.id = v_client for update;
+  if not found then
+    raise exception 'Cliente alvo nao encontrado' using errcode = 'P0002';
+  end if;
   select u.id into v_target_user from auth.users u where u.id = v_target;
   if v_plan <> 'FREE' and exists (select 1 from public.clients c
     where c.id = v_client and (c.status = 'blocked' or c.blocked_at is not null)) then
@@ -270,19 +279,34 @@ begin
   from public.subscriptions s join public.clients c on c.id = s.client_id
   where s.client_id = v_client
   order by s.updated_at desc nulls last, s.created_at desc limit 1 for update;
-  if v_provider_subscription is not null then
-    raise exception 'Assinatura vinculada ao Mercado Pago; altere o contrato pelo fluxo de cobranca' using errcode = '42501';
-  end if;
-  if v_plan <> 'FREE' and v_blocked then
-    raise exception 'Cliente bloqueado; desbloqueie antes de conceder acesso' using errcode = '42501';
-  end if;
   if v_subscription is null then
     insert into public.subscriptions (client_id, user_id, plan_id, active_plan,
       plan_code, plan_status, status, status_assinatura, subscription_status)
     values (v_client, v_target_user, (select id from public.plans where slug = 'free' limit 1),
       'free', 'FREE', 'FREE', 'active', 'active', 'free')
+    on conflict (client_id) do nothing
     returning id into v_subscription;
-    v_old_plan := 'free';
+    if v_subscription is null then
+      select s.id, s.active_plan,
+        coalesce(s.premium_until, s.plan_expires_at, s.current_period_end, s.expires_at),
+        s.mercado_pago_subscription_id,
+        (s.blocked_at is not null or s.plan_status = 'BLOCKED'
+          or c.status = 'blocked' or c.blocked_at is not null)
+        into v_subscription, v_old_plan, v_old_until, v_provider_subscription, v_blocked
+      from public.subscriptions s join public.clients c on c.id = s.client_id
+      where s.client_id = v_client for update of s;
+    else
+      v_old_plan := 'free';
+    end if;
+  end if;
+  if v_subscription is null then
+    raise exception 'Assinatura nao encontrada apos criacao' using errcode = 'P0002';
+  end if;
+  if v_provider_subscription is not null then
+    raise exception 'Assinatura vinculada ao Mercado Pago; altere o contrato pelo fluxo de cobranca' using errcode = '42501';
+  end if;
+  if v_plan <> 'FREE' and v_blocked then
+    raise exception 'Cliente bloqueado; desbloqueie antes de conceder acesso' using errcode = '42501';
   end if;
 
   update public.subscriptions s
@@ -334,6 +358,33 @@ begin
 end;
 $function$;
 
+create or replace function private.superadmin_reconcile_unblock_v2(p_client uuid)
+returns void
+language plpgsql
+security definer
+set search_path = pg_catalog, public, private, auth
+as $function$
+begin
+  if auth.uid() is null then
+    raise exception 'Usuario nao autenticado' using errcode = '28000';
+  end if;
+  if not public.erp_is_superadmin() then
+    raise exception 'Apenas superadmin pode desbloquear planos' using errcode = '42501';
+  end if;
+  update public.subscriptions s set
+    plan_status = case
+      when s.plan_code in ('START', 'PRO')
+        and (coalesce(s.premium_until, s.plan_expires_at, s.current_period_end, s.expires_at) is null
+          or coalesce(s.premium_until, s.plan_expires_at, s.current_period_end, s.expires_at) > now())
+        then 'ACTIVE' else 'FREE' end,
+    subscription_active = s.plan_code in ('START', 'PRO')
+      and (coalesce(s.premium_until, s.plan_expires_at, s.current_period_end, s.expires_at) is null
+        or coalesce(s.premium_until, s.plan_expires_at, s.current_period_end, s.expires_at) > now()),
+    updated_at = now()
+  where s.client_id = p_client;
+end;
+$function$;
+
 create or replace function public.superadmin_update_subscription(
   target_user_id text, action text, plan_code text default null,
   premium_until timestamptz default null, reason text default null
@@ -352,17 +403,7 @@ begin
   -- Preserve the existing non-plan administrative actions and their contracts.
   v_result := private.superadmin_update_subscription_impl(target_user_id, action, plan_code, premium_until, reason);
   if upper(trim(coalesce(action, ''))) = 'UNBLOCK' and v_result->>'client_id' is not null then
-    update public.subscriptions s set
-      plan_status = case
-        when s.plan_code in ('START', 'PRO')
-          and (coalesce(s.premium_until, s.plan_expires_at, s.current_period_end, s.expires_at) is null
-            or coalesce(s.premium_until, s.plan_expires_at, s.current_period_end, s.expires_at) > now())
-          then 'ACTIVE' else 'FREE' end,
-      subscription_active = s.plan_code in ('START', 'PRO')
-        and (coalesce(s.premium_until, s.plan_expires_at, s.current_period_end, s.expires_at) is null
-          or coalesce(s.premium_until, s.plan_expires_at, s.current_period_end, s.expires_at) > now()),
-      updated_at = now()
-    where s.client_id = private.s3d_uuid_or_null(v_result->>'client_id');
+    perform private.superadmin_reconcile_unblock_v2(private.s3d_uuid_or_null(v_result->>'client_id'));
   end if;
   return private.get_effective_license_impl(coalesce(v_result->>'client_id', target_user_id));
 end;
@@ -370,6 +411,8 @@ $function$;
 
 revoke all on function private.superadmin_set_plan_v2(text, text, text, timestamptz, text) from public, anon;
 grant execute on function private.superadmin_set_plan_v2(text, text, text, timestamptz, text) to authenticated, service_role;
+revoke all on function private.superadmin_reconcile_unblock_v2(uuid) from public, anon;
+grant execute on function private.superadmin_reconcile_unblock_v2(uuid) to authenticated, service_role;
 revoke all on function public.superadmin_update_subscription(text, text, text, timestamptz, text) from public, anon;
 grant execute on function public.superadmin_update_subscription(text, text, text, timestamptz, text) to authenticated, service_role;
 
