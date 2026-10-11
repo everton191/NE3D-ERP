@@ -302,6 +302,8 @@
     "test:plan-presentation-persistence": "node scripts/test-plan-presentation-persistence.js",
     "test:manual-plan-licenses": "node scripts/test-manual-plan-licenses.js",
     "test:licensing-postgres-isolated": "node scripts/test-licensing-postgres-isolated.js",
+    "test:licensing-supabase-local": "node scripts/test-licensing-supabase-api.js local",
+    "test:licensing-supabase-staging": "node scripts/test-licensing-supabase-api.js staging",
     "test:plans": "node scripts/test-plans-subscription-rules.js",
     "test:plans-ui": "node scripts/test-plans-ui.js",
     "test:start-plan": "node scripts/test-start-plan-authority.js",
@@ -340,6 +342,7 @@
   "devDependencies": {
     "@capacitor/cli": "8.4.3",
     "@electric-sql/pglite": "0.5.8",
+    "@supabase/supabase-js": "2.117.3",
     "supabase": "^2.98.0"
   }
 }
