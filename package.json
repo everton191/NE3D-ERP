@@ -299,6 +299,8 @@
     "test:plan-persistence": "node scripts/test-plan-persistence-schema.js",
     "test:plans-saas-structure": "node scripts/test-plans-saas-structure.js",
     "test:plans-presentation": "node scripts/test-plans-presentation-structure.js",
+    "test:plan-presentation-persistence": "node scripts/test-plan-presentation-persistence.js",
+    "test:manual-plan-licenses": "node scripts/test-manual-plan-licenses.js",
     "test:plans": "node scripts/test-plans-subscription-rules.js",
     "test:plans-ui": "node scripts/test-plans-ui.js",
     "test:start-plan": "node scripts/test-start-plan-authority.js",

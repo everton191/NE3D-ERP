@@ -219,6 +219,8 @@ let plansModernTab = "current";
 let plansPresentationSelectedSlug = "start";
 let plansCarouselScrollTimer = null;
 let superAdminPlanCatalogRemoteState = { status: "idle", message: "", updatedAt: "", data: null };
+let planPresentationRemoteOverrides = null;
+let planPresentationRemoteState = { status: "idle", message: "" };
 const planDiagnosticsSeen = new Set();
 const PAID_PRICE_TIERS = [
   { limit: 100, price: 19.9 },
@@ -7522,8 +7524,7 @@ function normalizarStatusLicencaEfetiva(status = "FREE") {
 function slugPlanoPorLicencaEfetiva(licenca = {}) {
   const status = normalizarStatusLicencaEfetiva(licenca.effective_status || licenca.effectiveStatus);
   const planCode = String(licenca.plan_code || licenca.planCode || "").toUpperCase().trim();
-  if (status === PLAN_ACCESS_STATES.ACTIVE || ["START", "PRO", "PREMIUM"].includes(planCode)) {
-    if (status === PLAN_ACCESS_STATES.FREE) return "free";
+  if (status === PLAN_ACCESS_STATES.ACTIVE || status === PLAN_ACCESS_STATES.TRIAL) {
     if (planCode === "START") return "start";
     return "pro";
   }
@@ -22034,18 +22035,18 @@ async function liberarDiasManualClienteSaas(id) {
     licencaRemota = await consultarLicencaSupabaseSilencioso({ targetUserId, aplicar: false });
   } catch (erro) {
     registrarDiagnostico("Superadmin", "Licença remota não consultada para liberação manual", erro.message || erro);
+    mostrarToast("Não foi possível confirmar a validade no Supabase. Nenhum dia foi liberado.", "erro", 6200);
+    return;
   }
-
-  const assinatura = getAssinaturaSaas(id);
+  if (!licencaRemota || String(licencaRemota.client_id || "") !== String(cliente.id)) {
+    mostrarToast("O banco não confirmou a licença deste cliente. Nenhum dia foi liberado.", "erro", 6200);
+    return;
+  }
   const validadeAtual = getTimestampPlano(
     licencaRemota?.premium_until
     || licencaRemota?.plan_expires_at
     || licencaRemota?.current_period_end
     || licencaRemota?.expires_at
-    || assinatura?.premiumUntil
-    || assinatura?.planExpiresAt
-    || assinatura?.currentPeriodEnd
-    || cliente.planExpiresAt
     || 0
   );
   const base = Math.max(Date.now(), validadeAtual || 0);
@@ -22071,10 +22072,13 @@ async function liberarDiasManualClienteSaas(id) {
       || licenca?.expires_at
       || 0
     );
-    if (!validadeConfirmada || validadeConfirmada < getTimestampPlano(premiumUntil) - 60_000) {
+    if (String(licenca?.active_plan || licenca?.plan_slug || "").toLowerCase() !== "pro"
+      || String(licenca?.effective_status || "").toUpperCase() !== "ACTIVE"
+      || !validadeConfirmada || validadeConfirmada < getTimestampPlano(premiumUntil) - 60_000) {
       throw new Error("O banco não confirmou a data final do acesso. Nenhuma liberação foi considerada concluída.");
     }
     await carregarSaasSupabaseSilencioso({ renderizar: false, feedback: false });
+    aplicarLicencaEfetivaClienteSaas(id, licenca);
     registrarAuditoria("liberação manual pro", {
       email: cliente.email,
       dias,
@@ -24706,7 +24710,9 @@ function renderSuperAdminPagamentos() {
 }
 
 async function carregarCatalogoPlanosSuperadminRemoto(__opts = {}) {
-  return window.SimplificaSaasAdmin.carregarCatalogoPlanosSuperadminRemoto(__opts, getSaasAdminDeps());
+  const catalogo = await window.SimplificaSaasAdmin.carregarCatalogoPlanosSuperadminRemoto(__opts, getSaasAdminDeps());
+  await carregarApresentacaoPlanosRemota({ feedback: __opts.feedback !== false }).catch(() => null);
+  return catalogo;
 }
 
 function renderSuperAdminPlanCatalogRemote() {
@@ -24742,14 +24748,14 @@ function renderSuperAdminPlanCatalogRemote() {
               <div class="superadmin-plan-remote-card plan-tier-${escaparAttr(plano.slug || "free")}">
                 <div class="row-title">
                   <div>
-                    <strong>${escaparHtml(plano.name || plano.slug || "Plano")}</strong>
-                    <small>${escaparHtml(plano.display_headline || plano.display_subtitle || "Sem texto remoto definido")}</small>
+                    <strong>${escaparHtml(plano.metadata?.presentation?.name || plano.name || plano.slug || "Plano")}</strong>
+                    <small>${escaparHtml(plano.metadata?.presentation?.headline || plano.display_headline || plano.display_subtitle || "Sem texto remoto definido")}</small>
                   </div>
                   <span class="status-badge ${plano.active ? "badge-ativo" : "badge-danger"}">${plano.active ? "ativo" : "inativo"}</span>
                 </div>
                 <div class="superadmin-plan-remote-price">
-                  <b>${formatarMoeda(Number(activePrice.amount ?? plano.price ?? 0) || 0)}</b>
-                  <small>${escaparHtml(activePrice.price_key || "preço padrão")}</small>
+                  <b>${escaparHtml(plano.metadata?.presentation?.priceLabel || formatarMoeda(Number(activePrice.amount ?? plano.price ?? 0) || 0))}</b>
+                  <small>Exibição informativa · cobrança separada</small>
                 </div>
                 <div class="superadmin-plan-remote-counts">
                   <span>${features.filter((item) => item.active !== false).length} recursos</span>
@@ -24778,7 +24784,8 @@ function renderSuperAdminPlanos() {
   return `
     <div class="superadmin-plan-safe-note">
       <strong>Edição visual dos planos</strong>
-      <span>Use esta área para ajustar textos, preços exibidos e cards de venda sem alterar cobranças ou assinaturas ativas.</span>
+      <span>Textos, benefícios e preços informativos são salvos no Supabase. Isso não altera cobranças ou assinaturas ativas.</span>
+      <small>${escaparHtml(planPresentationRemoteState.message || "")}</small>
     </div>
     ${renderSuperAdminPlanCatalogRemote()}
     <div class="superadmin-plan-grid">
@@ -24803,8 +24810,8 @@ function renderSuperAdminPlanos() {
           </div>
           <p class="muted">${escaparHtml(plano.description || "")}</p>
           <div class="superadmin-plan-actions">
-            <button class="btn ghost" type="button" onclick="editarPlanoApresentacaoSuperadmin('${escaparAttr(plano.slug)}')">${renderUiIcon("editar")} Editar textos</button>
-            <button class="btn ghost" type="button" onclick="editarPrecoExibidoPlanoSuperadmin('${escaparAttr(plano.slug)}')">${renderUiIcon("assinatura")} Preço exibido</button>
+            <button class="btn ghost" type="button" onclick="editarPlanoApresentacaoSuperadmin('${escaparAttr(plano.slug)}')" ${planPresentationRemoteState.status === "saving" ? "disabled" : ""}>${renderUiIcon("editar")} Editar apresentação</button>
+            <button class="btn ghost" type="button" onclick="editarPrecoExibidoPlanoSuperadmin('${escaparAttr(plano.slug)}')" ${planPresentationRemoteState.status === "saving" ? "disabled" : ""}>${renderUiIcon("assinatura")} Preço exibido</button>
           </div>
         </div>
       `).join("")}
@@ -25365,12 +25372,8 @@ function renderSuperAdminConfiguracoes() {
     ${renderSuperAdminAtalhosSecundarios()}
     <div class="sync-grid">
       <label class="field"><span>Buscar por e-mail</span><input value="${escaparAttr(window.__superAdminBusca || "")}" oninput="filtrarSuperAdmin(this.value)" placeholder="cliente@email.com"></label>
-      <label class="field"><span>E-mail para acesso manual</span><input id="superEmail" type="email" placeholder="cliente@email.com"></label>
-      <label class="field"><span>Tipo de plano</span><select id="superPlanoTipo"><option value="pro">Pro</option><option value="free">Free</option></select></label>
-      <label class="field"><span>Dias</span><input id="superPlanoDias" type="number" min="1" step="1" value="7"></label>
     </div>
     <div class="actions">
-      <button class="btn" onclick="salvarAcessoSuperAdmin()">Criar acesso manual</button>
       <button class="btn secondary" type="button" data-action="superadmin-refresh-users">Atualizar usuários Supabase</button>
       <button class="btn ghost" onclick="exportarBackup()">Exportar backup geral</button>
     </div>
@@ -26078,37 +26081,7 @@ async function atualizarUsuariosSuperAdminSupabase() {
 }
 
 function salvarAcessoSuperAdmin() {
-  if (!isSuperAdmin()) return;
-  const email = normalizarEmail(document.getElementById("superEmail")?.value || "");
-  const tipo = document.getElementById("superPlanoTipo")?.value || "pro";
-  const dias = Math.max(1, parseFloat(document.getElementById("superPlanoDias")?.value || 7) || 7);
-  if (!email) {
-    alert("Informe o e-mail.");
-    return;
-  }
-
-  usuarios = normalizarUsuarios(usuarios);
-  let usuario = usuarios.find((item) => item.email === email);
-  if (!usuario) {
-    usuario = normalizarUsuario({ nome: email.split("@")[0], email, senha: "Simplifica@123", papel: "admin", mustChangePassword: true });
-    usuarios.push(usuario);
-  }
-
-  usuario.ativo = true;
-  usuario.bloqueado = false;
-  if (tipo === "pro") {
-    usuario.planStatus = "active";
-    usuario.trialStartedAt = "";
-    usuario.trialDays = 0;
-    usuario.planExpiresAt = new Date(Date.now() + dias * 24 * 60 * 60 * 1000).toISOString();
-  } else {
-    usuario.planStatus = "free";
-    usuario.planExpiresAt = "";
-  }
-
-  salvarDados();
-  registrarHistorico("Super Admin", `Acesso ${tipo} salvo para ${email}`);
-  renderApp();
+  mostrarToast("Fluxo legado desativado. Use uma conta Supabase vinculada e a alteração de plano do cliente.", "erro", 6000);
 }
 
 async function ajustarDiasUsuario(id, dias) {
@@ -26128,13 +26101,18 @@ async function ajustarDiasUsuario(id, dias) {
     licencaAtual = await consultarLicencaSupabaseSilencioso({ targetUserId, aplicar: false });
   } catch (erro) {
     registrarDiagnostico("Superadmin", "Licença não consultada antes de adicionar dias", erro.message || erro);
+    mostrarToast("Não foi possível confirmar a validade atual no Supabase. Nenhum dia foi adicionado.", "erro", 6200);
+    return;
+  }
+  if (!licencaAtual || String(licencaAtual.client_id || "") !== String(clienteId)) {
+    mostrarToast("O banco não confirmou a licença deste cliente. Nenhum dia foi adicionado.", "erro", 6200);
+    return;
   }
   const validadeAtual = getTimestampPlano(
     licencaAtual?.premium_until
     || licencaAtual?.plan_expires_at
     || licencaAtual?.current_period_end
     || licencaAtual?.expires_at
-    || usuario.planExpiresAt
     || 0
   );
   const premiumUntil = new Date(Math.max(Date.now(), validadeAtual || 0) + quantidadeDias * 86400000).toISOString();
@@ -26160,13 +26138,13 @@ async function ajustarDiasUsuario(id, dias) {
       || licenca?.expires_at
       || 0
     );
-    if (!validadeConfirmada || validadeConfirmada < getTimestampPlano(premiumUntil) - 60000) {
+    if (String(licenca?.active_plan || licenca?.plan_slug || "").toLowerCase() !== "pro"
+      || String(licenca?.effective_status || "").toUpperCase() !== "ACTIVE"
+      || !validadeConfirmada || validadeConfirmada < getTimestampPlano(premiumUntil) - 60000) {
       throw new Error("O banco não confirmou a nova data de vencimento.");
     }
-    usuario.planStatus = "paid";
-    usuario.planExpiresAt = new Date(validadeConfirmada).toISOString();
-    usuario.bloqueado = false;
     await carregarSaasSupabaseSilencioso({ renderizar: false, feedback: false });
+    aplicarLicencaEfetivaClienteSaas(clienteId, licenca);
     salvarDados();
     registrarHistorico("Super Admin", `+${quantidadeDias} dias Pro para ${usuario.email} até ${usuario.planExpiresAt}`);
     mostrarToast(`Pro confirmado até ${new Date(validadeConfirmada).toLocaleDateString("pt-BR")}. Depois retorna ao Free.`, "sucesso", 5200);
@@ -27204,19 +27182,69 @@ function getPlanPresentationDefaults() {
 }
 
 function getPlanPresentationOverrides() {
+  if (planPresentationRemoteOverrides === null) {
+    try {
+      const cached = JSON.parse(localStorage.getItem("simplificaPlanPresentationRemoteCache") || "{}");
+      planPresentationRemoteOverrides = cached && typeof cached === "object" && !Array.isArray(cached) ? cached : {};
+    } catch (_) { planPresentationRemoteOverrides = {}; }
+  }
+  return planPresentationRemoteOverrides;
+}
+
+async function carregarApresentacaoPlanosRemota({ feedback = false, renderizar = true, persistir = true } = {}) {
+  if (!syncConfig.supabaseUrl) throw new Error("Supabase não configurado.");
+  planPresentationRemoteState = { status: "loading", message: "Carregando apresentação dos planos..." };
   try {
-    const raw = localStorage.getItem("simplificaPlanPresentationOverrides");
-    const parsed = raw ? JSON.parse(raw) : {};
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
-  } catch (_) {
-    return {};
+    const rows = await requisicaoSupabase("/rest/v1/plans?select=slug,metadata&slug=in.(free,start,pro)&active=eq.true", {
+      method: "GET", auth: false
+    });
+    if (!Array.isArray(rows) || rows.length === 0) throw new Error("Catálogo remoto indisponível.");
+    const overrides = {};
+    rows.forEach((row) => {
+      if (!["free", "start", "pro"].includes(row.slug)) return;
+      const presentation = row.metadata?.presentation;
+      if (presentation && typeof presentation === "object" && !Array.isArray(presentation)) {
+        overrides[row.slug] = presentation;
+      }
+    });
+    if (persistir) {
+      planPresentationRemoteOverrides = overrides;
+      try { localStorage.setItem("simplificaPlanPresentationRemoteCache", JSON.stringify(overrides)); } catch (_) {}
+      planPresentationRemoteState = { status: "success", message: "Apresentação sincronizada com o Supabase." };
+      if (feedback) mostrarToast(planPresentationRemoteState.message, "sucesso", 3000);
+      if (renderizar) renderApp();
+    }
+    return overrides;
+  } catch (erro) {
+    planPresentationRemoteState = { status: "error", message: "Sem conexão com o catálogo. Exibindo a última versão confirmada neste aparelho." };
+    if (feedback) mostrarToast(`${planPresentationRemoteState.message} ${erro.message}`, "erro", 6000);
+    if (renderizar) renderApp();
+    throw erro;
   }
 }
 
-function salvarPlanPresentationOverrides(overrides = {}) {
-  try {
-    localStorage.setItem("simplificaPlanPresentationOverrides", JSON.stringify(overrides || {}));
-  } catch (_) {}
+async function salvarApresentacaoPlanoSuperadmin(slug, changes) {
+  if (!podeSalvarAdminSupabaseRemoto()) throw new Error("Entre como superadmin Supabase para salvar no banco.");
+  planPresentationRemoteState = { status: "saving", message: `Salvando apresentação ${slug}...` };
+  renderApp();
+  const saved = await requisicaoSupabase("/rest/v1/rpc/superadmin_update_plan_presentation", {
+    method: "POST", body: JSON.stringify({ p_slug: slug, p_changes: changes })
+  });
+  if (saved?.slug !== slug || !saved.presentation || !saved.updated_at) {
+    throw new Error("O banco não confirmou a gravação da apresentação.");
+  }
+  const remote = await carregarApresentacaoPlanosRemota({ renderizar: false, persistir: false });
+  for (const [key, value] of Object.entries(changes)) {
+    if (JSON.stringify(remote[slug]?.[key]) !== JSON.stringify(value)) {
+      throw new Error(`A leitura do banco não confirmou o campo ${key}.`);
+    }
+  }
+  planPresentationRemoteOverrides = remote;
+  try { localStorage.setItem("simplificaPlanPresentationRemoteCache", JSON.stringify(remote)); } catch (_) {}
+  planPresentationRemoteState = { status: "success", message: `Plano ${slug} salvo e confirmado no Supabase.` };
+  await window.SimplificaSaasAdmin.carregarCatalogoPlanosSuperadminRemoto({ feedback: false }, getSaasAdminDeps()).catch(() => null);
+  renderApp();
+  return remote[slug];
 }
 
 function getPlanPresentationData(options = {}) {
@@ -27358,52 +27386,73 @@ function resetarPlanoApresentacaoInterativo(event) {
   card.style.removeProperty("--plan-pointer-y");
 }
 
-function editarPlanoApresentacaoSuperadmin(slug) {
+async function editarPlanoApresentacaoSuperadmin(slug) {
   if (!isSuperAdmin()) return;
+  if (!podeSalvarAdminSupabaseRemoto()) {
+    mostrarToast("Entre como superadmin Supabase para editar planos.", "erro", 5200);
+    return;
+  }
   const plan = getPlanPresentationData({ incluirIndisponiveis: true }).find((item) => item.slug === slug);
   if (!plan) return;
+  const name = prompt("Nome exibido do plano", plan.name || "");
+  if (name === null) return;
   const headline = prompt("Título comercial do card", plan.headline || "");
   if (headline === null) return;
   const description = prompt("Descrição comercial", plan.description || "");
   if (description === null) return;
+  const features = prompt("Benefícios (um por linha)", (plan.features || []).join("\n"));
+  if (features === null) return;
   const badge = prompt("Selo/badge", plan.badge || "");
   if (badge === null) return;
   const ctaLabel = prompt("Texto do botão", plan.ctaLabel || "");
   if (ctaLabel === null) return;
-  const overrides = getPlanPresentationOverrides();
-  overrides[slug] = {
-    ...(overrides[slug] || {}),
-    headline: headline.trim() || plan.headline,
-    description: description.trim() || plan.description,
-    badge: badge.trim() || plan.badge,
-    ctaLabel: ctaLabel.trim() || plan.ctaLabel,
-    updatedAt: new Date().toISOString()
+  const changes = {
+    name: name.trim(), headline: headline.trim(), description: description.trim(),
+    features: features.split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
+    badge: badge.trim(), ctaLabel: ctaLabel.trim()
   };
-  salvarPlanPresentationOverrides(overrides);
-  registrarAuditoria("plano apresentação alterado", { slug }, getClientIdAtual());
-  mostrarToast("Apresentação do plano atualizada.", "sucesso", 3600);
-  renderApp();
+  if (!changes.name || !changes.headline || !changes.description || changes.features.length > 16) {
+    mostrarToast("Preencha nome, título e descrição; use no máximo 16 benefícios.", "erro", 5200);
+    return;
+  }
+  const toast = mostrarToast("Salvando no Supabase...", "loading");
+  try {
+    await salvarApresentacaoPlanoSuperadmin(slug, changes);
+    registrarAuditoria("plano apresentação alterado", { slug, source: "supabase" }, getClientIdAtual());
+    mostrarToast("Apresentação salva e confirmada no Supabase.", "sucesso", 4200);
+  } catch (erro) {
+    planPresentationRemoteState = { status: "error", message: `Falha ao salvar: ${erro.message}` };
+    registrarDiagnostico("Superadmin Planos", "Falha ao salvar apresentação", erro.message);
+    mostrarToast(planPresentationRemoteState.message, "erro", 6500);
+    renderApp();
+  } finally { toast?.remove?.(); }
 }
 
-function editarPrecoExibidoPlanoSuperadmin(slug) {
+async function editarPrecoExibidoPlanoSuperadmin(slug) {
   if (!isSuperAdmin()) return;
+  if (!podeSalvarAdminSupabaseRemoto()) {
+    mostrarToast("Entre como superadmin Supabase para editar planos.", "erro", 5200);
+    return;
+  }
   const plan = getPlanPresentationData({ incluirIndisponiveis: true }).find((item) => item.slug === slug);
   if (!plan) return;
   const valor = prompt("Preço exibido no card. Isto não altera cobrança real.", plan.priceLabel || "");
   if (valor === null) return;
-  const mercadoPagoId = prompt("ID Mercado Pago para referência futura", plan.mercadoPagoPlanId || "");
-  if (mercadoPagoId === null) return;
-  const overrides = getPlanPresentationOverrides();
-  overrides[slug] = {
-    ...(overrides[slug] || {}),
-    priceLabel: valor.trim() || plan.priceLabel,
-    mercadoPagoPlanId: mercadoPagoId.trim(),
-    updatedAt: new Date().toISOString()
-  };
-  salvarPlanPresentationOverrides(overrides);
-  registrarAuditoria("plano preço exibido alterado", { slug, billingSafeMode: true }, getClientIdAtual());
-  mostrarToast("Preço exibido salvo em modo seguro. Checkout real não foi alterado.", "info", 5200);
-  renderApp();
+  if (!valor.trim()) {
+    mostrarToast("Informe o preço exibido.", "erro", 4200);
+    return;
+  }
+  const toast = mostrarToast("Salvando no Supabase...", "loading");
+  try {
+    await salvarApresentacaoPlanoSuperadmin(slug, { priceLabel: valor.trim() });
+    registrarAuditoria("plano preço exibido alterado", { slug, billingSafeMode: true, source: "supabase" }, getClientIdAtual());
+    mostrarToast("Preço informativo confirmado no Supabase. A cobrança não mudou.", "sucesso", 5200);
+  } catch (erro) {
+    planPresentationRemoteState = { status: "error", message: `Falha ao salvar: ${erro.message}` };
+    registrarDiagnostico("Superadmin Planos", "Falha ao salvar preço informativo", erro.message);
+    mostrarToast(planPresentationRemoteState.message, "erro", 6500);
+    renderApp();
+  } finally { toast?.remove?.(); }
 }
 
 function renderPlanMiniDashboard(plan = {}) {
@@ -30431,7 +30480,8 @@ function aplicarLicencaSaasOnline(licenca = {}, options = {}) {
     billingConfig.effectiveUserId = String(licenca.user_id || syncConfig.supabaseUserId || "");
     billingConfig.effectivePlanCode = String(licenca.plan_code || licenca.planCode || "").toUpperCase();
     billingConfig.effectiveStatus = statusEfetivo;
-    billingConfig.effectiveIsPremium = licenca.is_premium === true || licenca.has_full_access === true || statusEfetivo === PLAN_ACCESS_STATES.ACTIVE;
+    billingConfig.effectiveIsPremium = activePlanEfetivo === "pro"
+      && (statusEfetivo === PLAN_ACCESS_STATES.ACTIVE || statusEfetivo === PLAN_ACCESS_STATES.TRIAL);
     billingConfig.effectiveIsTrial = false;
     billingConfig.effectiveIsPending = licenca.is_pending === true || statusEfetivo === PLAN_ACCESS_STATES.PENDING;
     billingConfig.effectiveIsBlocked = licenca.is_blocked === true || statusEfetivo === PLAN_ACCESS_STATES.BLOCKED;
@@ -38934,12 +38984,16 @@ function iniciarLembreteBackupPlanoFree() {
 async function verificarBancosDadosAoEntrar() {
   if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUrl) return;
   try {
+    // A licença efetiva do servidor precisa prevalecer sobre o snapshot cru da assinatura.
+    await carregarSaasSupabaseSilencioso({ renderizar: false, feedback: false }).catch((erro) => {
+      registrarDiagnostico("Supabase", "Cadastro SaaS não carregado antes da licença", erro.message);
+    });
     const verificacoes = await Promise.allSettled([
       consultarLicencaSupabaseSilencioso(),
-      carregarSaasSupabaseSilencioso(),
-      sincronizarPersonalizacaoInicialSilencioso()
+      sincronizarPersonalizacaoInicialSilencioso(),
+      carregarApresentacaoPlanosRemota({ renderizar: false })
     ]);
-    const personalizacaoAtualizada = verificacoes[2]?.status === "fulfilled" && verificacoes[2].value === true;
+    const personalizacaoAtualizada = verificacoes[1]?.status === "fulfilled" && verificacoes[1].value === true;
     await baixarAtualizacoesSupabaseSilencioso("startup-health").catch(() => false);
     await sincronizarFilaOfflinePendente("startup-health");
     const plano = getPlanoAtual();
@@ -38950,7 +39004,7 @@ async function verificarBancosDadosAoEntrar() {
     }
     syncConfig.autoBackupStatus = syncConfig.autoBackupStatus || "Banco verificado";
     salvarDados();
-    if (personalizacaoAtualizada || ["dashboard", "backup", "config", "minhaAssinatura"].includes(telaAtual)) {
+    if (personalizacaoAtualizada || verificacoes[2]?.status === "fulfilled" || ["dashboard", "backup", "config", "minhaAssinatura"].includes(telaAtual)) {
       agendarRenderizacaoPreservandoScroll(160);
     }
   } catch (erro) {

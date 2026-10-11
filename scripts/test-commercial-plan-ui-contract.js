@@ -71,6 +71,9 @@ assert(!cadastroOnline.includes("premium_trial"), "cadastro online nao pode soli
 
 const acessoManual = bodyOfFunction(app, "salvarAcessoSuperAdmin");
 assert(!acessoManual.includes('tipo === "trial"'), "superadmin nao pode criar trial local");
-assert(acessoManual.includes('tipo === "pro"'), "superadmin deve oferecer acesso Pro");
+assert(acessoManual.includes("Fluxo legado desativado"), "acesso local com senha fixa deve ficar desativado");
+const ajusteDias = bodyOfFunction(app, "ajustarDiasUsuario");
+assert(ajusteDias.includes('planCode: "PRO"'), "superadmin deve oferecer Pro pelo banco");
+assert(ajusteDias.includes("chamarSuperadminUpdateSubscription"), "concessao Pro deve exigir RPC autenticada");
 
 console.log("Commercial plan UI contract tests OK");

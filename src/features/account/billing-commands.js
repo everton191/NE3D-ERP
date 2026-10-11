@@ -733,19 +733,45 @@ const idCliente = clientId || deps.getBillingConfig().clientId || deps.criarIdLo
     deps.alert("Plano inválido.");
     return;
   }
+  let premiumUntil = null;
+  if (novoPlano !== "free") {
+    const dataPadrao = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+    const dataInformada = await deps.solicitarEntradaTexto({
+      titulo: `Validade do plano ${plano.name}`,
+      mensagem: "Concessões manuais são temporárias. Informe a data final do acesso.",
+      valor: dataPadrao,
+      tipo: "date",
+      obrigatorio: true
+    });
+    if (dataInformada === null) return;
+    const validade = new Date(`${dataInformada}T23:59:59`);
+    if (!Number.isFinite(validade.getTime()) || validade.getTime() <= Date.now()) {
+      deps.mostrarToast("Informe uma data de vencimento futura.", "erro", 5200);
+      return;
+    }
+    premiumUntil = validade.toISOString();
+  }
   const confirmado = await deps.solicitarConfirmacaoAcao({
     titulo: "Alterar plano",
-    mensagem: `Alterar ${cliente.email} para ${plano.name}?`,
+    mensagem: `Alterar ${cliente.email} para ${plano.name}${premiumUntil ? ` até ${new Date(premiumUntil).toLocaleDateString("pt-BR")}` : ""}?`,
     confirmar: "Alterar plano"
   });
   if (!confirmado) return;
   const toast = deps.mostrarToast("Salvando...", "loading");
   try {
-    const licenca = await deps.chamarSuperadminUpdateSubscription(id, novoPlano === "free" ? "SET_FREE" : "ACTIVATE_PREMIUM_MANUAL", {
+    const licenca = await deps.chamarSuperadminUpdateSubscription(id, novoPlano === "free" ? "SET_FREE" : "SET_PLAN_MANUAL", {
       planCode: novoPlano === "pro" ? "PRO" : novoPlano === "start" ? "START" : "FREE",
-      premiumUntil: null,
+      premiumUntil,
       reason: `Alteração manual para ${plano.name}`
     });
+    const planoConfirmado = String(licenca?.active_plan || licenca?.plan_slug || "").toLowerCase();
+    const statusConfirmado = String(licenca?.effective_status || "").toUpperCase();
+    if (planoConfirmado !== novoPlano || (novoPlano !== "free" && statusConfirmado !== "ACTIVE")
+      || (premiumUntil && Date.parse(licenca?.premium_until || "") < Date.parse(premiumUntil) - 60000)) {
+      throw new Error("O banco não confirmou o plano e a validade solicitados. Recarregue antes de tentar novamente.");
+    }
+    await deps.carregarSaasSupabaseSilencioso({ renderizar: false, feedback: false });
+    deps.aplicarLicencaEfetivaClienteSaas(id, licenca);
     deps.registrarAuditoria("alteração plano", { email: cliente.email, plano: plano.slug, source: licenca?.source || "rpc" }, cliente.id);
     deps.mostrarToast("Plano atualizado com sucesso", "sucesso", 4200);
   } catch (erro) {
