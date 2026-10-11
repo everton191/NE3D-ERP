@@ -7,6 +7,7 @@ const storefrontHandler = require(path.join(root, "api", "storefront-page.js"));
 const robotsHandler = require(path.join(root, "api", "robots.js"));
 const sitemapHandler = require(path.join(root, "api", "sitemap.js"));
 const notFoundHandler = require(path.join(root, "api", "not-found.js"));
+const storefrontPublic = require(path.join(root, "src", "features", "storefront", "storefront-public.js"));
 
 function createResponse() {
   return {
@@ -37,9 +38,41 @@ async function main() {
   assert(fs.readFileSync(path.join(root, "index.html"), "utf8").includes('name="robots" content="noindex,nofollow,noarchive"'), "shell do ERP precisa iniciar noindex");
   const sw = fs.readFileSync(path.join(root, "sw.js"), "utf8");
   assert(sw.includes("return cached || Response.error();"), "asset ausente nao pode receber index.html do service worker");
-  const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
-  assert(app.includes("const fallback = adminFallback || localFallback;"), "cache persistido nao pode autorizar loja publica");
-  assert(app.includes("invalidarStorefrontPublicCache(route.slug);"), "loja que deixa de ser publica deve invalidar o cache");
+  const cachedStore = { store: { slug: "loja-inativa", active: true }, source: "cache" };
+  const storefrontContext = {
+    storefrontPublicRouteState: { slug: "loja-inativa", view: "home" },
+    location: { search: "?admin=1" },
+    isAmbienteLocal: () => false,
+    isStorefrontAdminContextRoute: () => false,
+    getPlanoAtual: () => ({ slug: "pro" }),
+    getStorefrontLimitsLocal: () => ({}),
+    getStorefrontAdminStoreLocal: () => ({ slug: "loja-inativa" }),
+    getStorefrontAdminViewModel: () => ({ store: { slug: "loja-inativa", active: false }, categories: [], products: [] }),
+    localStorage: { getItem: () => JSON.stringify(cachedStore) },
+    getUsuarioAtual: () => null,
+    canUseStorefrontLocal: () => false,
+    syncConfig: { supabaseUserId: "" },
+    registrarStorefrontDebugLeve: () => {}
+  };
+  assert.strictEqual(storefrontPublic.getStorefrontPublicViewModel(storefrontContext).store, null,
+    "cache e admin=1 sem proprietario nao podem autorizar loja publica");
+  storefrontContext.getUsuarioAtual = () => ({ id: "owner-test" });
+  storefrontContext.canUseStorefrontLocal = () => true;
+  storefrontContext.syncConfig.supabaseUserId = "owner-test";
+  assert.strictEqual(storefrontPublic.getStorefrontPublicViewModel(storefrontContext).store?.slug, "loja-inativa",
+    "proprietario autenticado deve conservar o preview contextual");
+  let invalidated = 0;
+  await storefrontPublic.hidratarLojaPublicaSeNecessario({
+    telaAtual: "lojaPublica",
+    storefrontPublicRouteState: { slug: "loja-inativa", view: "home" },
+    estaOnline: () => true,
+    getStorefrontPublicRoute: () => ({ slug: "loja-inativa", view: "home" }),
+    requisicaoSupabase: async () => [],
+    invalidarStorefrontPublicCache: () => { invalidated++; },
+    renderApp: () => {},
+    location: { search: "" }
+  });
+  assert.strictEqual(invalidated, 1, "loja que deixa de ser publica deve invalidar o cache");
 
   await withFetch(async (url) => {
     const value = String(url);

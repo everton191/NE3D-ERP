@@ -39,7 +39,10 @@ assert(hay.includes("getStorefrontDemoBannerImage()"), "preview vazio deve receb
 assert(hay.includes('hero: "/assets/storefront-v3/examples/hero-3d-products.jpg'), "assets de exemplo devem funcionar em rotas internas da loja");
 assert(hay.includes("category.product_count = demoProducts.filter"), "categorias demonstrativas devem exibir a quantidade real de modelos");
 assert(editor.includes("Trocar foto do modelo"), "produto demonstrativo deve oferecer troca de foto amigavel");
-assert(hay.includes("const adminFallback = adminRequested ? getStorefrontPublicFallback(route.slug, context) : null") && hay.includes("const fallback = adminFallback || localFallback"), "modo admin deve priorizar preview local sobre cache publico vazio");
+assert(hay.includes("const adminPreview = adminRequested ? getStorefrontPublicFallback(route.slug, context) : null")
+  && hay.includes("getStorefrontPublicMode({ store: adminPreview.store, route, source: adminPreview.source }, context).admin")
+  && hay.includes("const fallback = adminFallback || localFallback"),
+"preview local deve exigir proprietário e não usar cache público");
 assert(hay.includes("products: vm.products.filter((product) => !storefrontIsDemoProduct(product))"), "loja publica deve filtrar produtos demonstrativos");
 assert(hay.includes("categories: vm.categories.filter((category) => !category.__demo && !category.__template)"), "loja publica deve filtrar categorias demonstrativas");
 assert(hay.includes("Usar este exemplo como modelo"), "editor deve explicar que o exemplo cria um modelo");

@@ -218,7 +218,9 @@ function getStorefrontPublicViewModel(context = {}) {
   const { getPlanoAtual, getStorefrontLimitsLocal, isAmbienteLocal, isStorefrontAdminContextRoute, location } = context;
   const route = getStorefrontPublicRoute(context);
   const adminRequested = new URLSearchParams(location.search || "").get("admin") === "1" || isStorefrontAdminContextRoute();
-  const adminFallback = adminRequested ? getStorefrontPublicFallback(route.slug, context) : null;
+  const adminPreview = adminRequested ? getStorefrontPublicFallback(route.slug, context) : null;
+  const adminFallback = adminPreview && getStorefrontPublicMode({ store: adminPreview.store, route, source: adminPreview.source }, context).admin
+    ? adminPreview : null;
   const localFallback = isAmbienteLocal() ? getStorefrontPublicFallback(route.slug, context) : null;
   const fallback = adminFallback || localFallback;
   if (!fallback?.store) {
