@@ -141,6 +141,7 @@
     "test:storefront-product-data": "node scripts/test-storefront-product-data.js",
     "test:storefront-smart-ranking": "node scripts/test-storefront-smart-ranking.js",
     "test:storefront-ranking-rpc-security": "node scripts/test-storefront-ranking-rpc-security.js",
+    "test:storefront-ranking-fallback": "node scripts/test-storefront-ranking-fallback.js",
     "test:storefront-mobile-actions": "node scripts/test-storefront-mobile-actions.js",
     "test:storefront-demo-products": "node scripts/test-storefront-demo-products.js",
     "test:theme-isolation": "node scripts/test-theme-isolation.js",

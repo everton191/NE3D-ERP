@@ -5,6 +5,7 @@ const publicModule = fs.readFileSync("src/features/storefront/storefront-public.
 const hay = `${app}\n${publicModule}`;
 const migration = fs.readFileSync("supabase/migrations/20260622211500_storefront_smart_product_ranking.sql", "utf8");
 const securityMigration = fs.readFileSync("supabase/migrations/20261012013350_restrict_storefront_ranking_to_published_or_owner.sql", "utf8");
+const productSecurityMigration = fs.readFileSync("supabase/migrations/20261012020230_restrict_storefront_ranking_to_public_products.sql", "utf8");
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -24,6 +25,9 @@ assert(securityMigration.includes("public.storefront_publication_allowed(s.id)")
 assert(securityMigration.includes("s.owner_id = auth.uid()"), "Proprietario deve manter acesso ao ranking");
 assert(securityMigration.includes("set search_path = pg_catalog"), "RPC corrigida sem search_path restrito");
 assert(securityMigration.includes("grant execute on function public.get_storefront_product_ranking(uuid) to anon, authenticated"), "RPC deve manter contrato de EXECUTE");
+assert(productSecurityMigration.includes("p.id = e.product_id and p.store_id = e.store_id"), "Ranking deve vincular evento ao produto da mesma loja");
+assert(productSecurityMigration.includes("p.visible = true") && productSecurityMigration.includes("p.stock_mode <> 'unavailable'"), "Ranking publico deve seguir a visibilidade do catalogo");
+assert(productSecurityMigration.includes("s.owner_id = auth.uid()"), "Proprietario deve conservar historico privado");
 assert(!migration.includes("metadata_json"), "RPC nao deve expor metadados dos clientes");
 
 console.log("Storefront smart ranking tests passed.");

@@ -67,6 +67,18 @@ async function createStore(user, label) {
   return { id: store.id, productId: product.id };
 }
 
+async function addProductWithLeads(user, store, label, count) {
+  const product = must(await service.from("store_products").insert({
+    store_id: store.id, owner_id: user.id, title: `Produto ${label}`,
+    slug: `produto-${label}`, visible: true, price: 10
+  }).select("id").single(), `produto ${label}`);
+  must(await service.from("store_events").insert(Array.from({ length: count }, () => ({
+    store_id: store.id, product_id: product.id, event_type: "lead_created",
+    created_at: new Date().toISOString()
+  }))), `eventos ${label}`);
+  return product.id;
+}
+
 async function ranking(client, store, label) {
   return must(await client.rpc("get_storefront_product_ranking", { p_store_id: store.id }), label);
 }
@@ -106,6 +118,36 @@ async function main() {
   assert.equal(visibleStore.length, 1);
   assert.equal(visibleProduct.length, 1);
 
+  const privacyStore = await createStore(owner, "privacy");
+  const visibleId = await addProductWithLeads(owner, privacyStore, "visible", 3);
+  const hiddenId = await addProductWithLeads(owner, privacyStore, "hidden", 5);
+  must(await service.from("store_products").update({ visible: false }).eq("id", hiddenId), "ocultar produto com historico");
+  const unavailableId = await addProductWithLeads(owner, privacyStore, "unavailable", 4);
+  must(await service.from("store_products").update({ stock_mode: "unavailable" })
+    .eq("id", unavailableId), "indisponibilizar produto com historico");
+  const removedId = await addProductWithLeads(owner, privacyStore, "removed", 2);
+  must(await service.from("store_products").delete().eq("id", removedId), "remover produto do catalogo");
+  must(await service.from("store_events").insert({
+    store_id: privacyStore.id, product_id: proStore.productId,
+    event_type: "lead_created", created_at: new Date().toISOString()
+  }), "evento com UUID de produto de outra loja");
+  const publicRanking = await ranking(anon, privacyStore, "ranking publico por produto");
+  assert.deepEqual(publicRanking.map((row) => row.product_id), [visibleId, privacyStore.productId],
+    "somente produtos publicos da mesma loja, em ordem de smart_score");
+  assert.deepEqual(publicRanking.map((row) => Number(row.smart_score)), [27, 16]);
+  assert.deepEqual((await ranking(stranger.client, privacyStore, "outro usuario"))
+    .map((row) => row.product_id), [visibleId, privacyStore.productId],
+  "outro usuario recebe apenas o mesmo ranking publico");
+  const ownerRanking = await ranking(owner.client, privacyStore, "historico do proprietario");
+  assert.deepEqual(ownerRanking.map((row) => row.product_id),
+    [hiddenId, unavailableId, visibleId, privacyStore.productId],
+  "proprietario conserva metricas de produtos ocultos/indisponiveis da propria loja");
+  assert.deepEqual(ownerRanking.map((row) => Number(row.smart_score)), [45, 36, 27, 16]);
+  const publicCatalog = must(await anon.from("store_products").select("id").eq("store_id", privacyStore.id),
+    "catalogo publico para comparar RLS");
+  assert.deepEqual(new Set(publicCatalog.map((row) => row.id)), new Set([visibleId, privacyStore.productId]));
+  denied(await ranking(anon, { id: crypto.randomUUID() }, "UUID de loja aleatorio"), "UUID de loja aleatorio");
+
   must(await service.from("stores").update({ publication_status: "unpublished" }).eq("id", startStore.id), "despublicar");
   denied(await ranking(anon, startStore, "anon despublicada"), "anon despublicada");
   allowed(await ranking(owner.client, startStore, "dono despublicada"), startStore, "dono despublicada");
@@ -123,7 +165,7 @@ async function main() {
   denied(await ranking(anon, startStore, "loja inativa"), "loja inativa");
   allowed(await ranking(owner.client, startStore, "dono loja inativa"), startStore, "dono loja inativa");
 
-  console.log("PASS ranking: anon Start/Pro, Free, despublicada, vencida, suspensa, inativa, dono, estranho, UUID inexistente e troca de UUID; contagens/score/90 dias e vitrine publica.");
+  console.log("PASS ranking: Start/Pro, Free, loja privada/vencida/suspensa/inativa, produtos visiveis/ocultos/indisponiveis/removidos, dono/estranho, UUID trocado e inexistente; contagens/score/ordem/90 dias.");
 }
 
 main().catch((error) => {

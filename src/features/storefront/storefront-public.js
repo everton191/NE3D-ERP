@@ -214,6 +214,18 @@ function ordenarProdutosLojaInteligente(products = [], ranking = [], context = {
     .map(({ product }) => product);
 }
 
+function filtrarCatalogoPublicoLoja(products = [], ranking = [], storeId = "") {
+  const publicProducts = (Array.isArray(products) ? products : []).filter((product) =>
+    product?.visible === true && product.stock_mode !== "unavailable"
+    && (!product.store_id || String(product.store_id) === String(storeId)));
+  const productIds = new Set(publicProducts.map((product) => String(product.id)));
+  return {
+    products: publicProducts,
+    productRanking: (Array.isArray(ranking) ? ranking : [])
+      .filter((item) => productIds.has(String(item?.product_id || "")))
+  };
+}
+
 function getStorefrontPublicViewModel(context = {}) {
   const { getPlanoAtual, getStorefrontLimitsLocal, isAmbienteLocal, isStorefrontAdminContextRoute, location } = context;
   const route = getStorefrontPublicRoute(context);
@@ -231,10 +243,11 @@ function getStorefrontPublicViewModel(context = {}) {
   const categories = (fallback.categories || [])
     .filter((cat) => includeHiddenForAdmin || cat.visible !== false)
     .sort((a, b) => Number(a.order_index || 0) - Number(b.order_index || 0));
-  const products = ordenarProdutosLojaInteligente(
-    (fallback.products || []).filter((product) => includeHiddenForAdmin || product.visible !== false), fallback.productRanking || [], context
-  );
-  return { ...fallback, route, categories, products, images: fallback.images || [], limits: fallback.limits || getStorefrontLimitsLocal(getPlanoAtual()?.slug), loading: false };
+  const catalog = includeHiddenForAdmin
+    ? { products: fallback.products || [], productRanking: fallback.productRanking || [] }
+    : filtrarCatalogoPublicoLoja(fallback.products, fallback.productRanking, fallback.store.id);
+  const products = ordenarProdutosLojaInteligente(catalog.products, catalog.productRanking, context);
+  return { ...fallback, route, categories, products, productRanking: catalog.productRanking, images: fallback.images || [], limits: fallback.limits || getStorefrontLimitsLocal(getPlanoAtual()?.slug), loading: false };
 }
 
 function getStorefrontPublicUrl(route, context = {}) {
@@ -825,7 +838,8 @@ async function hidratarLojaPublicaSeNecessario(context = {}) {
         body: JSON.stringify({ p_store_id: store.id })
       }, context).catch(() => [])
     ]);
-    setStorefrontPublicCache(route.slug, { store, categories: categories || [], products: products || [], images: images || [], productRanking: productRanking || [], source: "supabase" });
+    const catalog = filtrarCatalogoPublicoLoja(products, productRanking, store.id);
+    setStorefrontPublicCache(route.slug, { store, categories: categories || [], ...catalog, images: images || [], source: "supabase" });
     confirmarPublicacaoStorefront(route.slug);
     registrarEventoLojaPublica("store_view", { slug: route.slug }, { silent: true }, context);
     registrarVisualizacaoProdutoLojaPublica(route);

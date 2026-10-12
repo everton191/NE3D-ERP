@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 
 const root = path.resolve(__dirname, "..");
-const css = fs.readFileSync(path.join(root, "style.css"), "utf8");
+const css = fs.readFileSync(path.join(root, "style.css"), "utf8").replace(/\r\n/g, "\n");
 
 const required = [
   ".store-public-shell{\n  --store-stage-max:clamp(1240px, 88vw, 1760px)",
