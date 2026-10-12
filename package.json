@@ -304,6 +304,8 @@
     "test:licensing-postgres-isolated": "node scripts/test-licensing-postgres-isolated.js",
     "test:licensing-supabase-local": "node scripts/test-licensing-supabase-api.js local",
     "test:licensing-supabase-staging": "node scripts/test-licensing-supabase-api.js staging",
+    "prepare:licensing-supabase-replay": "node scripts/prepare-supabase-homolog-replay.js",
+    "test:licensing-homolog-replay": "node scripts/test-supabase-homolog-replay.js",
     "test:plans": "node scripts/test-plans-subscription-rules.js",
     "test:plans-ui": "node scripts/test-plans-ui.js",
     "test:start-plan": "node scripts/test-start-plan-authority.js",
