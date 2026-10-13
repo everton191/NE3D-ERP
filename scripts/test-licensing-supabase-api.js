@@ -1,26 +1,15 @@
 const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
 const { createClient } = require("@supabase/supabase-js");
+const { getTarget, createFixtures, snapshotPlan, runWithCleanup } = require("./supabase-homolog-test-utils");
 
-const target = process.argv[2] || "local";
-if (!["local", "staging"].includes(target)) throw new Error("Alvo de homologacao invalido.");
-const stagingRef = "sgcsgudgaxzysqyqxnik";
-const prefix = target === "staging" ? "S3D_STAGING" : "S3D_LOCAL";
-const url = process.env[`${prefix}_SUPABASE_URL`] || "";
-const anonKey = process.env[`${prefix}_SUPABASE_ANON_KEY`] || "";
-const serviceKey = process.env[`${prefix}_SUPABASE_SERVICE_ROLE_KEY`] || "";
-const hostname = url ? new URL(url).hostname : "";
-const allowed = target === "local"
-  ? ["127.0.0.1", "localhost", "::1"].includes(hostname)
-  : Boolean(url) && new URL(url).origin === `https://${stagingRef}.supabase.co`
-    && process.env.S3D_STAGING_CONFIRM_REF === stagingRef;
-if (!allowed || !anonKey || !serviceKey) {
-  throw new Error("Alvo nao autorizado: exige stack local ou staging explicitamente confirmado.");
-}
+const { target, url, anonKey, serviceKey } = getTarget(process.argv[2]);
 
 const clientOptions = { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } };
 const service = createClient(url, serviceKey, clientOptions);
 const token = crypto.randomBytes(6).toString("hex");
+const fixtures = createFixtures(service, token);
+let planSnapshot;
 const password = crypto.randomBytes(24).toString("base64url");
 const users = {};
 const events = [];
@@ -46,8 +35,9 @@ async function register(role, metadata = {}) {
     email, password, email_confirm: true,
     user_metadata: { name: `Homologacao ${role}`, business_name: `Empresa ${role} ${token}`, ...metadata }
   }), `criar Auth ${role}`);
+  fixtures.user(created.user);
   const id = created.user.id;
-  const client = createClient(url, anonKey, clientOptions);
+  const client = fixtures.session(createClient(url, anonKey, clientOptions));
   must(await client.auth.signInWithPassword({ email, password }), `login ${role}`);
   const profile = must(await service.from("profiles").select("client_id").eq("user_id", id).single(),
     `perfil ${role}`);
@@ -142,27 +132,29 @@ async function main() {
   assert.equal(crossCompany.length, 0, "usuario comum nao pode ler outra empresa");
   events.push("PASS protecao Mercado Pago, RPC administrativa e isolamento RLS");
 
-  const originalPrice = must(await service.from("plans").select("price").eq("slug", "start").single(),
-    "preco comercial").price;
+  planSnapshot = await snapshotPlan(service, "start");
+  const originalPrice = planSnapshot.original.price;
   await rejected(() => admin.client.rpc("superadmin_update_plan_presentation", {
     p_slug: "start", p_changes: { price: 0 }
   }), "gravar campo comercial proibido");
   const presentation = { name: `Start Homologado ${token}`, headline: "Validacao de homologacao",
     description: "Persistencia entre logins.", priceLabel: "Preco informativo",
     features: ["Beneficio sintetico A", "Beneficio sintetico B"] };
+  planSnapshot.prepare(presentation);
   const saved = must(await admin.client.rpc("superadmin_update_plan_presentation", {
     p_slug: "start", p_changes: presentation
   }), "salvar card");
+  planSnapshot.saved(saved);
   assert.equal(saved.presentation.name, presentation.name);
   must(await admin.client.auth.signOut(), "logout superadmin");
-  const adminAgain = createClient(url, anonKey, clientOptions);
+  const adminAgain = fixtures.session(createClient(url, anonKey, clientOptions));
   must(await adminAgain.auth.signInWithPassword({ email: admin.email, password }), "novo login superadmin");
   const readback = must(await adminAgain.from("plans").select("metadata,price")
     .eq("slug", "start").single(), "card em outra sessao");
   assert.equal(readback.metadata.presentation.name, presentation.name);
   assert.equal(readback.price, originalPrice, "preco cobrado nao pode mudar");
   must(await pro.client.auth.signOut(), "logout cliente Pro");
-  const proAgain = createClient(url, anonKey, clientOptions);
+  const proAgain = fixtures.session(createClient(url, anonKey, clientOptions));
   must(await proAgain.auth.signInWithPassword({ email: pro.email, password }), "novo login Pro");
   pro.client = proAgain;
   assert.equal((await license(pro)).active_plan, "pro", "licenca deve sobreviver a novo login");
@@ -213,7 +205,7 @@ async function main() {
   console.log(`Usuarios sinteticos: ${all.length}; alvo ${target}: ${new URL(url).origin}.`);
 }
 
-main().catch((error) => {
+runWithCleanup(main, [() => planSnapshot?.restore(), () => fixtures.cleanup()]).catch((error) => {
   console.error(`FAIL homologacao ${target}: ${error.message}`);
   process.exitCode = 1;
 });

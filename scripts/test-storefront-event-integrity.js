@@ -1,19 +1,15 @@
 const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
 const { createClient } = require("@supabase/supabase-js");
+const { getTarget, createFixtures, runWithCleanup } = require("./supabase-homolog-test-utils");
 
-const url = process.env.S3D_LOCAL_SUPABASE_URL || "";
-const anonKey = process.env.S3D_LOCAL_SUPABASE_ANON_KEY || "";
-const serviceKey = process.env.S3D_LOCAL_SUPABASE_SERVICE_ROLE_KEY || "";
-if (!url || !["127.0.0.1", "localhost", "::1"].includes(new URL(url).hostname)
-    || !anonKey || !serviceKey) {
-  throw new Error("Teste de integridade permitido somente com stack Supabase local isolada.");
-}
+const { target, url, anonKey, serviceKey } = getTarget(process.argv[2]);
 
 const options = { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } };
 const service = createClient(url, serviceKey, options);
 const anon = createClient(url, anonKey, options);
 const runId = crypto.randomBytes(6).toString("hex");
+const fixtures = createFixtures(service, runId);
 const password = crypto.randomBytes(24).toString("base64url");
 const future = new Date(Date.now() + 30 * 86400000).toISOString();
 
@@ -33,7 +29,8 @@ async function createOwner(label) {
     email, password, email_confirm: true,
     user_metadata: { name: `Events ${label}`, business_name: `Events ${label} ${runId}` }
   }), `Auth ${label}`);
-  const client = createClient(url, anonKey, options);
+  fixtures.user(created.user);
+  const client = fixtures.session(createClient(url, anonKey, options));
   must(await client.auth.signInWithPassword({ email, password }), `JWT ${label}`);
   const profile = must(await service.from("profiles").select("client_id")
     .eq("user_id", created.user.id).single(), `perfil ${label}`);
@@ -86,7 +83,7 @@ async function main() {
   console.log("PASS integridade: anon/JWTs bloqueados entre lojas; controles legitimos e service_role preservados.");
 }
 
-main().catch((error) => {
-  console.error(`FAIL integridade dos eventos: ${error.message}`);
+runWithCleanup(main, [() => fixtures.cleanup()]).catch((error) => {
+  console.error(`FAIL integridade dos eventos ${target}: ${error.message}`);
   process.exitCode = 1;
 });
