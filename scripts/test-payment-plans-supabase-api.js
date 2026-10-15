@@ -38,6 +38,10 @@ async function update(id, changes) {
 async function main() {
   const current = await register("current");
   const other = await register("other");
+  const store = must(await service.from("stores").insert({ owner_id: current.id, name: `Synthetic ${runId}`,
+    slug: `synthetic-payment-${runId}`, active: true, publication_status: "published" }).select("id").single(), "loja sintetica");
+  const storeAllowed = async () => must(await current.client.rpc("storefront_publication_allowed", { p_store_id: store.id }), "publicacao da loja");
+  assert.equal(await storeAllowed(), false, "Free nao publica mesmo com loja marcada published");
   const otherBefore = await snapshot(other);
   // Rejected status reproduces the old permissive INSERT policy without granting
   // any license, even when running this test against the vulnerable baseline.
@@ -55,6 +59,7 @@ async function main() {
     assert.equal(pending.active_plan, before.active_plan, "pendente nao concede plano");
     assert.equal(pending.premium_until, before.premium_until);
     if (before.active_plan !== "free") assert.equal(pending.plan_status, "ACTIVE");
+    assert.equal(await storeAllowed(), before.active_plan !== "free", "pendencia nao retira uma validade ja paga");
     await update(row.id, { status: "approved" });
     const approved = (await snapshot(current)).subscription;
     assert.equal(approved.active_plan, plan);
@@ -64,6 +69,10 @@ async function main() {
     assert.equal(approved.subscription_active, true);
     assert.equal(approved.is_trial_active, false);
     assert.equal(must(await current.client.rpc("get_effective_license"), "licenca efetiva").active_plan, plan);
+    assert.equal(await storeAllowed(), true);
+    must(await service.from("subscriptions").update({ plan_status: "BLOCKED" }).eq("client_id", current.clientId), "bloqueio sintetico");
+    assert.equal(await storeAllowed(), false, "bloqueio impede loja publica");
+    must(await service.from("subscriptions").update({ plan_status: "ACTIVE" }).eq("client_id", current.clientId), "restaurar fixture");
     const until = approved.premium_until;
     await Promise.all([update(row.id, { status: "approved" }), update(row.id, { status: "approved", amount: 61 })]);
     assert.equal((await snapshot(current)).subscription.premium_until, until, "repeticao nao renova");
@@ -73,6 +82,7 @@ async function main() {
     await update(renewal.id, { status: "approved" });
     assert.equal((await snapshot(current)).subscription.premium_until, renewed.premium_until);
     const rejection = await insert(current, { plan_slug: plan });
+    assert.equal(await storeAllowed(), true, "renovacao pendente nao tira loja paga do ar");
     await update(rejection.id, { status: "rejected" });
     const rejected = (await snapshot(current)).subscription;
     assert.equal(rejected.active_plan, plan);
@@ -90,10 +100,45 @@ async function main() {
   assert.equal(raw.amount, legacy.amount);
   console.log("PASS alias Premium reconhecido como Pro sem reescrever historico do pagamento");
 
+  for (const plan of ["start", "pro"]) {
+    const changing = await insert(current, { plan_slug: plan, billing_variant: `${plan}_monthly`, status: "approved" });
+    const creditedUntil = (await snapshot(current)).subscription.premium_until;
+    for (const status of ["pending", "rejected", "cancelled", "refunded", "charged_back"]) {
+      await update(changing.id, { status });
+      assert.equal((await snapshot(current)).subscription.premium_until, creditedUntil, "validade preservada para revisao");
+      await update(changing.id, { status: "approved" });
+      assert.equal((await snapshot(current)).subscription.premium_until, creditedUntil,
+        `${plan}: same payment must not renew again after ${status}`);
+      assert.equal((await snapshot(current)).subscription.payment_status, "approved", "projecao deve limpar pendencia resolvida");
+      assert.equal((await snapshot(current)).subscription.pending_plan, null);
+    }
+    const review = must(await service.from("audit_logs").select("details").eq("client_id", current.clientId)
+      .eq("action", "billing_payment_review_required").contains("details", { payment_id: changing.id }), "revisao do estorno");
+    assert.equal(review.length, 1, "encaminhamento para revisao nao deve duplicar");
+    assert.equal(review[0].details.policy, "preserve_existing_validity");
+    assert.equal(review[0].details.review_required, true);
+  }
+  console.log("PASS um credito por pagamento, inclusive apos pendencia, rejeicao, cancelamento, estorno e chargeback");
+
   const beforeConcurrent = (await snapshot(current)).subscription.premium_until;
-  await Promise.all([insert(current, { status: "approved" }), insert(current, { status: "approved" })]);
+  const subscriptionId = (await snapshot(current)).subscription.id;
+  await Promise.all([insert(current, { status: "approved", subscription_id: subscriptionId }),
+    insert(current, { status: "approved", subscription_id: subscriptionId })]);
   assert.equal(Date.parse((await snapshot(current)).subscription.premium_until) - Date.parse(beforeConcurrent), 60 * 86400000);
   console.log("PASS dois pagamentos distintos concorrentes renovam sem perder dias");
+  await Promise.all([insert(current, { status: "approved", subscription_id: subscriptionId }),
+    current.client.rpc("get_effective_license").then((result) => must(result, "licenca concorrente"))]);
+  console.log("PASS aprovacao e leitura autenticada da licenca concorrentes sem abortar");
+
+  const validExpiry = (await snapshot(current)).subscription;
+  const expiryFields = ["premium_until", "plan_expires_at", "current_period_end", "expires_at"];
+  const past = new Date(Date.now() - 86400000).toISOString();
+  must(await service.from("subscriptions").update(Object.fromEntries(expiryFields.map((field) => [field, past])))
+    .eq("client_id", current.clientId), "vencimento sintetico");
+  assert.equal(await storeAllowed(), false, "plano vencido nao publica");
+  must(await service.from("subscriptions").update(Object.fromEntries(expiryFields.map((field) => [field, validExpiry[field]])))
+    .eq("client_id", current.clientId), "restaurar validade sintetica");
+  assert.equal(await storeAllowed(), true);
 
   const beforeInvalid = await snapshot(current);
   for (const plan of ["free", "trial", "premium_trial", "desconhecido", "", null]) {
