@@ -43,10 +43,23 @@ async function snapshot(user) {
 const sync = (user) => user.client.rpc("sync_saas_user_after_login", {
   p_name: user.name, p_business_name: user.name, p_phone: null
 });
-const registration = (user, email = user.email) => user.client.rpc("register_saas_client", {
+const registration = (user, email = user.email, legacy = {}) => user.client.rpc("register_saas_client", {
   p_name: user.name, p_responsible_name: user.name, p_email: email,
-  p_phone: null, p_plan_slug: "free", p_trial_days: 0
+  p_phone: null, p_plan_slug: "free", p_trial_days: 0, ...legacy
 });
+async function assertLicenseResponse(user, response) {
+  const license = must(await user.client.rpc("get_effective_license", { p_user_id: user.id }), "licenca comercial efetiva");
+  for (const field of ["active_plan", "plan_slug", "plan_code", "effective_status", "status", "subscription_status",
+    "premium_until", "expires_at", "current_period_end", "is_trial_active", "is_pending", "is_blocked", "cancel_at_period_end"])
+    assert.deepEqual(response[field], license[field], `resposta RPC diverge da licenca: ${field}`);
+  assert.equal(response.client_id, user.client_id);
+  assert.equal(response.company_id, user.company_id);
+  assert.equal(response.subscription_id, license.subscription_id);
+  assert.equal(typeof response.client_code, "string");
+  assert.equal(response.member_role, "user");
+  if (response.user_id !== undefined) assert.equal(response.user_id, user.id);
+  return license;
+}
 
 async function main() {
   const other = await register("other");
@@ -61,6 +74,19 @@ async function main() {
   const current = await register("current");
   await check("cadastro A preserva todos os campos de B, inclusive updated_at", async () => {
     assert.deepEqual(await snapshot(other), beforeSignup);
+  });
+  await check("resposta Free e cadastro legado mantem o contrato sem conceder Premium", async () => {
+    const result = must(await sync(current), "sync Free");
+    assert.equal(result.ok, true);
+    assert.equal(result.erp_profile_id, current.id);
+    await assertLicenseResponse(current, result);
+    for (const slug of ["free", "premium", "premium_trial"]) {
+      const registered = must(await registration(current, current.email, { p_plan_slug: slug, p_trial_days: slug === "free" ? 0 : 7 }), "cadastro legado");
+      assert.equal(registered.active_plan, "free");
+      assert.equal(registered.clienteId, registered.client_code);
+      assert.equal(registered.is_trial_active, false);
+      await assertLicenseResponse(current, registered);
+    }
   });
   for (const [label, action] of [
     ["login/sync", () => sync(current)],
@@ -82,6 +108,15 @@ async function main() {
     external_reference: `synthetic-${runId}` }).select("id").single(), "pagamento sintetico sem gateway");
   await check("evento de pagamento A preserva B", async () => assert.deepEqual(await snapshot(other), beforePayment));
   assert.equal((await snapshot(current)).clients[0].payment_status, "pending");
+  await check("resposta pendente nao concede acesso pago", async () => {
+    for (const action of [sync, registration]) {
+      const response = must(await action(current), "pendencia propria");
+      await assertLicenseResponse(current, response);
+      assert.equal(response.active_plan, "free");
+      assert.equal(response.status, "pending");
+      assert.equal(response.is_pending, true);
+    }
+  });
   must(await service.from("payments").update({ status: "rejected" }).eq("id", payment.id), "rejeicao sintetica");
   assert.equal((await snapshot(current)).clients[0].payment_status, "rejected");
   await check("rejeicao de pagamento A preserva B", async () => assert.deepEqual(await snapshot(other), beforePayment));
@@ -170,13 +205,64 @@ async function main() {
     must(await admin.client.rpc("superadmin_update_subscription", { target_user_id: user.id,
       action: "SET_PLAN_MANUAL", plan_code: plan, premium_until: until, reason: `Isolamento ${runId}` }), "concessao sintetica");
     const before = (await snapshot(user)).subscriptions[0];
-    must(await sync(user), "sincronizar cliente pago");
-    must(await registration(user), "registrar novamente cliente pago");
+    await check(`resposta cadastro/login corresponde a ${plan} e validade`, async () => {
+      await assertLicenseResponse(user, must(await sync(user), "sincronizar cliente pago"));
+      await assertLicenseResponse(user, must(await registration(user), "registrar novamente cliente pago"));
+    });
     const after = (await snapshot(user)).subscriptions[0];
     for (const field of ["active_plan", "plan_code", "plan_id", "premium_until", "manual_override", "billing_variant"])
       assert.deepEqual(after[field], before[field], `${plan}: ${field} preservado`);
     assert.equal(must(await user.client.rpc("get_effective_license"), "licenca reconhecida").active_plan, plan.toLowerCase());
     console.log(`PASS cadastro/login preservam concessao ${plan} e vencimento`);
+  }
+  await check("superadmin retorna o plano comercial da empresa sem perder acesso administrativo", async () => {
+    for (const action of [sync, registration]) {
+      const response = must(await action(admin), "resposta comercial superadmin");
+      await assertLicenseResponse(admin, response);
+      assert.equal(response.active_plan, "free", "acesso administrativo nao e assinatura comercial Pro");
+    }
+    assert.equal(must(await admin.client.rpc("get_effective_license"), "acesso administrativo").active_plan, "pro");
+  });
+  await check("resposta bloqueada nao e sobrescrita por active", async () => {
+    must(await service.from("subscriptions").update({ plan_status: "BLOCKED", blocked_at: new Date().toISOString(),
+      blocked_reason: `Bloqueio sintetico ${runId}` }).eq("client_id", current.client_id), "bloqueio sintetico");
+    try {
+      for (const action of [sync, registration]) {
+        const response = must(await action(current), "bloqueio proprio");
+        await assertLicenseResponse(current, response);
+        assert.equal(response.active_plan, "free");
+        assert.equal(response.status, "blocked");
+        assert.equal(response.is_blocked, true);
+      }
+    } finally {
+      must(await service.from("subscriptions").update({ plan_status: "ACTIVE", blocked_at: null, blocked_reason: null })
+        .eq("client_id", current.client_id), "remover bloqueio sintetico");
+    }
+  });
+  const untouched = await snapshot(other);
+  for (const plan of ["START", "PRO"]) {
+    for (const action of [sync, registration]) {
+      await check(`${action === sync ? "login" : "cadastro"} reconcilia ${plan} manual vencido antes de responder`, async () => {
+        must(await admin.client.rpc("superadmin_update_subscription", { target_user_id: current.id,
+          action: "SET_PLAN_MANUAL", plan_code: plan, premium_until: new Date(Date.now() + 86400000).toISOString(),
+          reason: `Vencimento sintetico ${runId}` }), "concessao antes do vencimento");
+        const expired = new Date(Date.now() - 86400000).toISOString();
+        must(await service.from("subscriptions").update({ premium_until: expired, plan_expires_at: expired,
+          current_period_end: expired, expires_at: expired }).eq("client_id", current.client_id), "vencimento sintetico");
+        const countExpiries = async () => must(await service.from("audit_logs").select("id")
+          .eq("client_id", current.client_id).eq("action", "manual_plan_expired"), "auditoria vencimento").length;
+        const before = await countExpiries();
+        const response = must(await action(current), "RPC reconcilia vencimento");
+        assert.equal(response.active_plan, "free");
+        assert.equal(response.premium_until, null);
+        await assertLicenseResponse(current, response);
+        assert.equal((await snapshot(current)).subscriptions[0].active_plan, "free");
+        assert.equal(await countExpiries(), before + 1);
+        await assertLicenseResponse(current, must(await action(current), "repeticao apos vencimento"));
+        assert.equal(await countExpiries(), before + 1, "vencimento deve gerar uma unica auditoria");
+        assert.deepEqual(await snapshot(other), untouched, "vencimento de A nao altera B");
+      });
+    }
   }
   must(await admin.client.from("profiles").update({ name: current.name }).eq("user_id", current.id), "edicao superadmin");
   console.log("PASS edicao administrativa preservada");
