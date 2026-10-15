@@ -72,7 +72,7 @@ function subscriptionStatusFromPayment(status: string) {
 
 function uuidOrNull(value: unknown) {
   const text = String(value || "").trim();
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(text)
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text)
     ? text
     : null;
 }
@@ -97,13 +97,13 @@ async function findClient(metadata: Record<string, unknown>, externalReference: 
   const parsed = splitExternalReference(externalReference);
   const clientId = uuidOrNull(metadata.client_id) || uuidOrNull(parsed.clientCodeOrId);
   if (clientId) {
-    const { data } = await supabase.from("clients").select("id, client_code, email").eq("id", clientId).maybeSingle();
+    const { data } = await supabase.from("clients").select("id, client_code, email").eq("id", clientId).maybeSingle().throwOnError();
     if (data) return data;
   }
 
   const clientCode = String(metadata.client_code || parsed.clientCodeOrId || "").trim();
   if (clientCode) {
-    const { data } = await supabase.from("clients").select("id, client_code, email").eq("client_code", clientCode).maybeSingle();
+    const { data } = await supabase.from("clients").select("id, client_code, email").eq("client_code", clientCode).maybeSingle().throwOnError();
     if (data) return data;
   }
 
@@ -113,13 +113,13 @@ async function findClient(metadata: Record<string, unknown>, externalReference: 
 async function getPlanId(planSlug: string) {
   if (!supabase) return null;
   const slug = normalizePlanSlug(planSlug);
-  const { data } = await supabase.from("plans").select("id").eq("slug", slug || "free").maybeSingle();
-  return data?.id || null;
+  const { data } = await supabase.from("plans").select("id").eq("slug", slug === "premium" ? "pro" : slug).single().throwOnError();
+  return data.id;
 }
 
 async function getSubscriptionId(clientId: string, planSlug: string, userId?: string | null, mpSubscriptionId?: string) {
   if (!supabase) throw new Error("Supabase não configurado");
-  const { data: current } = await supabase.from("subscriptions").select("id").eq("client_id", clientId).maybeSingle();
+  const { data: current } = await supabase.from("subscriptions").select("id").eq("client_id", clientId).maybeSingle().throwOnError();
   if (current?.id) return current.id;
 
   const planId = await getPlanId(planSlug);
@@ -146,16 +146,12 @@ async function syncClientFromSubscription(clientId: string) {
     .eq("client_id", clientId)
     .order("updated_at", { ascending: false })
     .limit(1)
-    .maybeSingle();
-
-  if (!subscription) return null;
+    .single().throwOnError();
 
   const effectivePlan = String(subscription.active_plan || "").toLowerCase() || (subscription.plan_code === "PREMIUM" ? "premium" : "free");
   const effectiveStatus = String(subscription.plan_status || "").toUpperCase();
   const supportStatus = effectiveStatus === "BLOCKED" ? "blocked" : "active";
-  const subscriptionStatus = subscription.cancel_at_period_end === true
-    ? "canceling"
-    : subscription.subscription_status || subscription.status_assinatura || subscription.status || "free";
+  const subscriptionStatus = subscription.subscription_status || "free";
   const expiresAt = subscription.premium_until || subscription.plan_expires_at || subscription.current_period_end || null;
 
   await supabase.from("clients")
@@ -167,7 +163,7 @@ async function syncClientFromSubscription(clientId: string) {
       cancel_at_period_end: subscription.cancel_at_period_end === true,
       payment_status: subscription.payment_status || "none",
       subscription_status: subscriptionStatus,
-      status_assinatura: subscriptionStatus,
+      status_assinatura: subscription.cancel_at_period_end === true ? "canceling" : subscriptionStatus,
       plan_price: subscription.plan_price || null,
       price_locked: subscription.price_locked === true,
       plan_expires_at: expiresAt,
@@ -175,7 +171,7 @@ async function syncClientFromSubscription(clientId: string) {
       blocked_reason: subscription.blocked_reason || null,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", clientId);
+    .eq("id", clientId).select("id").single().throwOnError();
 
   return subscription;
 }
@@ -199,7 +195,7 @@ async function logWebhookEvent(data: {
     status: data.status,
     payload: sanitizeWebhookPayload(data.payload),
     error: data.error || null,
-  });
+  }).throwOnError();
 }
 
 async function logDiagnosticEvent(eventType: string, metadata: Record<string, unknown>, severity = "medium", userId?: string | null) {
@@ -214,7 +210,7 @@ async function logDiagnosticEvent(eventType: string, metadata: Record<string, un
     severity,
     fingerprint: `mercadopago:${eventType}:${String(metadata.data_id || metadata.event_key || "unknown")}`.slice(0, 240),
     metadata_json: sanitizeWebhookPayload(metadata),
-  });
+  }).throwOnError();
 }
 
 async function reserveWebhookEvent(eventKey: string, eventType: string, dataId: string, requestId: string, signatureTs: string, payload: Record<string, unknown>) {
@@ -236,8 +232,10 @@ async function reserveWebhookEvent(eventKey: string, eventType: string, dataId: 
       .eq("event_key", eventKey)
       .maybeSingle();
     if (selectError) throw selectError;
-    if (existing?.status !== "error") return false;
-    const { error: retryError } = await supabase.from("billing_webhook_events")
+    if (existing?.status === "processed" || existing?.status === "ignored") return false;
+    // In-flight/unresolved deliveries are not acknowledged as successfully processed.
+    if (existing?.status !== "error") throw new Error("Webhook ainda em processamento");
+    const { data: claimed, error: retryError } = await supabase.from("billing_webhook_events")
       .update({
         status: "received",
         error: null,
@@ -245,8 +243,11 @@ async function reserveWebhookEvent(eventKey: string, eventType: string, dataId: 
         updated_at: new Date().toISOString(),
       })
       .eq("provider", "mercado_pago")
-      .eq("event_key", eventKey);
+      .eq("event_key", eventKey)
+      .eq("status", "error")
+      .select("event_key");
     if (retryError) throw retryError;
+    if (claimed?.length !== 1) throw new Error("Webhook reservado por outra execução");
     return true;
   }
   if (error) throw error;
@@ -262,7 +263,8 @@ async function finishWebhookEvent(eventKey: string, status: string, error?: stri
       processed_at: status === "processed" || status === "ignored" ? new Date().toISOString() : null,
       updated_at: new Date().toISOString(),
     })
-    .eq("event_key", eventKey);
+    .eq("provider", "mercado_pago")
+    .eq("event_key", eventKey).select("event_key").single().throwOnError();
 }
 
 async function applyPayment(payment: Record<string, unknown>, rawEvent: Record<string, unknown>) {
@@ -271,6 +273,7 @@ async function applyPayment(payment: Record<string, unknown>, rawEvent: Record<s
   const parsed = splitExternalReference(payment.external_reference);
   const client = await findClient(metadata, payment.external_reference);
   const clientId = client?.id || null;
+  if (!clientId) throw new Error("Cliente do pagamento não encontrado");
   const clientCode = client?.client_code || metadata.client_code || parsed.clientCodeOrId;
   const userId = uuidOrNull(metadata.user_id);
   if (!userId) throw new Error("Webhook sem user_id válido");
@@ -321,7 +324,7 @@ async function applyPayment(payment: Record<string, unknown>, rawEvent: Record<s
       criado_em: String(payment.date_created || "") || new Date().toISOString(),
       atualizado_em: new Date().toISOString(),
       metadata: { ...payment, user_id: userId, plan_id: planSlug, billing_variant: billingVariant },
-    }, { onConflict: "mercado_pago_payment_id" });
+    }, { onConflict: "mercado_pago_payment_id" }).select("id").single().throwOnError();
 
     await supabase.from("erp_payments").upsert({
       payment_id: paymentId,
@@ -337,7 +340,7 @@ async function applyPayment(payment: Record<string, unknown>, rawEvent: Record<s
       metodo_pagamento: method || null,
       payload: payment,
       atualizado_em: new Date().toISOString(),
-    }, { onConflict: "payment_id" });
+    }, { onConflict: "payment_id" }).select("payment_id").single().throwOnError();
 
     const subscription = await syncClientFromSubscription(clientId);
     await supabase.from("audit_logs").insert({
@@ -352,7 +355,7 @@ async function applyPayment(payment: Record<string, unknown>, rawEvent: Record<s
         effective_status: subscription?.plan_status || null,
         premium_until: subscription?.premium_until || subscription?.plan_expires_at || null,
       },
-    });
+    }).throwOnError();
   }
 
   await logWebhookEvent({
@@ -371,6 +374,7 @@ async function applySubscription(preapproval: Record<string, unknown>, rawEvent:
   const parsed = splitExternalReference(preapproval.external_reference);
   const client = await findClient(metadata, preapproval.external_reference);
   const clientId = client?.id || null;
+  if (!clientId) throw new Error("Cliente da assinatura não encontrado");
   const userId = uuidOrNull(metadata.user_id);
   if (!userId) throw new Error("Webhook de assinatura sem user_id válido");
   let planSlug = "";
@@ -417,19 +421,19 @@ async function applySubscription(preapproval: Record<string, unknown>, rawEvent:
       }
       await supabase.from("subscriptions")
         .update(cancellationUpdate)
-        .eq("client_id", clientId);
+        .eq("client_id", clientId).select("id").single().throwOnError();
 
       const clientCancellationUpdate: Record<string, unknown> = {
-        plano_atual: planSlug,
+        plano_atual: planSlug === "premium" ? "pro" : planSlug,
         status_assinatura: "canceling",
-        subscription_status: "canceling",
+        subscription_status: "active",
         cancel_at_period_end: true,
         status: "active",
       };
       if (accessEndsAt) clientCancellationUpdate.plan_expires_at = accessEndsAt;
       await supabase.from("clients")
         .update(clientCancellationUpdate)
-        .eq("id", clientId);
+        .eq("id", clientId).select("id").single().throwOnError();
     } else {
       await supabase.from("subscriptions")
         .update({
@@ -438,19 +442,19 @@ async function applySubscription(preapproval: Record<string, unknown>, rawEvent:
           status: "pending",
           status_assinatura: "pending",
           cancel_at_period_end: false,
-          billing_variant: billingVariant,
+          billing_variant: planSlug === "start" ? "start_monthly" : "pro_monthly",
           mercado_pago_subscription_id: mpSubscriptionId,
           proximo_vencimento: String(preapproval.next_payment_date || "") || null,
           metadata: { preapproval, user_id: userId, plan_id: planSlug, billing_variant: billingVariant },
         })
-        .eq("client_id", clientId);
+        .eq("client_id", clientId).select("id").single().throwOnError();
     }
 
     await supabase.from("audit_logs").insert({
       client_id: clientId,
       action: status === "cancelled" ? "assinatura cancelada" : "webhook assinatura",
       details: { provider: "mercado_pago", status, subscription_id: mpSubscriptionId, plan: planSlug },
-    });
+    }).throwOnError();
   }
 
   await logWebhookEvent({
@@ -491,6 +495,7 @@ serve(async (req) => {
   let dataId = "";
   let eventType = "";
   let eventKey = "";
+  let eventReserved = false;
 
   try {
     const url = new URL(req.url);
@@ -514,7 +519,7 @@ serve(async (req) => {
         paymentId: dataId,
         status: "invalid_signature",
         payload: event,
-      });
+      }).catch(() => {});
       await logDiagnosticEvent("webhook_validation_failed", { data_id: dataId, event_type: eventType, reason: signature.reason }, "high").catch(() => {});
       return jsonResponse({ ok: false }, 401);
     }
@@ -524,6 +529,7 @@ serve(async (req) => {
       await logDiagnosticEvent("webhook_ignored_duplicate", { data_id: dataId, event_type: eventType, event_key: eventKey }).catch(() => {});
       return jsonResponse({ ok: true, duplicate: true });
     }
+    eventReserved = true;
     await logDiagnosticEvent("webhook_received", { data_id: dataId, event_type: eventType, event_key: eventKey }).catch(() => {});
 
     await logWebhookEvent({
@@ -558,7 +564,7 @@ serve(async (req) => {
     await finishWebhookEvent(eventKey, "ignored");
     return jsonResponse({ ok: true, ignored: true });
   } catch (error) {
-    if (eventKey) await finishWebhookEvent(eventKey, "error", error instanceof Error ? error.message : "unknown").catch(() => {});
+    if (eventReserved) await finishWebhookEvent(eventKey, "error", error instanceof Error ? error.message : "unknown").catch(() => {});
     await logWebhookEvent({
       eventId: String(event.id || ""),
       eventType,
