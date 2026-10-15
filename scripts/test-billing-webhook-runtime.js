@@ -45,9 +45,15 @@ function fixture() {
       metadata: { client_id: clientId, user_id: userId, plan_slug: 'pro' } } };
   const client = { rpc(name, args) {
     // SQL semantics/atomicity are exercised separately against the real API.
+    state.operations.push({ table: name, operation: 'rpc', payload: args });
     const result = state.fail?.({ table: name, operation: 'rpc', payload: args })
       ? { data: null, error: { message: 'Synthetic RPC outage' } }
-      : { data: { applied: true }, error: null };
+      : { data: state.emptyRpc ? null : { applied: true }, error: null };
+    if (!result.error && name === 'apply_mercadopago_payment') {
+      for (const [table, key] of [['payments', 'mercado_pago_payment_id'], ['erp_payments', 'payment_id']]) {
+        if (!rows[table].some((row) => row[key] === args.p_payment.id)) rows[table].push({ [key]: args.p_payment.id });
+      }
+    }
     return { throwOnError: async () => { if (result.error) throw result.error; return result; } };
   }, from(table) {
     let operation = 'select', payload, conflict, single = false, optional = false, throwing = false;
@@ -96,9 +102,8 @@ function fixture() {
 
 async function main() {
   for (const [table, operation, status] of [
-    ['clients', 'select'], ['plans', 'select'], ['subscriptions', 'select'],
-    ['payments', 'upsert'], ['erp_payments', 'upsert'], ['clients', 'update'],
-    ['audit_logs', 'insert'], ['erp_webhook_events', 'insert', 'processed'],
+    ['clients', 'select'], ['apply_mercadopago_payment', 'rpc'],
+    ['erp_webhook_events', 'insert', 'processed'],
     ['billing_webhook_events', 'update', 'processed'],
   ]) {
     const test = fixture();
@@ -117,14 +122,10 @@ async function main() {
   }
   const missing = fixture(); missing.rows.clients.length = 0;
   assert.equal((await missing.handler(request())).status, 500, 'unresolved client must not be acknowledged');
-  const noPlan = fixture(); noPlan.rows.plans.length = 0;
-  assert.equal((await noPlan.handler(request())).status, 500, 'missing plan must fail closed');
-  const zeroRows = fixture();
-  zeroRows.state.fail = ({ table, operation }) => {
-    if (table === 'clients' && operation === 'update') zeroRows.rows.clients.length = 0;
-    return false;
-  };
-  assert.equal((await zeroRows.handler(request())).status, 500, 'zero-row update is not a confirmed write');
+  const noPlan = fixture(); noPlan.state.provider.metadata.plan_slug = 'invalid';
+  assert.equal((await noPlan.handler(request())).status, 500, 'invalid plan must fail closed before ingestion');
+  const zeroRows = fixture(); zeroRows.state.emptyRpc = true;
+  assert.equal((await zeroRows.handler(request())).status, 500, 'empty RPC result is not a confirmed write');
   for (const id of ['', 'not-a-uuid', '22222222-2222-4222-8222222222222']) {
     const malformed = fixture(); malformed.state.provider.metadata.user_id = id;
     assert.equal((await malformed.handler(request())).status, 500, 'malformed user UUID must remain rejected');
@@ -156,7 +157,7 @@ async function main() {
   release();
   assert.equal((await first).status, 200);
   assert.equal(concurrent.state.fetches, 1);
-  const race = fixture(); race.state.fail = (call) => call.table === 'payments';
+  const race = fixture(); race.state.fail = (call) => call.table === 'apply_mercadopago_payment';
   assert.equal((await race.handler(request())).status, 500);
   race.state.fail = null;
   const responses = await Promise.all([race.handler(request()), race.handler(request())]);
@@ -166,7 +167,7 @@ async function main() {
   console.log('PASS concurrent delivery and compare-and-swap retry ownership');
 
   const stuck = fixture();
-  stuck.state.fail = (call) => call.table === 'payments' || (call.table === 'billing_webhook_events' && call.operation === 'update');
+  stuck.state.fail = (call) => call.table === 'apply_mercadopago_payment' || (call.table === 'billing_webhook_events' && call.operation === 'update');
   assert.equal((await stuck.handler(request())).status, 500);
   stuck.state.fail = null;
   assert.equal((await stuck.handler(request())).status, 500, 'unresolved reservation requires reconciliation, never false success');

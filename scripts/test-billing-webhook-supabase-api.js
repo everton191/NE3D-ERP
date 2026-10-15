@@ -51,6 +51,8 @@ async function main() {
     const paymentId = `synthetic-${runId}-${plan}`;
     paymentIds.push(paymentId);
     let providerStatus = 'approved';
+    const paymentDates = { date_created: new Date(Date.now() - 120000).toISOString(),
+      date_approved: new Date(Date.now() - 60000).toISOString(), date_last_updated: new Date().toISOString() };
     let providerNextDate = null;
     let providerModified = null;
     let providerFetches = 0;
@@ -60,6 +62,7 @@ async function main() {
       providerFetches++;
       return Response.json({ id: endpoint.endsWith('-old') ? paymentId + '-old' : paymentId,
         status: providerStatus, transaction_amount: plan === 'start' ? 29.9 : 59.9,
+        ...paymentDates,
         ...(providerNextDate ? { next_payment_date: providerNextDate } : {}),
         ...(providerModified ? { last_modified: providerModified } : {}),
         metadata: { client_id: profile.client_id, user_id: created.user.id, plan_slug: plan } });

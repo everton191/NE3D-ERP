@@ -138,44 +138,6 @@ async function getSubscriptionId(clientId: string, planSlug: string, userId?: st
   return created.id;
 }
 
-async function syncClientFromSubscription(clientId: string) {
-  if (!supabase) return null;
-  const { data: subscription } = await supabase
-    .from("subscriptions")
-    .select("active_plan, plan_code, plan_status, payment_status, subscription_status, status, status_assinatura, plan_price, price_locked, plan_expires_at, premium_until, current_period_end, pending_plan, cancel_at_period_end, blocked_at, blocked_reason")
-    .eq("client_id", clientId)
-    .order("updated_at", { ascending: false })
-    .limit(1)
-    .single().throwOnError();
-
-  const effectivePlan = String(subscription.active_plan || "").toLowerCase() || (subscription.plan_code === "PREMIUM" ? "premium" : "free");
-  const effectiveStatus = String(subscription.plan_status || "").toUpperCase();
-  const supportStatus = effectiveStatus === "BLOCKED" ? "blocked" : "active";
-  const subscriptionStatus = subscription.subscription_status || "free";
-  const expiresAt = subscription.premium_until || subscription.plan_expires_at || subscription.current_period_end || null;
-
-  await supabase.from("clients")
-    .update({
-      status: supportStatus,
-      active_plan: effectivePlan,
-      plano_atual: effectivePlan,
-      pending_plan: subscription.pending_plan || null,
-      cancel_at_period_end: subscription.cancel_at_period_end === true,
-      payment_status: subscription.payment_status || "none",
-      subscription_status: subscriptionStatus,
-      status_assinatura: subscription.cancel_at_period_end === true ? "canceling" : subscriptionStatus,
-      plan_price: subscription.plan_price || null,
-      price_locked: subscription.price_locked === true,
-      plan_expires_at: expiresAt,
-      blocked_at: subscription.blocked_at || null,
-      blocked_reason: subscription.blocked_reason || null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", clientId).select("id").single().throwOnError();
-
-  return subscription;
-}
-
 async function logWebhookEvent(data: {
   eventId?: string;
   eventType?: string;
@@ -274,7 +236,6 @@ async function applyPayment(payment: Record<string, unknown>, rawEvent: Record<s
   const client = await findClient(metadata, payment.external_reference);
   const clientId = client?.id || null;
   if (!clientId) throw new Error("Cliente do pagamento não encontrado");
-  const clientCode = client?.client_code || metadata.client_code || parsed.clientCodeOrId;
   const userId = uuidOrNull(metadata.user_id);
   if (!userId) throw new Error("Webhook sem user_id válido");
   let planSlug = "";
@@ -295,68 +256,14 @@ async function applyPayment(payment: Record<string, unknown>, rawEvent: Record<s
     await logDiagnosticEvent("webhook_start_plan_resolved", { data_id: payment.id, plan: "start" }, "medium", userId).catch(() => {});
   }
   const billingVariant = normalizeBillingVariant(metadata.billing_variant || parsed.billingVariant, planSlug === "start" ? "start" : "pro");
-  const status = normalizePaymentStatus(String(payment.status || ""));
-  const amount = Number(payment.transaction_amount || payment.total_paid_amount || 0) || 0;
   const paymentId = String(payment.id || "");
-  const method = String(payment.payment_method_id || payment.payment_type_id || "");
-  const mpSubscriptionId = String(payment.preapproval_id || payment.subscription_id || metadata.mercado_pago_subscription_id || "");
-  const subscriptionUuid = clientId ? await getSubscriptionId(clientId, planSlug, userId, mpSubscriptionId || undefined) : null;
-  const planId = await getPlanId(planSlug);
-
-  if (clientId) {
-    await supabase.from("payments").upsert({
-      client_id: clientId,
-      user_id: userId,
-      subscription_id: subscriptionUuid,
-      plan_id: planId,
-      mercado_pago_payment_id: paymentId,
-      mercado_pago_subscription_id: mpSubscriptionId || null,
-      preference_id: String(payment.preference_id || metadata.preference_id || "") || null,
-      amount,
-      plan_price: amount,
-      status,
-      payment_method: method || null,
-      metodo_pagamento: method || null,
-      external_reference: String(payment.external_reference || ""),
-      plan_slug: planSlug,
-      billing_variant: billingVariant,
-      paid_at: status === "approved" ? String(payment.date_approved || "") || new Date().toISOString() : null,
-      criado_em: String(payment.date_created || "") || new Date().toISOString(),
-      atualizado_em: new Date().toISOString(),
-      metadata: { ...payment, user_id: userId, plan_id: planSlug, billing_variant: billingVariant },
-    }, { onConflict: "mercado_pago_payment_id" }).select("id").single().throwOnError();
-
-    await supabase.from("erp_payments").upsert({
-      payment_id: paymentId,
-      subscription_id: mpSubscriptionId || null,
-      preference_id: String(payment.preference_id || metadata.preference_id || "") || null,
-      external_reference: String(payment.external_reference || ""),
-      cliente_id: clientId,
-      cliente_codigo: String(clientCode || ""),
-      plano: planSlug,
-      billing_variant: billingVariant,
-      valor: amount,
-      status,
-      metodo_pagamento: method || null,
-      payload: payment,
-      atualizado_em: new Date().toISOString(),
-    }, { onConflict: "payment_id" }).select("payment_id").single().throwOnError();
-
-    const subscription = await syncClientFromSubscription(clientId);
-    await supabase.from("audit_logs").insert({
-      client_id: clientId,
-      action: status === "approved" ? "pagamento aprovado" : status === "pending" ? "pagamento pendente" : "pagamento recusado",
-      details: {
-        provider: "mercado_pago",
-        status,
-        payment_id: paymentId,
-        amount,
-        plan: planSlug,
-        effective_status: subscription?.plan_status || null,
-        premium_until: subscription?.premium_until || subscription?.plan_expires_at || null,
-      },
-    }).throwOnError();
-  }
+  // One transaction checks the provider version and persists payment, credit,
+  // ERP mirror, client projection and financial audit. Never mirror a stale read.
+  const { data: applied } = await supabase.rpc("apply_mercadopago_payment", {
+    p_client_id: clientId, p_user_id: userId, p_plan_slug: planSlug,
+    p_billing_variant: billingVariant, p_payment: payment,
+  }).throwOnError();
+  if (typeof applied?.applied !== "boolean") throw new Error("Resultado do pagamento nao confirmado");
 
   await logWebhookEvent({
     eventId: String(rawEvent.id || ""),
