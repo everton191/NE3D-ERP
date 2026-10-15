@@ -106,6 +106,10 @@ async function main() {
     for (const status of ["pending", "rejected", "cancelled", "refunded", "charged_back"]) {
       await update(changing.id, { status });
       assert.equal((await snapshot(current)).subscription.premium_until, creditedUntil, "validade preservada para revisao");
+      if (["refunded", "charged_back"].includes(status)) {
+        assert.equal(await storeAllowed(), true, "estorno preserva publicacao durante validade paga");
+        assert.equal(must(await current.client.rpc("get_effective_license"), "licenca apos estorno").active_plan, plan);
+      }
       await update(changing.id, { status: "approved" });
       assert.equal((await snapshot(current)).subscription.premium_until, creditedUntil,
         `${plan}: same payment must not renew again after ${status}`);
