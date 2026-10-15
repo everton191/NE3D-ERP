@@ -165,6 +165,8 @@ async function main() {
   assert.equal((await stuck.handler(request())).status, 500);
   stuck.state.fail = null;
   assert.equal((await stuck.handler(request())).status, 500, 'unresolved reservation requires reconciliation, never false success');
+  stuck.rows.billing_webhook_events[0].updated_at = '2000-01-01T00:00:00Z';
+  assert.equal((await stuck.handler(request())).status, 500, 'age alone must never let another worker take over');
   const ignored = fixture();
   assert.equal((await (await ignored.handler(request('unknown'))).json()).ignored, true);
   assert.equal((await (await ignored.handler(request('unknown'))).json()).duplicate, true);

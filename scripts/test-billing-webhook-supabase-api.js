@@ -9,6 +9,7 @@ assert(!process.argv[2] || process.argv[2] === 'local', 'Only local integration 
 const { url, anonKey, serviceKey } = getTarget('local');
 const runId = crypto.randomBytes(6).toString('hex');
 let failFinalization = false;
+let failErrorFinalization = false;
 const options = { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   global: { fetch: async (input, init) => {
     const endpoint = new URL(typeof input === 'string' ? input : input.url);
@@ -17,6 +18,11 @@ const options = { auth: { persistSession: false, autoRefreshToken: false, detect
       && JSON.parse(init.body).status === 'processed') {
       failFinalization = false;
       return Response.json({ message: 'Synthetic finalization outage', code: 'TEST' }, { status: 503 });
+    }
+    if (failErrorFinalization && endpoint.pathname === '/rest/v1/billing_webhook_events' && init?.method === 'PATCH'
+      && JSON.parse(init.body).status === 'error') {
+      failErrorFinalization = false;
+      return Response.json({ message: 'Synthetic error-recording outage', code: 'TEST' }, { status: 503 });
     }
     return fetch(input, init);
   } } };
@@ -76,6 +82,81 @@ async function main() {
     assert.equal(must(await service.from('payments').select('id').eq('mercado_pago_payment_id', paymentId)).length, 1);
     assert.equal(must(await service.from('erp_payments').select('payment_id').eq('payment_id', paymentId)).length, 1);
     console.log(`PASS ${plan}: actual SQL trigger, failed finalization, retry, duplicate, license and one payment`);
+
+    // This handler has fully returned and no provider promise remains in flight.
+    // Do not infer worker termination from elapsed time in real environments.
+    const abandonedNotification = `${notification}-abandoned`;
+    failFinalization = true;
+    failErrorFinalization = true;
+    assert.equal((await handler(delivery('payment', paymentId, abandonedNotification))).status, 500);
+    assert.equal(failFinalization || failErrorFinalization, false);
+    const abandonedKey = diagnosticKeys.at(-1);
+    const readAbandoned = async () => must(await service.from('billing_webhook_events').select('*')
+      .eq('provider', 'mercado_pago').eq('event_key', abandonedKey).single());
+    const abandoned = await readAbandoned();
+    assert.equal(abandoned.status, 'received');
+    const recovery = { p_event_key: abandonedKey, p_expected_updated_at: abandoned.updated_at,
+      p_reason: `Synthetic interrupted finalization ${runId}`,
+      p_quiescence_reference: `awaited handler completion ${runId}`, p_workers_stopped: true };
+    const recover = (changes = {}, client = service) => client.rpc('recover_billing_webhook_event', { ...recovery, ...changes });
+    const audits = async () => must(await service.from('audit_logs').select('id,details')
+      .eq('action', 'billing_webhook_recovered').contains('details', { event_key: abandonedKey }));
+    for (const changes of [{ p_workers_stopped: false }, { p_workers_stopped: null },
+      { p_quiescence_reference: '' }, { p_reason: '' }, { p_expected_updated_at: null }]) {
+      assert.equal((await recover(changes)).error?.code, '22023');
+    }
+    assert.equal((await recover()).error?.code, '55000', 'recent reservation must not be recovered');
+    assert.equal((await recover({}, session)).error?.code, '42501', 'ordinary session cannot recover');
+    assert.equal((await recover({}, createClient(url, anonKey, options))).error?.code, '42501', 'anonymous client cannot recover');
+    must(await service.from('superadmins').insert({ user_id: created.user.id, status: 'active' }));
+    try {
+      assert.equal((await recover({}, session)).error?.code, '42501', 'frontend superadmin is not a server operator');
+    } finally {
+      must(await service.from('superadmins').delete().eq('user_id', created.user.id));
+    }
+    assert.deepEqual(await readAbandoned(), abandoned, 'denials must not mutate the event');
+    assert.equal((await audits()).length, 0);
+    const oldTimestamp = new Date(Date.now() - 3600000).toISOString();
+    must(await service.from('billing_webhook_events').update({ updated_at: oldTimestamp })
+      .eq('event_key', abandonedKey).eq('status', 'received').select('id').single());
+    assert.equal((await recover()).error?.code, '40001', 'stale operator snapshot must fail');
+    recovery.p_expected_updated_at = (await readAbandoned()).updated_at;
+    const beforeBusy = providerFetches;
+    assert.equal((await handler(delivery('payment', paymentId, abandonedNotification))).status, 500);
+    assert.equal(providerFetches, beforeBusy, 'age alone must not trigger an automatic takeover');
+    const recovered = await Promise.all([recover(), recover()]);
+    assert.equal(recovered.filter((result) => !result.error).length, 1, 'single concurrent recovery winner');
+    assert.equal(recovered.find((result) => result.error).error.code, '40001');
+    const result = recovered.find((value) => !value.error).data;
+    assert.equal(result.recovered, true);
+    assert.equal((await readAbandoned()).status, 'error');
+    const audit = await audits();
+    assert.equal(audit.length, 1);
+    assert.equal(audit[0].id, result.audit_id);
+    assert.equal(audit[0].details.previous_status, 'received');
+    assert.equal(audit[0].details.new_status, 'error');
+    assert.equal(audit[0].details.quiescence_reference, recovery.p_quiescence_reference);
+    assert.equal(audit[0].details.workers_stopped, true);
+    assert.equal((await recover()).error?.code, '40001', 'repeated operator command must not reset again');
+    assert.equal((await handler(delivery('payment', paymentId, abandonedNotification))).status, 200);
+    assert.equal((await subscription()).premium_until, paid.premium_until, 'controlled recovery must not renew twice');
+    assert.equal((await readAbandoned()).status, 'processed');
+    recovery.p_expected_updated_at = (await readAbandoned()).updated_at;
+    assert.equal((await recover()).error?.code, '55000', 'terminal events must remain terminal');
+    assert.equal((await audits()).length, 1);
+    assert.equal((await recover({ p_event_key: `missing-${runId}` })).error?.code, 'P0002');
+    for (const status of ['ignored', 'error']) {
+      const finalNotification = `${abandonedNotification}-${status}`;
+      delivery('payment', paymentId, finalNotification); // Register an exact cleanup target.
+      const finalKey = diagnosticKeys.at(-1);
+      must(await service.from('billing_webhook_events').insert({ event_key: finalKey, status, updated_at: oldTimestamp }));
+      assert.equal((await recover({ p_event_key: finalKey, p_expected_updated_at: oldTimestamp })).error?.code, '55000');
+    }
+    assert.equal(must(await service.from('payments').select('id').eq('mercado_pago_payment_id', paymentId)).length, 1);
+    assert.equal(must(await service.from('erp_payments').select('payment_id').eq('payment_id', paymentId)).length, 1);
+    assert.equal((await handler(delivery('payment', paymentId, `${abandonedNotification}-new-provider-id`))).status, 200);
+    assert.equal((await subscription()).premium_until, paid.premium_until, 'new notification ID for the same payment must not add days');
+    console.log(`PASS ${plan}: abandoned reservation, service-only recovery, atomic audit, concurrency and retry without extra days`);
 
     providerStatus = 'authorized';
     const authorized = await handler(delivery('preapproval', paymentId, `${notification}-authorized`));
