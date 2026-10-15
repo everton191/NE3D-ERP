@@ -78,10 +78,13 @@ async function main() {
   }
   const beforePayment = await snapshot(other);
   const payment = must(await service.from("payments").insert({ client_id: current.client_id,
-    user_id: current.id, status: "rejected", amount: 0, plan_slug: "pro",
+    user_id: current.id, status: "pending", amount: 0, plan_slug: "pro",
     external_reference: `synthetic-${runId}` }).select("id").single(), "pagamento sintetico sem gateway");
   await check("evento de pagamento A preserva B", async () => assert.deepEqual(await snapshot(other), beforePayment));
+  assert.equal((await snapshot(current)).clients[0].payment_status, "pending");
+  must(await service.from("payments").update({ status: "rejected" }).eq("id", payment.id), "rejeicao sintetica");
   assert.equal((await snapshot(current)).clients[0].payment_status, "rejected");
+  await check("rejeicao de pagamento A preserva B", async () => assert.deepEqual(await snapshot(other), beforePayment));
   must(await service.from("payments").update({ status: "cancelled" }).eq("id", payment.id), "cancelamento sintetico");
   await check("cancelamento de pagamento A preserva B", async () => assert.deepEqual(await snapshot(other), beforePayment));
   assert.equal((await snapshot(current)).clients[0].payment_status, "cancelled");
