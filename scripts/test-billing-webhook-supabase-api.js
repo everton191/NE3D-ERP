@@ -47,16 +47,21 @@ async function main() {
     fixtures.user(created.user);
     const session = fixtures.session(createClient(url, anonKey, options));
     must(await session.auth.signInWithPassword({ email, password }));
-    const profile = must(await service.from('profiles').select('client_id').eq('user_id', created.user.id).single());
+    const profile = must(await service.from('profiles').select('client_id,company_id').eq('user_id', created.user.id).single());
     const paymentId = `synthetic-${runId}-${plan}`;
     paymentIds.push(paymentId);
     let providerStatus = 'approved';
+    let providerNextDate = null;
+    let providerModified = null;
     let providerFetches = 0;
     const handler = loadHandler(service, async (endpoint) => {
       assert(['https://api.mercadopago.com/v1/payments/', 'https://api.mercadopago.com/preapproval/']
-        .some((prefix) => endpoint === prefix + paymentId), 'Only synthetic provider IDs are accepted');
+        .some((prefix) => endpoint === prefix + paymentId || endpoint === prefix + paymentId + '-old'), 'Only synthetic provider IDs are accepted');
       providerFetches++;
-      return Response.json({ id: paymentId, status: providerStatus, transaction_amount: plan === 'start' ? 29.9 : 59.9,
+      return Response.json({ id: endpoint.endsWith('-old') ? paymentId + '-old' : paymentId,
+        status: providerStatus, transaction_amount: plan === 'start' ? 29.9 : 59.9,
+        ...(providerNextDate ? { next_payment_date: providerNextDate } : {}),
+        ...(providerModified ? { last_modified: providerModified } : {}),
         metadata: { client_id: profile.client_id, user_id: created.user.id, plan_slug: plan } });
     });
     const subscription = async () => must(await service.from('subscriptions').select('*').eq('client_id', profile.client_id).single());
@@ -171,6 +176,88 @@ async function main() {
     assert.equal((await subscription()).cancel_at_period_end, true);
     assert.equal((await subscription()).premium_until, paid.premium_until);
     assert.equal(must(await session.rpc('get_effective_license')).active_plan, plan);
+    for (const offset of [-1, 90]) {
+      providerNextDate = new Date(Date.now() + offset * 86400000).toISOString();
+      assert.equal((await handler(delivery('preapproval', paymentId, `${notification}-cancel-date-${offset}`))).status, 200);
+      const afterCalendar = await subscription();
+      for (const field of ['premium_until', 'plan_expires_at', 'current_period_end', 'expires_at']) {
+        assert.equal(afterCalendar[field], paid[field], `${plan}: provider calendar must not replace paid ${field}`);
+      }
+      const customer = must(await service.from('clients').select('active_plan,plan_expires_at').eq('id', profile.client_id).single());
+      assert.equal(customer.active_plan, plan);
+      assert.equal(customer.plan_expires_at, paid.premium_until);
+    }
+    const version = (offset) => new Date(Date.now() + offset * 3600000).toISOString();
+    providerModified = version(-1);
+    assert.equal((await handler(delivery('preapproval', paymentId, `${notification}-versioned-cancel`))).status, 200);
+    providerStatus = 'authorized';
+    providerModified = version(-2);
+    assert.equal((await handler(delivery('preapproval', paymentId, `${notification}-stale-authorized`))).status, 200);
+    assert.equal((await subscription()).cancel_at_period_end, true, 'stale authorization cannot undo cancellation');
+    providerModified = version(0);
+    assert.equal((await handler(delivery('preapproval', paymentId, `${notification}-new-authorized`))).status, 200);
+    assert.equal((await subscription()).cancel_at_period_end, false, 'newer confirmed authorization may reactivate');
+    providerStatus = 'cancelled';
+    assert.equal((await handler(delivery('preapproval', paymentId, `${notification}-conflicting-version`))).status, 500,
+      'same provider version with conflicting state must not win by delivery order');
+    assert.equal((await subscription()).cancel_at_period_end, false);
+    const beforeOldContract = await subscription();
+    assert.equal((await handler(delivery('preapproval', paymentId + '-old', `${notification}-old-contract`))).status, 200);
+    assert.deepEqual(await subscription(), beforeOldContract, 'old contract must not mutate the current subscription');
+    assert.equal((await session.rpc('apply_mercadopago_preapproval', {
+      p_subscription_id: beforeOldContract.id, p_client_id: profile.client_id,
+      p_mercado_pago_subscription_id: paymentId, p_status: 'cancelled', p_preapproval: {},
+    })).error?.code, '42501', 'ordinary sessions cannot call the server-only ingestion RPC');
+
+    const token = must(await session.auth.getSession()).session.access_token;
+    let cancellationCalls = 0;
+    const cancellationProvider = async (endpoint, init) => {
+      assert.equal(endpoint, `https://api.mercadopago.com/preapproval/${paymentId}`);
+      assert.equal(init.method, 'PUT');
+      assert.equal(JSON.parse(init.body).status, 'cancelled');
+      cancellationCalls++;
+      return Response.json({ id: paymentId, status: 'cancelled', last_modified: version(1), next_payment_date: version(-48) });
+    };
+    const cancelHandler = loadHandler(service, cancellationProvider, 'mercadopago-cancel-subscription');
+    const cancelRequest = (clientId = profile.client_id, authToken = token) => new Request('http://localhost/cancel', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+      body: JSON.stringify({ clientId }) });
+    assert.equal((await cancelHandler(cancelRequest(crypto.randomUUID()))).status, 403);
+    assert.equal((await cancelHandler(cancelRequest(profile.client_id, 'invalid-session'))).status, 401);
+    assert.equal((await cancelHandler(cancelRequest())).status, 403, 'ordinary member cannot cancel renewal');
+    assert.equal(cancellationCalls, 0);
+    must(await service.from('company_members').update({ role: 'admin' }).eq('company_id', profile.company_id)
+      .eq('user_id', created.user.id).select('id').single());
+    const cancelledResponse = await cancelHandler(cancelRequest());
+    assert.equal(cancelledResponse.status, 200, JSON.stringify(await cancelledResponse.clone().json()));
+    assert.equal((await cancelledResponse.json()).cancelAtPeriodEnd, true);
+    const cancelledState = await subscription();
+    for (const field of ['premium_until', 'plan_expires_at', 'current_period_end', 'expires_at', 'plan_id', 'active_plan'])
+      assert.equal(cancelledState[field], paid[field]);
+    assert.equal(must(await service.from('clients').select('subscription_status').eq('id', profile.client_id).single()).subscription_status, 'active');
+    const failingService = new Proxy(service, { get(target, prop) {
+      if (prop === 'rpc') return async () => ({ data: null, error: new Error('Synthetic RPC outage') });
+      const value = Reflect.get(target, prop); return typeof value === 'function' ? value.bind(target) : value;
+    } });
+    const failingCancel = loadHandler(failingService, cancellationProvider, 'mercadopago-cancel-subscription');
+    const failed = await failingCancel(cancelRequest());
+    assert(failed.status >= 400);
+    assert.equal((await failed.json()).ok, false, 'failed database confirmation must not report success');
+    assert.deepEqual(await subscription(), cancelledState);
+    const racingPaymentId = `${paymentId}-approval-race`;
+    paymentIds.push(racingPaymentId);
+    const racingPayment = must(await service.from('payments').insert({ client_id: profile.client_id,
+      user_id: created.user.id, plan_slug: plan, amount: plan === 'start' ? 29.9 : 59.9,
+      status: 'pending', mercado_pago_payment_id: racingPaymentId }).select('id').single());
+    const raceResult = await Promise.all([
+      service.from('payments').update({ status: 'approved' }).eq('id', racingPayment.id).select('id').single(),
+      service.rpc('apply_mercadopago_preapproval', { p_subscription_id: cancelledState.id, p_client_id: profile.client_id,
+        p_mercado_pago_subscription_id: paymentId, p_status: 'active',
+        p_preapproval: { status: 'authorized', last_modified: version(2) }, p_actor_user_id: created.user.id }),
+    ]);
+    raceResult.forEach((result) => must(result));
+    assert.equal(Date.parse((await subscription()).premium_until) - Date.parse(paid.premium_until), 30 * 86400000);
+    assert.equal((await subscription()).cancel_at_period_end, false);
     console.log(`PASS ${plan}: preapproval, canonical billing and cancellation preserving existing paid validity`);
   }
 }

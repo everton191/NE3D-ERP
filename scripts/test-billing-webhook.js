@@ -43,8 +43,8 @@ assert(migration.includes("revoke all on public.billing_webhook_events from publ
 assert(migration.includes("cancel_at_period_end boolean not null default false"), "migration deve preparar cancelamento ao fim do periodo");
 assert(!cancel.includes('.eq("slug", "free")'), "cancelamento remoto nao pode buscar Free para downgrade imediato");
 assert(!cancel.includes('plano_atual: "free"'), "cancelamento remoto nao pode aplicar Free imediatamente");
-assert(cancel.includes("cancel_at_period_end: true"), "cancelamento remoto deve agendar fim da renovacao");
-assert(cancel.includes('status_assinatura: "canceling"'), "cancelamento remoto deve preservar acesso com estado canceling");
+assert(cancel.includes('supabase.rpc("apply_mercadopago_preapproval"'), "cancelamento remoto deve usar persistencia atomica");
+assert(cancel.includes('p_status: "cancelled"'), "cancelamento remoto deve agendar fim da renovacao sem rebaixar o plano");
 assert(shared.includes('["pro", "plus", "premium", "premium_monthly", "pro_monthly"]'), "aliases Pro legados devem ser controlados");
 assert(shared.includes("Plano Start ainda não está habilitado no backend de cobrança"), "Start deve falhar fechado ate migracao da autoridade");
 assert(shared.includes('if (startPlanId && planId === startPlanId) return "start"'), "webhook deve mapear o ID Mercado Pago do Start");
@@ -59,7 +59,7 @@ for (const checkoutSource of [createPayment, createSubscription]) {
 }
 assert(cancel.includes("resolveBillingCancellationScope"), "cancelamento deve resolver o escopo autenticado antes de consultar a assinatura");
 assert(cancel.includes("authorizeBillingCancellation"), "cancelamento deve validar cliente, empresa, papel e assinatura");
-assert(cancel.includes('.eq("id", authorization.subscriptionRowId).eq("client_id", clientId)'), "update da assinatura deve manter o cliente autorizado no filtro");
+assert(cancel.includes('p_subscription_id: authorization.subscriptionRowId, p_client_id: clientId'), "RPC deve receber assinatura e cliente autorizados para conferir o vinculo no banco");
 assert(!cancel.includes("body.subscriptionId || subscription.mercado_pago_subscription_id"), "id recebido do navegador não pode substituir a assinatura persistida");
 assert(cancelAuthorization.includes('["owner", "admin"]'), "somente owner/admin e superadmin persistido podem cancelar renovação");
 assert(diagnostics.includes('"webhook_received"'), "diagnosticos devem aceitar webhook_received");

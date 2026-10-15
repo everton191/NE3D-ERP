@@ -92,7 +92,7 @@ serve(async (req) => {
       membership,
       subscription,
     });
-    const { userId, clientId, companyId: authorizedCompanyId, mercadoPagoSubscriptionId: mpSubscriptionId } = authorization;
+    const { userId, clientId, mercadoPagoSubscriptionId: mpSubscriptionId } = authorization;
 
     const mpResponse = await fetch(`https://api.mercadopago.com/preapproval/${encodeURIComponent(mpSubscriptionId)}`, {
       method: "PUT",
@@ -108,39 +108,16 @@ serve(async (req) => {
       throw new Error(mpData.message || `Mercado Pago HTTP ${mpResponse.status}`);
     }
 
-    const accessEndsAt = subscription?.current_period_end
-      || subscription?.plan_expires_at
-      || subscription?.premium_until
-      || subscription?.expires_at
-      || subscription?.next_billing_at
-      || subscription?.proximo_vencimento
-      || null;
-    await supabase.from("subscriptions").update({
-      status: "active",
-      status_assinatura: "canceling",
-      subscription_status: "active",
-      cancel_at_period_end: true,
-      cancelled_at: new Date().toISOString(),
-      metadata: { cancel: mpData, cancel_at_period_end: true, access_ends_at: accessEndsAt },
-    }).eq("id", authorization.subscriptionRowId).eq("client_id", clientId);
-
-    await supabase.from("clients")
-      .update({
-        status_assinatura: "canceling",
-        subscription_status: "canceling",
-        cancel_at_period_end: true,
-        plan_expires_at: accessEndsAt,
-        status: "active",
-      })
-      .eq("id", clientId)
-      .eq("company_id", authorizedCompanyId);
-
-    await supabase.from("audit_logs").insert({
-      user_id: userId,
-      client_id: clientId,
-      action: "assinatura cancelada",
-      details: { provider: "mercado_pago", subscription_id: mpSubscriptionId, cancel_at_period_end: true, access_ends_at: accessEndsAt },
+    const { data: applied, error: applyError } = await supabase.rpc("apply_mercadopago_preapproval", {
+      p_subscription_id: authorization.subscriptionRowId, p_client_id: clientId,
+      p_mercado_pago_subscription_id: mpSubscriptionId, p_status: "cancelled",
+      p_preapproval: mpData, p_actor_user_id: userId,
     });
+    if (applyError) throw applyError;
+    if (applied?.applied !== true) {
+      throw new BillingAuthorizationError("SUBSCRIPTION_CHANGED_RELOAD_REQUIRED", 409);
+    }
+    const accessEndsAt = applied.access_ends_at || null;
 
     return jsonResponse({ ok: true, subscriptionId: mpSubscriptionId, cancelAtPeriodEnd: true, accessEndsAt });
   } catch (error) {

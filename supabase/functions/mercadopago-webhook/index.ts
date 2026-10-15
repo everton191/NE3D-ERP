@@ -394,66 +394,16 @@ async function applySubscription(preapproval: Record<string, unknown>, rawEvent:
   if (planSlug === "start") {
     await logDiagnosticEvent("webhook_start_plan_resolved", { data_id: preapproval.id, plan: "start" }, "medium", userId).catch(() => {});
   }
-  const billingVariant = normalizeBillingVariant(metadata.billing_variant || parsed.billingVariant, planSlug === "start" ? "start" : "pro");
+  normalizeBillingVariant(metadata.billing_variant || parsed.billingVariant, planSlug === "start" ? "start" : "pro");
   const status = normalizeSubscriptionStatus(String(preapproval.status || ""));
   const mpSubscriptionId = String(preapproval.id || "");
 
   if (clientId) {
-    const planId = await getPlanId(planSlug);
-    await getSubscriptionId(clientId, planSlug, userId, mpSubscriptionId);
-
-    if (status === "cancelled") {
-      const accessEndsAt = String(preapproval.next_payment_date || "") || null;
-      const cancellationUpdate: Record<string, unknown> = {
-        user_id: userId,
-        plan_id: planId,
-        status: "active",
-        status_assinatura: "canceling",
-        subscription_status: "active",
-        cancel_at_period_end: true,
-        mercado_pago_subscription_id: mpSubscriptionId,
-        cancelled_at: new Date().toISOString(),
-        metadata: { preapproval, user_id: userId, plan_id: planSlug, billing_variant: billingVariant },
-      };
-      if (accessEndsAt) {
-        cancellationUpdate.current_period_end = accessEndsAt;
-        cancellationUpdate.plan_expires_at = accessEndsAt;
-      }
-      await supabase.from("subscriptions")
-        .update(cancellationUpdate)
-        .eq("client_id", clientId).select("id").single().throwOnError();
-
-      const clientCancellationUpdate: Record<string, unknown> = {
-        plano_atual: planSlug === "premium" ? "pro" : planSlug,
-        status_assinatura: "canceling",
-        subscription_status: "active",
-        cancel_at_period_end: true,
-        status: "active",
-      };
-      if (accessEndsAt) clientCancellationUpdate.plan_expires_at = accessEndsAt;
-      await supabase.from("clients")
-        .update(clientCancellationUpdate)
-        .eq("id", clientId).select("id").single().throwOnError();
-    } else {
-      await supabase.from("subscriptions")
-        .update({
-          user_id: userId,
-          plan_id: planId,
-          status: "pending",
-          status_assinatura: "pending",
-          cancel_at_period_end: false,
-          billing_variant: planSlug === "start" ? "start_monthly" : "pro_monthly",
-          mercado_pago_subscription_id: mpSubscriptionId,
-          proximo_vencimento: String(preapproval.next_payment_date || "") || null,
-          metadata: { preapproval, user_id: userId, plan_id: planSlug, billing_variant: billingVariant },
-        })
-        .eq("client_id", clientId).select("id").single().throwOnError();
-    }
-
-    await supabase.from("audit_logs").insert({
-      client_id: clientId,
-      action: status === "cancelled" ? "assinatura cancelada" : "webhook assinatura",
-      details: { provider: "mercado_pago", status, subscription_id: mpSubscriptionId, plan: planSlug },
+    const subscriptionId = await getSubscriptionId(clientId, planSlug, userId);
+    await supabase.rpc("apply_mercadopago_preapproval", {
+      p_subscription_id: subscriptionId, p_client_id: clientId,
+      p_mercado_pago_subscription_id: mpSubscriptionId, p_status: status,
+      p_preapproval: preapproval, p_actor_user_id: userId,
     }).throwOnError();
   }
 

@@ -10,15 +10,16 @@ const clientId = '11111111-1111-4111-8111-111111111111';
 const userId = '22222222-2222-4222-8222-222222222222';
 
 // Execute the actual handler and signature verifier, replacing only network boundaries.
-function loadHandler(client, providerFetch) {
+function loadHandler(client, providerFetch, functionName = 'mercadopago-webhook') {
   const env = { SUPABASE_URL: 'http://127.0.0.1:1', SUPABASE_SERVICE_ROLE_KEY: 'synthetic',
     MERCADOPAGO_ACCESS_TOKEN: 'synthetic', MERCADOPAGO_WEBHOOK_SECRET: 'synthetic-secret', START_PLAN_ENABLED: 'true' };
   let handler;
   const context = vm.createContext({ Request, Response, URL, TextEncoder, Uint8Array, Error,
     crypto: webcrypto, Deno: { env: { get: (key) => env[key] } }, console,
     createClient: () => client, fetch: providerFetch, serve: (callback) => { handler = callback; } });
-  const shared = fs.readFileSync(path.join(root, 'supabase/functions/_shared/mercadopago-billing.ts'), 'utf8');
-  const source = fs.readFileSync(path.join(root, 'supabase/functions/mercadopago-webhook/index.ts'), 'utf8');
+  const sharedName = functionName === 'mercadopago-cancel-subscription' ? 'mercadopago-cancel-authorization' : 'mercadopago-billing';
+  const shared = fs.readFileSync(path.join(root, `supabase/functions/_shared/${sharedName}.ts`), 'utf8');
+  const source = fs.readFileSync(path.join(root, `supabase/functions/${functionName}/index.ts`), 'utf8');
   vm.runInContext(stripTypeScriptTypes(shared).replace(/^export /gm, '') + '\n' +
     stripTypeScriptTypes(source.replace(/^import[\s\S]*?from ["'][^"']+["'];\s*/gm, '')), context);
   return handler;
@@ -42,7 +43,13 @@ function fixture() {
   const state = { rows, operations: [], fail: null, fetches: 0, onFetch: null,
     provider: { id: '123', status: 'approved', transaction_amount: 59.9,
       metadata: { client_id: clientId, user_id: userId, plan_slug: 'pro' } } };
-  const client = { from(table) {
+  const client = { rpc(name, args) {
+    // SQL semantics/atomicity are exercised separately against the real API.
+    const result = state.fail?.({ table: name, operation: 'rpc', payload: args })
+      ? { data: null, error: { message: 'Synthetic RPC outage' } }
+      : { data: { applied: true }, error: null };
+    return { throwOnError: async () => { if (result.error) throw result.error; return result; } };
+  }, from(table) {
     let operation = 'select', payload, conflict, single = false, optional = false, throwing = false;
     const filters = [];
     const query = {
@@ -129,13 +136,11 @@ async function main() {
   console.log('PASS missing client/plan, zero-row write, malformed UUID and invalid signature');
 
   for (const status of ['authorized', 'cancelled']) {
-    for (const table of ['subscriptions', ...(status === 'cancelled' ? ['clients'] : []), 'audit_logs']) {
       const test = fixture(); test.state.provider.status = status;
-      test.state.fail = (call) => call.table === table && call.operation === (table === 'audit_logs' ? 'insert' : 'update');
+      test.state.fail = (call) => call.table === 'apply_mercadopago_preapproval' && call.operation === 'rpc';
       assert.equal((await test.handler(request('preapproval'))).status, 500);
       test.state.fail = null;
       assert.equal((await test.handler(request('preapproval'))).status, 200);
-    }
   }
   console.log('PASS preapproval/cancellation write failures and recovery');
 
