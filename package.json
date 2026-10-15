@@ -309,6 +309,7 @@
     "test:manual-plan-licenses": "node scripts/test-manual-plan-licenses.js",
     "test:licensing-postgres-isolated": "node scripts/test-licensing-postgres-isolated.js",
     "test:licensing-supabase-local": "node scripts/test-licensing-supabase-api.js local",
+    "test:subscription-reconciliation-local": "node scripts/test-subscription-reconciliation-api.js local",
     "test:licensing-supabase-staging": "node scripts/test-licensing-supabase-api.js staging",
     "prepare:licensing-supabase-replay": "node scripts/prepare-supabase-homolog-replay.js",
     "test:licensing-homolog-replay": "node scripts/test-supabase-homolog-replay.js",
