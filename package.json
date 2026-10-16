@@ -323,6 +323,8 @@
     "test:payment-snapshot-local": "node scripts/test-payment-snapshot-supabase-api.js local",
     "test:payment-plan-order-local": "node scripts/test-payment-plan-order-supabase-api.js local",
     "test:payment-attempt-order-local": "node scripts/test-payment-attempt-order-supabase-api.js local",
+    "test:subscription-checkout-runtime": "node scripts/test-subscription-checkout-runtime.js",
+    "test:subscription-checkout-local": "node scripts/test-subscription-checkout-supabase-api.js local",
     "test:mercadopago-cancel-authorization": "node scripts/test-mercadopago-cancel-authorization.js",
     "test:plan-cancellation-flow": "node scripts/test-plan-cancellation-flow.js",
     "test:checkout-states": "npm run test:checkout-payment-states",

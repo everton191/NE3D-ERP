@@ -44,24 +44,38 @@ function backUrl(req: Request) {
 
 async function getCurrentContext(req: Request, requestedClientId?: string) {
   const token = getBearerToken(req);
+  if (!token) throw new Error("Usuário não autenticado");
   const { data: userData, error } = await supabase.auth.getUser(token);
   if (error || !userData?.user) throw new Error("Usuário não autenticado");
 
   const userId = userData.user.id;
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("client_id, role")
+    .select("client_id, company_id, role, status")
     .eq("user_id", userId)
     .maybeSingle();
 
-  const { data: erpProfile } = await supabase
+  const { data: erpProfile, error: erpProfileError } = await supabase
     .from("erp_profiles")
-    .select("client_id, role")
+    .select("client_id, company_id, role, status")
     .eq("id", userId)
     .maybeSingle();
 
-  const isSuperadmin = profile?.role === "superadmin" || erpProfile?.role === "superadmin";
-  const linkedClientId = String(profile?.client_id || erpProfile?.client_id || "").trim();
+  const { data: superadmin, error: superadminError } = await supabase
+    .from("superadmins")
+    .select("user_id")
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (profileError || erpProfileError || superadminError) throw new Error("Não foi possível verificar o vínculo do cliente");
+  const activeProfiles = [profile, erpProfile].filter((item) => item && !["inactive", "blocked"].includes(item.status));
+  const linkedIds = [...new Set(activeProfiles.map((item) => String(item.client_id || "").trim()).filter(Boolean))];
+  if (linkedIds.length > 1) throw new Error("Vínculos de cliente conflitantes");
+  // Match the persisted authority used by erp_is_superadmin, not editable
+  // metadata or a public-profile label alone.
+  const isSuperadmin = !!superadmin || activeProfiles.some((item) => item === erpProfile && item.role === "superadmin");
+  const linkedClientId = linkedIds[0] || "";
   const requestedId = String(requestedClientId || "").trim();
   if (!isSuperadmin && requestedId && requestedId !== linkedClientId) {
     throw new Error("Cliente informado não pertence ao usuário autenticado");
@@ -70,20 +84,15 @@ async function getCurrentContext(req: Request, requestedClientId?: string) {
 
   if (!clientId) throw new Error("Cliente não vinculado");
 
-  const { data: client, error: clientError } = await supabase
-    .from("clients")
-    .select("id, client_code, email, name, responsible_name")
-    .eq("id", clientId)
-    .maybeSingle();
-
-  if (clientError || !client) throw new Error("Cliente não encontrado");
-  return { userId, client };
+  return { userId, clientId };
 }
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ ok: false }, 405);
 
+  let createdProviderId = "";
+  let providerRequestAttempted = false;
   try {
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !MERCADOPAGO_ACCESS_TOKEN) {
       throw new Error("Backend de assinatura não configurado");
@@ -93,14 +102,27 @@ serve(async (req) => {
     const plan = normalizeRequestedPlan(body.plan_id || body.plano || body.plan || body.planSlug);
     const planSlug = plan.backendPlanSlug;
 
-    const { userId, client } = await getCurrentContext(req, body.clienteId || body.clientId);
+    const { userId, clientId } = await getCurrentContext(req, body.clienteId || body.clientId);
     const billingVariant = normalizeBillingVariant(body.billing_variant || body.billingVariant, plan.requestedPlanSlug);
     const plano = getBillingVariant(billingVariant, plan.requestedPlanSlug);
     const mercadoPagoPlanId = getMercadoPagoPlanId(plan.requestedPlanSlug);
     if (plan.requestedPlanSlug === "start" && !mercadoPagoPlanId) {
       throw new Error("Plano Start sem MERCADO_PAGO_START_PLAN_ID configurado");
     }
-    const { data: planRow } = await supabase.from("plans").select("id").eq("slug", planSlug).maybeSingle();
+    // Provider aliases remain stable; the database catalog is only Start/Pro.
+    const canonicalBillingVariant = plan.requestedPlanSlug === "start" ? "start_monthly" : "pro_monthly";
+    const checkoutArgs = { p_client_id: clientId, p_actor_user_id: userId,
+      p_plan_slug: plan.requestedPlanSlug, p_billing_variant: canonicalBillingVariant };
+    // Verify server authorization, catalog and the installed persistence RPC
+    // before creating anything at the external provider.
+    const { data: context, error: contextError } = await supabase.rpc("persist_mercadopago_checkout", {
+      ...checkoutArgs, p_preapproval: null,
+    });
+    if (contextError) throw contextError;
+    if (context?.ready !== true || !context.client?.id || context.client.id !== clientId) {
+      return jsonResponse({ ok: false, error: context?.reason || "Checkout indisponível" }, 409);
+    }
+    const client = context.client;
     const externalReference = `${client.id}|${planSlug}|subscription|${billingVariant}`;
 
     const preapprovalPayload = {
@@ -129,6 +151,7 @@ serve(async (req) => {
       },
     };
 
+    providerRequestAttempted = true;
     const mpResponse = await fetch("https://api.mercadopago.com/preapproval", {
       method: "POST",
       headers: {
@@ -140,44 +163,25 @@ serve(async (req) => {
 
     const mpData = await mpResponse.json().catch(() => ({}));
     if (!mpResponse.ok) {
+      // A definite input/auth rejection did not create a contract. Timeouts,
+      // server errors and ambiguous responses must be reconciled before retry.
+      if ([400, 401, 403, 404, 405, 422].includes(mpResponse.status)) providerRequestAttempted = false;
       throw new Error(mpData.message || `Mercado Pago HTTP ${mpResponse.status}`);
     }
-
-    const { data: existing } = await supabase
-      .from("subscriptions")
-      .select("id")
-      .eq("client_id", client.id)
-      .maybeSingle();
-
-    if (existing?.id) {
-      await supabase.from("subscriptions").update({
-        plan_id: planRow?.id || null,
-        status: "pending",
-        status_assinatura: "pending",
-        user_id: userId,
-        billing_variant: billingVariant,
-        mercado_pago_subscription_id: mpData.id || null,
-        metadata: { preapproval: mpData, user_id: userId, plan_id: planSlug, requested_plan_slug: plan.requestedPlanSlug, billing_variant: billingVariant },
-      }).eq("id", existing.id);
-    } else {
-      await supabase.from("subscriptions").insert({
-        client_id: client.id,
-        user_id: userId,
-        plan_id: planRow?.id || null,
-        status: "pending",
-        status_assinatura: "pending",
-        billing_variant: billingVariant,
-        mercado_pago_subscription_id: mpData.id || null,
-        metadata: { preapproval: mpData, user_id: userId, plan_id: planSlug, requested_plan_slug: plan.requestedPlanSlug, billing_variant: billingVariant },
-      });
+    createdProviderId = typeof mpData.id === "string" ? mpData.id.trim() : "";
+    const checkoutUrl = new URL(String(mpData.init_point || ""));
+    if (!createdProviderId || checkoutUrl.protocol !== "https:"
+      || !/(^|\.)mercadopago\.com(?:\.br)?$/i.test(checkoutUrl.hostname)
+      || checkoutUrl.username || checkoutUrl.password || mpData.status !== "pending") {
+      throw new Error("Resposta de assinatura inválida; necessária reconciliação com o provedor");
     }
-
-    await supabase.from("audit_logs").insert({
-      user_id: userId,
-      client_id: client.id,
-      action: "assinatura criada",
-      details: { provider: "mercado_pago", plan: planSlug, subscription_id: mpData.id || null },
+    const { data: persisted, error: persistError } = await supabase.rpc("persist_mercadopago_checkout", {
+      ...checkoutArgs, p_preapproval: mpData,
     });
+    if (persistError) throw persistError;
+    if (persisted?.persisted !== true || !persisted.subscription_id) {
+      throw new Error("Assinatura criada no provedor sem confirmação de gravação; não repetir o checkout antes da revisão");
+    }
 
     return jsonResponse({
       ok: true,
@@ -190,6 +194,12 @@ serve(async (req) => {
       status: mpData.status || "pending",
     });
   } catch (error) {
+    // Provider and database cannot share a transaction. Never disguise an
+    // uncertain external contract as success or automatically create another.
+    if (providerRequestAttempted) return jsonResponse({ ok: false,
+      error: createdProviderId ? "CHECKOUT_PERSISTENCE_REVIEW_REQUIRED" : "CHECKOUT_PROVIDER_REVIEW_REQUIRED",
+      providerCreated: createdProviderId ? true : null, providerRequestAttempted: true,
+      subscriptionId: createdProviderId || null, retryable: false }, 503);
     return jsonResponse({ ok: false, error: error instanceof Error ? error.message : "Erro desconhecido" }, 400);
   }
 });
