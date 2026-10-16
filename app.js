@@ -29399,6 +29399,7 @@ function sincronizarAposLogin() {
 }
 
 function logoutUsuario() {
+  fecharPopup();
   const email = usuarioAtualEmail;
   const escopoAtual = getEscopoDadosAtual();
   if (escopoAtual) salvarCacheDadosUsuario(escopoAtual);

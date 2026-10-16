@@ -92,6 +92,7 @@
     "supabase:printer-monitoring:deploy-functions": "node scripts/printer-monitoring-remote-controlled.js deploy-functions",
     "supabase:printer-monitoring:validate": "node scripts/printer-monitoring-remote-controlled.js validate",
     "test:auth-hotfix": "node scripts/test-auth-hotfix.js",
+    "test:logout-account-overlays": "node scripts/test-logout-account-overlays.js",
     "test:auth-ui": "node scripts/test-auth-ui.js",
     "test:calculator-fee": "node scripts/test-calculator-extra-fee.js",
     "test:storefront-phase3": "node scripts/test-storefront-phase3.js",
