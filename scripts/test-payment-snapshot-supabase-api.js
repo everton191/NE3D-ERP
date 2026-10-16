@@ -21,6 +21,7 @@ const service = createClient(url, serviceKey, options);
 const fixtures = createFixtures(service, runId);
 const notifications = new Set();
 const paymentIds = new Set();
+const paymentCreatedAt = new Map();
 const eventKeys = new Set();
 const baseTime = Date.now() - 4 * 3600000;
 const version = (seconds) => new Date(baseTime + seconds * 1000).toISOString();
@@ -51,9 +52,12 @@ function paymentId(label) {
 
 function payload(user, id, changes = {}) {
   assert(paymentIds.has(id), 'Provider ID must belong to this invocation');
+  // Independent attempts are not simultaneous by default. Keep each provider
+  // creation instant stable across revisions; explicit tie tests live separately.
+  if (!paymentCreatedAt.has(id)) paymentCreatedAt.set(id, version(paymentCreatedAt.size / 1000));
   return {
     id, status: 'approved', transaction_amount: 59.9, payment_method_id: 'synthetic',
-    date_created: version(0), date_approved: version(20), date_last_updated: version(30),
+    date_created: paymentCreatedAt.get(id), date_approved: version(20), date_last_updated: version(30),
     metadata: { client_id: user.clientId, user_id: user.id, plan_slug: 'pro', billing_variant: 'pro_monthly' },
     ...changes,
   };
