@@ -42,17 +42,38 @@ async function run() {
   vm.runInNewContext(read("src/features/app-ui/app-ui-renderers.js"), { window });
   const noop = () => {};
   let authMarkup = "";
+  let sessionCheck;
   const publicDeps = new Proxy({
     window,
-    document: { getElementById: () => ({ querySelector: () => null }), querySelector: () => null, body: { classList: { add: noop } } },
+    document: {
+      documentElement: { dataset: { simplificaBootstrap: "ready" } },
+      getElementById: () => ({ querySelector: () => null }),
+      querySelector: () => null,
+      body: { classList: { add: noop } }
+    },
     getUsuarioAtual: () => null, getAdminLogado: () => false,
     getTelaAtual: () => "admin", isTelaPublica: () => false,
     ensureAppShellLayers: noop, setTelaAtual: noop, aplicarPersonalizacao: noop, applyViewportModeClasses: noop,
-    renderAuthPublica: () => "login-form",
+    renderAuthPublica: (options) => {
+      sessionCheck = options?.verificacaoSessao;
+      return sessionCheck ? "session-check" : "login-form";
+    },
     atualizarArvoreInterface: (_, html) => { authMarkup = html; }
   }, { get(target, key) { if (key in target) return target[key]; throw new Error(`PRE_AUTH accessed private dependency: ${String(key)}`); } });
   window.SimplificaAppUiRenderers.renderApp(publicDeps);
   assert.equal(authMarkup, "login-form");
-  console.log("Auth boundary: profile awaited, PRE_AUTH isolated and stage logs contain no user data.");
+  assert.equal(sessionCheck, undefined);
+  // The current bootstrap exposes a public session-check shell while restoring.
+  // Its DOM marker must not cause PRE_AUTH to touch authenticated dependencies.
+  publicDeps.document.documentElement.dataset.simplificaBootstrap = "restoring";
+  window.SimplificaAppUiRenderers.renderApp(publicDeps);
+  assert.equal(authMarkup, "session-check");
+  assert.equal(sessionCheck.title, "Fazendo login");
+  window.__simplificaLocalLockActive = true;
+  window.SimplificaAppUiRenderers.renderApp(publicDeps);
+  assert.equal(authMarkup, "session-check");
+  assert.equal(sessionCheck.biometric, true);
+  assert.equal(sessionCheck.title, "Confirme sua identidade");
+  console.log("Auth boundary: profile awaited; PRE_AUTH, restoration and biometric shells stay isolated; stage logs contain no user data.");
 }
 run().catch((error) => { console.error(error); process.exitCode = 1; });
