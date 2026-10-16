@@ -94,6 +94,25 @@ async function main() {
     await db.exec(old.slice(begin, finish + 4));
     await db.exec(migration("20261011151202_normalize_manual_plan_licenses.sql"));
     await db.exec(migration("20261011151604_superadmin_plan_presentation_persistence.sql"));
+    // Exercise the current manual-plan function, including the authority marker
+    // installed by the later payment-order migration, not only the October 11 body.
+    const authoritySql = migration("20261016104412_preserve_newer_paid_plan_during_late_credit.sql");
+    const authorityBegin = authoritySql.indexOf("create table private.manual_plan_projection_authority (");
+    const authorityEnd = authoritySql.indexOf("$admin_authority$;", authorityBegin);
+    assert(authorityBegin >= 0 && authorityEnd > authorityBegin);
+    await db.exec(authoritySql.slice(authorityBegin, authorityEnd + "$admin_authority$;".length));
+    const functionSnapshot = () => db.query(`select pg_get_functiondef(p.oid) as definition,
+      p.proowner, p.proacl::text as privileges, p.proconfig, p.prosecdef
+      from pg_proc p where p.oid='private.superadmin_set_plan_v2(text,text,text,timestamptz,text)'::regprocedure`);
+    const beforeMirror = (await functionSnapshot()).rows[0];
+    await db.exec(migration("20261016211251_sync_manual_plan_client_expiry.sql"));
+    const afterMirror = (await functionSnapshot()).rows[0];
+    assert.equal(afterMirror.definition.replace(
+      "    plan_expires_at = case when v_plan = 'FREE' then null else p_until end,\n    blocked_at = c.blocked_at,",
+      "    blocked_at = c.blocked_at,"), beforeMirror.definition,
+    "migration deve alterar somente o espelho do cliente, preservando o restante da funcao");
+    for (const key of ["proowner", "privileges", "proconfig", "prosecdef"])
+      assert.deepEqual(afterMirror[key], beforeMirror[key], `${key} nao pode mudar`);
 
     const objects = (await db.query(`select n.nspname, p.proname, p.prosecdef,
       p.proconfig from pg_proc p join pg_namespace n on n.oid=p.pronamespace
@@ -116,9 +135,23 @@ async function main() {
     await db.query(`insert into public.subscriptions(client_id,user_id,plan_id)
       select $1,$2,id from public.plans where slug='free'`, [ids.clientB, ids.userB]);
 
-    const callPlan = (target, action, plan, until) => asUser(db, ids.admin,
-      "select public.superadmin_update_subscription($1,$2,$3,$4::timestamptz,'Teste sintético') as license",
-      [target, action, plan, until]);
+    const callPlan = async (target, action, plan, until) => {
+      const result = await asUser(db, ids.admin,
+        "select public.superadmin_update_subscription($1,$2,$3,$4::timestamptz,'Teste sintético') as license",
+        [target, action, plan, until]);
+      const clientId = result.rows[0].license.client_id;
+      const row = (await db.query(`select c.active_plan, c.plan_expires_at as client_until,
+        s.active_plan as subscription_plan, s.plan_expires_at as subscription_until
+        from public.clients c join public.subscriptions s on s.client_id=c.id where c.id=$1`, [clientId])).rows[0];
+      assert.equal(row.active_plan, row.subscription_plan);
+      assert.equal(row.client_until?.toISOString() ?? null, row.subscription_until?.toISOString() ?? null,
+        `${action}/${plan}: cliente deve espelhar o vencimento da assinatura`);
+      const head = (await db.query(`select actor_user_id,plan_code from private.manual_plan_projection_authority
+        where client_id=$1`, [clientId])).rows[0];
+      assert.equal(head.actor_user_id, ids.admin, "autoridade manual deve ser preservada");
+      assert.equal(head.plan_code, row.active_plan.toUpperCase());
+      return result;
+    };
     const future = new Date(Date.now() + 10 * 86400000).toISOString();
     const later = new Date(Date.now() + 15 * 86400000).toISOString();
 
@@ -144,6 +177,11 @@ async function main() {
     assert.equal(lastPlanAudit.client_id, ids.clientA);
     assert.equal(lastPlanAudit.details.new_plan, "pro");
     assert(lastPlanAudit.details.new_until);
+    const free = (await callPlan(ids.userA, "SET_FREE", "FREE", null)).rows[0].license;
+    assert.equal(free.active_plan, "free");
+    assert.equal(free.premium_until, null);
+    // Regrant for the existing block/unblock and expiry regression scenarios.
+    await callPlan(ids.userA, "SET_PLAN_MANUAL", "PRO", later);
     const blocked = (await asUser(db, ids.admin,
       "select public.superadmin_update_subscription($1,'BLOCK',null,null,'Teste de bloqueio') as license",
       [ids.userA])).rows[0].license;
@@ -221,7 +259,7 @@ async function main() {
       "select private.get_effective_license_impl(null)"), /autenticado/i);
     assert.equal((await asUser(db, ids.userA,
       "select private.get_effective_license_impl(null) as license")).rows[0].license.active_plan, "free");
-    console.log("Isolated PostgreSQL: 2 migrations applied; licenses, expiry, provider guard, RLS, RPC authorization and card persistence PASS");
+    console.log("Isolated PostgreSQL: license/card migrations + manual authority section + client-expiry migration; licenses, mirrored expiry, authority/ACL preservation, provider guard, RLS, RPC authorization and card persistence PASS");
   } finally { await db.close(); }
 }
 

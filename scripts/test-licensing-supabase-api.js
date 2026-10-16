@@ -50,11 +50,31 @@ async function license(user) {
   return must(await user.client.rpc("get_effective_license"), `licenca ${user.email}`);
 }
 
+async function assertClientExpiry(user, expectedPlan, expectedUntil) {
+  const [clientResult, subscriptionResult] = await Promise.all([
+    user.client.from("clients").select("active_plan,plan_expires_at").eq("id", user.clientId).single(),
+    user.client.from("subscriptions").select("active_plan,premium_until,plan_expires_at,current_period_end,expires_at")
+      .eq("client_id", user.clientId).single()
+  ]);
+  const row = must(clientResult, "reler espelho pela sessao do cliente");
+  const subscription = must(subscriptionResult, "reler assinatura pela sessao do cliente");
+  assert.equal(row.active_plan, expectedPlan);
+  assert.equal(subscription.active_plan, expectedPlan);
+  for (const until of [row.plan_expires_at, subscription.premium_until, subscription.plan_expires_at,
+    subscription.current_period_end, subscription.expires_at]) {
+    if (expectedUntil == null) assert.equal(until, null, "Free deve limpar o vencimento persistido");
+    else assert.equal(Date.parse(until), Date.parse(expectedUntil),
+      "cliente e assinatura devem persistir a mesma validade");
+  }
+}
+
 async function setPlan(adminClient, user, action, plan, until) {
-  return must(await adminClient.rpc("superadmin_update_subscription", {
+  const result = must(await adminClient.rpc("superadmin_update_subscription", {
     target_user_id: user.id, action, plan_code: plan,
     premium_until: until, reason: `Homologacao isolada ${token}`
   }), `plano ${action}`);
+  await assertClientExpiry(user, result.active_plan, result.premium_until);
+  return result;
 }
 
 async function main() {
@@ -106,7 +126,12 @@ async function main() {
     .eq("client_id", pro.clientId), "assinaturas Pro");
   assert.equal(proRows.length, 1, "concorrencia nao pode duplicar assinatura");
   assert(Date.parse(proRows[0].premium_until) >= Date.parse(concurrentDate) - 1000);
+  await assertClientExpiry(pro, "pro", concurrentDate);
   events.push("PASS renovacao, repeticao e chamadas concorrentes no mesmo cliente");
+  assert.equal((await setPlan(admin.client, pro, "SET_FREE", "FREE", null)).active_plan, "free");
+  assert.equal((await license(pro)).active_plan, "free");
+  await setPlan(admin.client, pro, "SET_PLAN_MANUAL", "PRO", concurrentDate);
+  events.push("PASS espelho Start/Pro, renovacao, concorrencia e retorno Free relidos por cliente autenticado");
 
   must(await service.from("subscriptions")
     .update({ mercado_pago_subscription_id: `synthetic-${token}` })
@@ -115,6 +140,7 @@ async function main() {
     target_user_id: start.id, action: "SET_FREE", reason: "tentativa de rebaixamento"
   }), "rebaixar assinatura vinculada ao provedor");
   assert.equal((await license(start)).active_plan, "start");
+  await assertClientExpiry(start, "start", future);
 
   await rejected(() => common.client.rpc("superadmin_update_subscription", {
     target_user_id: pro.id, action: "SET_FREE", reason: "sem autorizacao"
@@ -130,6 +156,7 @@ async function main() {
   const crossCompany = must(await common.client.from("subscriptions").select("id")
     .eq("client_id", pro.clientId), "RLS entre empresas");
   assert.equal(crossCompany.length, 0, "usuario comum nao pode ler outra empresa");
+  await assertClientExpiry(pro, "pro", concurrentDate);
   events.push("PASS protecao Mercado Pago, RPC administrativa e isolamento RLS");
 
   planSnapshot = await snapshotPlan(service, "start");
@@ -158,6 +185,7 @@ async function main() {
   must(await proAgain.auth.signInWithPassword({ email: pro.email, password }), "novo login Pro");
   pro.client = proAgain;
   assert.equal((await license(pro)).active_plan, "pro", "licenca deve sobreviver a novo login");
+  await assertClientExpiry(pro, "pro", concurrentDate);
   events.push("PASS card persistido entre logins; licenca Pro restaurada; preco comercial intacto");
 
   const session = must(await adminAgain.auth.getSession(), "sessao para falha de rede").session;
@@ -189,6 +217,7 @@ async function main() {
     current_period_end: expiredAt, expires_at: expiredAt
   }).eq("client_id", pro.clientId), "simular vencimento em dados sinteticos");
   assert.equal((await license(pro)).active_plan, "free");
+  await assertClientExpiry(pro, "free", null);
   const expiredRow = must(await service.from("subscriptions")
     .select("active_plan,manual_override").eq("client_id", pro.clientId).single(),
   "assinatura apos vencimento");
