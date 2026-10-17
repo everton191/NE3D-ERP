@@ -107,20 +107,31 @@
     const { windowRef, documentRef, urlRef, setTimeoutRef, clearTimeoutRef } = context;
     if (typeof windowRef.print !== "function") return false;
     const blob = doc.output("blob");
-    const url = urlRef.createObjectURL(blob);
-    const iframe = documentRef.createElement("iframe");
-    iframe.title = title;
-    Object.assign(iframe.style, { position: "fixed", right: "0", bottom: "0", width: "0", height: "0", border: "0", opacity: "0" });
+    let url = "";
+    let iframe = null;
+    let loadTimer = null;
     let cleanupTimer = null;
-    const cleanup = () => { clearTimeoutRef(cleanupTimer); iframe.remove(); urlRef.revokeObjectURL(url); };
+    let cleaned = false;
+    const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
+      clearTimeoutRef(loadTimer);
+      clearTimeoutRef(cleanupTimer);
+      try { iframe?.remove(); } catch (_) {}
+      try { if (url) urlRef.revokeObjectURL(url); } catch (_) {}
+    };
     try {
+      url = urlRef.createObjectURL(blob);
+      iframe = documentRef.createElement("iframe");
+      iframe.title = title;
+      Object.assign(iframe.style, { position: "fixed", right: "0", bottom: "0", width: "0", height: "0", border: "0", opacity: "0" });
       const loaded = new Promise((resolve, reject) => {
-        const timer = setTimeoutRef(() => reject(new Error("Tempo esgotado ao preparar impressão.")), 8000);
-        iframe.onload = () => { clearTimeoutRef(timer); resolve(true); };
-        iframe.onerror = () => { clearTimeoutRef(timer); reject(new Error("Não foi possível preparar o documento para impressão.")); };
+        loadTimer = setTimeoutRef(() => reject(new Error("Tempo esgotado ao preparar impressão.")), 8000);
+        iframe.onload = () => { clearTimeoutRef(loadTimer); resolve(true); };
+        iframe.onerror = () => { clearTimeoutRef(loadTimer); reject(new Error("Não foi possível preparar o documento para impressão.")); };
+        documentRef.body.appendChild(iframe);
+        iframe.src = url;
       });
-      documentRef.body.appendChild(iframe);
-      iframe.src = url;
       await loaded;
       const printWindow = iframe.contentWindow;
       if (!printWindow?.print) throw new Error("Impressão não suportada neste navegador.");
@@ -149,14 +160,18 @@
       }
     }
     try { doc.save(safeName); return true; } catch (error) {
+      let url = "";
+      let link = null;
       try {
-        const url = context.urlRef.createObjectURL(blob);
-        const link = context.documentRef.createElement("a");
+        url = context.urlRef.createObjectURL(blob);
+        link = context.documentRef.createElement("a");
         link.href = url; link.download = safeName; link.rel = "noopener";
         context.documentRef.body.appendChild(link); link.click(); link.remove();
         context.setTimeoutRef(() => context.urlRef.revokeObjectURL(url), 60000);
         return true;
       } catch (fallbackError) {
+        try { link?.remove(); } catch (_) {}
+        try { if (url) context.urlRef.revokeObjectURL(url); } catch (_) {}
         context.logDiagnostic("pdf", "Download do PDF falhou", fallbackError.message || error.message);
         context.alertRef("Não foi possível baixar o PDF neste dispositivo. Tente abrir pelo navegador ou baixar novamente pelo pedido.");
         return false;
