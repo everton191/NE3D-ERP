@@ -222,9 +222,8 @@
         configurarMonetizacaoAds();
         ensureAppShellLayers();
         iniciarIntroAbertura();
-        // Mesmo com a sessão ainda válida, a abertura passa por uma tela de
-        // verificação. Isso deixa explícito que a identidade foi conferida antes
-        // de liberar a Home e dá uma base visual para o prompt biométrico.
+        // Inicie a restauração imediatamente. As etapas são apenas informativas
+        // enquanto login/biometria estiverem pendentes, sem duração mínima.
         const etapasVerificacao = [
           { title: "Verificando sessão", message: "Conferindo o acesso deste dispositivo...", progress: 16, step: 1 },
           { title: "Confirmando sua conta", message: "Validando credenciais protegidas...", progress: 38, step: 2 },
@@ -240,9 +239,6 @@
             try { renderApp(); } catch (erro) { failStartup(erro); }
           }, delay);
         });
-        // O WebView pode suspender requestAnimationFrame quando não está visível.
-        // A pausa visual não pode impedir o início da validação real da sessão.
-        await new Promise((resolve) => setTimeoutRef(resolve, 3000));
         if (startupFailed) return;
         configurarEventListenersArquitetura();
         configurarGestosDrawerLateral();

@@ -34,7 +34,8 @@ const functions = [
   "cacheSessaoLocalExpirou", "licencaLocalAindaConfiavel",
   "ativarTravaLocal", "desativarTravaLocal",
   "tentarDesbloqueioLocalComBiometria", "exigirDesbloqueioLocalSeNecessario",
-  "sessaoSupabaseValidaParaEmail", "restaurarCacheSessaoLocal"
+  "sessaoSupabaseValidaParaEmail", "agendarSincronizacaoPosRestauracaoSessao",
+  "restaurarCacheSessaoLocal"
 ].map(extractFunction);
 const program = [...constants, ...functions].join("\n\n");
 
@@ -47,6 +48,29 @@ function memoryStorage() {
   };
 }
 
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+function syntheticOnlineSession(overrides = {}) {
+  // The real local validator checks token presence, identity and expiry. These
+  // opaque fixture values are not signed JWTs and never reach a real server.
+  return {
+    supabaseAccessToken: "synthetic-access-not-a-real-token",
+    supabaseRefreshToken: "synthetic-refresh-not-a-real-token",
+    supabaseUserId: "synthetic-auth-user",
+    supabaseEmail: email,
+    supabaseTokenExpiresAt: now + hour,
+    ...overrides
+  };
+}
+
 function fixture(options = {}) {
   const calls = [];
   const localStorage = memoryStorage();
@@ -54,6 +78,11 @@ function fixture(options = {}) {
   const forbidden = (name) => () => {
     calls.push(`network:${name}`);
     throw new Error(`Operacao remota proibida neste teste offline: ${name}`);
+  };
+  const onlineOperation = (name, run) => async (...args) => {
+    if (!options.online) return forbidden(name)();
+    calls.push(`network:${name}`);
+    return run(...args);
   };
   class FixtureDate extends Date {
     constructor(...args) { super(...(args.length ? args : [now])); }
@@ -72,7 +101,7 @@ function fixture(options = {}) {
     sessionStorage,
     normalizarEmail: (value) => String(value || "").trim().toLowerCase(),
     normalizarUsuarios: (users) => users,
-    estaOnline: () => false,
+    estaOnline: () => options.online === true,
     isAndroid: () => true,
     ativarEscopoDadosUsuarioAtual: () => calls.push("scope"),
     registrarAtividadeSessao: () => calls.push("activity"),
@@ -81,6 +110,7 @@ function fixture(options = {}) {
     registrarDiagnostico: () => calls.push("diagnostic"),
     debugInfo: () => {},
     renderApp: () => calls.push("render"),
+    renderizarPreservandoScroll: () => calls.push("background-render"),
     fecharPopup: () => calls.push("close-popup"),
     focarCampoSenha: () => calls.push("focus-password"),
     document: { getElementById: () => null },
@@ -92,10 +122,21 @@ function fixture(options = {}) {
     },
     fetch: forbidden("fetch"),
     requisicaoSupabase: forbidden("supabase-request"),
-    renovarSessaoSupabase: forbidden("renew-session"),
-    agendarSincronizacaoPosRestauracaoSessao: forbidden("schedule-sync"),
-    sincronizarLicencaEfetivaSePossivel: forbidden("license-sync"),
-    sincronizarFilaOfflinePendente: forbidden("queue-sync")
+    renovarSessaoSupabase: onlineOperation("renew-session", async () => {
+      const renewed = await options.renewResult;
+      if (renewed) Object.assign(context.syncConfig, syntheticOnlineSession());
+      return renewed;
+    }),
+    sincronizarLicencaEfetivaSePossivel: onlineOperation("license-sync", async () => {
+      const result = await options.licenseResult;
+      calls.push("license-complete");
+      return result;
+    }),
+    sincronizarFilaOfflinePendente: onlineOperation("queue-sync", async () => {
+      const result = await options.queueResult;
+      calls.push("queue-complete");
+      return result;
+    })
   });
   vm.runInContext(program, context, { filename: "app.js:offline-session-functions" });
   const cacheKey = vm.runInContext("LOCAL_SESSION_CACHE_KEY", context);
@@ -266,7 +307,127 @@ async function main() {
     f.assertNoRemote();
   });
 
-  console.log(`OFFLINE SESSION RESTORATION: ${passed} casos PASS; funcoes reais, dados sinteticos e nenhuma operacao remota.`);
+  for (const active of [false, true]) {
+    const label = active ? "sessao ativa online" : "cache persistido online";
+    const expectedRestoreResult = active ? false : true;
+
+    await test(`${label} valida conclui antes da licenca e da fila em segundo plano`, async () => {
+      const license = deferred();
+      const queue = deferred();
+      const f = fixture({ active, online: true, session: syntheticOnlineSession(), licenseResult: license.promise, queueResult: queue.promise });
+      let settled = false;
+      const restoration = f.restore().then((result) => { settled = true; return result; });
+      await flushMicrotasks();
+      assert.equal(settled, true, "Uma sessao local valida nao deve aguardar a sincronizacao agendada");
+      // Preserve the existing active-session return contract: false here is not
+      // a failed authentication; identity is already present in that branch.
+      assert.equal(await restoration, expectedRestoreResult);
+      assert.equal(f.context.usuarioAtualEmail, email);
+      assert.equal(f.context.window.__simplificaLocalLockActive, false);
+      assert(!f.calls.includes("network:renew-session"));
+      assert(f.calls.includes("network:license-sync"));
+      assert(!f.calls.includes("license-complete"));
+      assert(!f.calls.includes("network:queue-sync"));
+      assert(!f.calls.includes("background-render"));
+      license.resolve(true);
+      await flushMicrotasks();
+      assert(f.calls.includes("license-complete"));
+      assert(f.calls.includes("network:queue-sync"));
+      assert(!f.calls.includes("queue-complete"));
+      assert(!f.calls.includes("background-render"));
+      queue.resolve(true);
+      await flushMicrotasks();
+      assert(f.calls.includes("queue-complete"));
+      assert(f.calls.includes("background-render"));
+    });
+
+    const invalidSessions = [
+      ["sem access token", { supabaseAccessToken: "" }],
+      ["expirada", { supabaseTokenExpiresAt: now + 60000 }],
+      ["com email divergente", { supabaseEmail: "other-fixture@example.invalid" }]
+    ];
+    for (const [condition, overrides] of invalidSessions) {
+      await test(`${label} ${condition} aguarda renovacao antes de restaurar`, async () => {
+        const renewal = deferred();
+        const f = fixture({ active, online: true, session: syntheticOnlineSession(overrides), renewResult: renewal.promise });
+        let settled = false;
+        const restoration = f.restore().then((result) => { settled = true; return result; });
+        await flushMicrotasks();
+        assert.equal(settled, false);
+        assert(f.calls.includes("network:renew-session"));
+        assert(!f.calls.includes("activity"));
+        assert(!f.calls.includes("network:license-sync"));
+        assert(!f.calls.includes("network:queue-sync"));
+        if (!active) {
+          assert.equal(f.context.usuarioAtualEmail, "");
+          assert.equal(f.sessionStorage.getItem("usuarioAtualEmail"), null);
+        }
+        renewal.resolve(true);
+        assert.equal(await restoration, expectedRestoreResult);
+        assert.equal(f.context.usuarioAtualEmail, email);
+        assert(f.calls.includes("activity"));
+        await flushMicrotasks();
+        assert(f.calls.includes("network:license-sync"));
+      });
+    }
+
+    for (const confirmed of [false, true]) {
+      await test(`${label} nao antecipa desbloqueio com biometria ${confirmed ? "confirmada" : "cancelada"} pendente`, async () => {
+        const biometric = deferred();
+        const f = fixture({ active, online: true, session: syntheticOnlineSession(), biometric: true, unlockAt: null, biometricResult: biometric.promise });
+        let settled = false;
+        const restoration = f.restore().then((result) => { settled = true; return result; });
+        await flushMicrotasks();
+        assert.equal(settled, false);
+        assert(f.calls.includes("biometric"));
+        assert.equal(f.context.window.__simplificaLocalLockActive, true);
+        assert.equal(f.localStorage.getItem(f.unlockKey), null);
+        assert(!f.calls.includes("network:license-sync"));
+        assert(!f.calls.includes("network:queue-sync"));
+        biometric.resolve({ disponivel: true, ok: confirmed });
+        assert.equal(await restoration, expectedRestoreResult);
+        assert.equal(f.context.window.__simplificaLocalLockActive, !confirmed);
+        assert.equal(f.localStorage.getItem(f.unlockKey), confirmed ? new Date(now).toISOString() : null);
+      });
+    }
+  }
+
+  for (const rejects of [false, true]) {
+    await test(`cache online com renovacao ${rejects ? "rejeitada" : "recusada"} nao restaura nova identidade`, async () => {
+      const renewal = deferred();
+      const f = fixture({ online: true, session: syntheticOnlineSession({ supabaseAccessToken: "" }), renewResult: renewal.promise });
+      const restoration = f.restore();
+      await flushMicrotasks();
+      if (rejects) renewal.reject(new Error("Synthetic renewal failure"));
+      else renewal.resolve(false);
+      assert.equal(await restoration, false);
+      assert.equal(f.context.usuarioAtualEmail, "");
+      assert.equal(f.sessionStorage.getItem("usuarioAtualEmail"), null);
+      assert(!f.calls.includes("activity"));
+      assert(!f.calls.includes("network:license-sync"));
+      assert(!f.calls.includes("network:queue-sync"));
+    });
+  }
+
+  for (const failingOperation of ["license", "queue"]) {
+    await test(`falha da ${failingOperation === "license" ? "licenca" : "fila"} em segundo plano nao rejeita restauracao ja concluida`, async () => {
+      const background = deferred();
+      const f = fixture({ online: true, session: syntheticOnlineSession(), [`${failingOperation}Result`]: background.promise });
+      assert.equal(await f.restore(), true);
+      await flushMicrotasks();
+      assert(f.calls.includes(`network:${failingOperation}-sync`));
+      background.reject(new Error("Synthetic background failure"));
+      await flushMicrotasks();
+      assert(f.calls.includes("diagnostic"));
+      assert(!f.calls.includes("background-render"));
+      if (failingOperation === "license") assert(!f.calls.includes("network:queue-sync"));
+      assert.equal(f.context.usuarioAtualEmail, email);
+      assert.equal(f.context.window.__simplificaLocalLockActive, false);
+      assert(!f.calls.includes("network:renew-session"));
+    });
+  }
+
+  console.log(`SESSION RESTORATION: ${passed} casos PASS; funcoes reais, dados sinteticos e nenhuma chamada a backend real.`);
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });

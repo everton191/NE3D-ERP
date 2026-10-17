@@ -136,8 +136,8 @@ function createStartupHarness(cachedUser, options = {}) {
   window.document = document;
   window.screen = { orientation: new FakeTarget() };
   window.location = { reload: () => { calls.push("reload"); } };
-  // An occluded WebView need not deliver animation frames. Startup must still
-  // run its timer, then await the normal authentication/cache boundaries.
+  // An occluded WebView need not deliver animation frames. Startup must await
+  // authentication/cache boundaries, never a timer or an animation frame.
   window.requestAnimationFrame = () => { calls.push("requestAnimationFrame"); return 1; };
   window.setTimeout = (fn, delay) => {
     const timer = { id: ++nextTimerId, fn, delay, due: clock + delay };
@@ -219,11 +219,12 @@ function createStartupHarness(cachedUser, options = {}) {
     setTelaAtual: (value) => { screen = value; },
     renderApp: () => {
       calls.push("render");
-      renders.push({
-        restoring: document.documentElement.dataset.simplificaBootstrap === "restoring",
-        step: window.__simplificaSessionCheckVisualState?.step
-      });
-      if (options.renderThrowsAt === renders.length) throw fault;
+      const restoring = document.documentElement.dataset.simplificaBootstrap === "restoring";
+      const step = window.__simplificaSessionCheckVisualState?.step;
+      const phase = restoring ? (step === 1 ? "initial" : "timer") : "final";
+      renders.push({ restoring, step, phase, clock });
+      failIfRequested(`render-${phase}`);
+      calls.push("render-complete");
     },
     recuperarPedidoRapidoAposReabertura: track("recover-order"),
     iniciarAutoBackup: track("auto-backup"),
@@ -249,6 +250,7 @@ function createStartupHarness(cachedUser, options = {}) {
     window, document, calls, timers, renders, diagnosticArguments, oauth, restore, startup, host, retryButton, fault,
     layers, introOverlay, classes,
     getScreen: () => screen,
+    getClock: () => clock,
     advanceTo(time) {
       assert(time >= clock);
       while (true) {
@@ -302,7 +304,7 @@ function assertFailureLayers(harness, label) {
 async function testStartupFailure(options, identity) {
   const harness = createStartupHarness(identity.user, { ...options, cachedAdmin: identity.admin });
   const { window, document, calls } = harness;
-  harness.advanceTo(3000);
+  if (options.faultAt === "render-timer") harness.advanceTo(700);
   await harness.startup;
   await flushPromiseCallbacks();
 
@@ -375,13 +377,13 @@ async function testStartupFailureMatrix() {
       "viewport", "navigation", "gesture-guard", "legal-route", "subscription-return", "oauth",
       "update-monitor"
     ].map((faultAt) => ({ faultAt })),
-    { label: "render-inicial", renderThrowsAt: 1 },
-    { label: "render-temporizador", renderThrowsAt: 2 },
+    { label: "render-inicial", faultAt: "render-initial" },
+    { label: "render-temporizador", faultAt: "render-timer" },
     { label: "oauth-rejeitado", trigger: "oauth-reject" },
     { label: "cache-rejeitado", trigger: "cache-reject" },
     { label: "rota-superadmin", faultAt: "superadmin-route", trigger: "after-restore" },
     { label: "rota-android", faultAt: "android-route", trigger: "after-restore" },
-    { label: "render-final", renderThrowsAt: 5, trigger: "after-restore" },
+    { label: "render-final", faultAt: "render-final", trigger: "after-restore" },
     { label: "diagnostico-indisponivel", faultAt: "telemetry", diagnosticThrows: true },
     { label: "fallback-app-shell", faultAt: "telemetry", host: "app-shell" },
     { label: "fallback-body", faultAt: "telemetry", host: "body" }
@@ -392,11 +394,73 @@ async function testStartupFailureMatrix() {
   console.log(`APP BOOTSTRAP: ${cases.length * identities.length} falhas controladas, caches preservados e recuperação somente por reload.`);
 }
 
-async function testStartupWithoutAnimationFrame(cachedUser) {
+function assertAuthenticatedTasks(harness, cachedUser) {
+  const { calls, window } = harness;
+  const authenticatedTasks = ["auto-backup", "plan-monitor", "license-monitor", "free-backup-reminder", "promotions-monitor", "session-monitor", "recover-order"];
+  for (const name of authenticatedTasks) {
+    assert.equal(calls.filter((call) => call === name).length, cachedUser ? 1 : 0,
+      `${name} deve iniciar somente com usuário restaurado`);
+  }
+  assert.equal(window.SimplificaAppBootstrap.startAuthenticated(), false,
+    "tarefas autenticadas não devem duplicar nem iniciar sem usuário");
+  assert.equal(harness.getScreen(), cachedUser ? "dashboard" : "admin");
+  if (cachedUser) {
+    assert(calls.indexOf("auto-backup") > calls.lastIndexOf("render-complete"),
+      "primeiro backup deve ser iniciado somente depois do render final saudável");
+  }
+}
+
+async function testImmediateStartupWithoutAnimationFrame(cachedUser) {
   const harness = createStartupHarness(cachedUser);
   const { window, document, calls, timers, renders } = harness;
-  assert.deepEqual(timers.map((timer) => timer.delay), [700, 1500, 2300, 3000],
-    "o temporizador de 3 segundos deve existir mesmo quando requestAnimationFrame nunca responde");
+  assert(calls.includes("architecture-listeners"),
+    "inicializadores devem começar no relógio 0, sem a antiga espera obrigatória de 3 segundos");
+  assert(calls.includes("oauth"), "a validação real deve começar imediatamente, sem esperar temporizador ou RAF");
+  assert(!calls.includes("requestAnimationFrame"));
+  assert.deepEqual(timers.map((timer) => timer.delay), [700, 1500, 2300],
+    "só as etapas visuais não bloqueantes devem ficar agendadas antes da validação");
+  await harness.startup;
+  assert.equal(window.SimplificaAppBootstrap.startAuthenticated(), false);
+  assert.equal(document.documentElement.dataset.simplificaBootstrap, "restoring");
+  assert(!calls.includes("restore-cache"), "cache deve aguardar a classificação OAuth");
+
+  harness.oauth.resolve(false);
+  await flushPromiseCallbacks();
+  assert(calls.includes("restore-cache"));
+  assert.equal(window.SimplificaAppBootstrap.startAuthenticated(), false,
+    "restauração rápida ainda pendente não pode antecipar tarefas autenticadas");
+  assert(!calls.includes("auto-backup"));
+  harness.restore.resolve(Boolean(cachedUser));
+  await flushPromiseCallbacks();
+
+  assert.equal(harness.getClock(), 0, "caminho pronto deve concluir sem avançar nenhum temporizador");
+  assert(timers.every((timer) => !timer.executed));
+  assert.equal(document.documentElement.dataset.simplificaBootstrap, undefined);
+  assert.equal(window.__simplificaSessionCheckVisualState, undefined);
+  assert.deepEqual(renders.map((render) => render.phase), ["initial", "final"],
+    "sessão pronta não deve aguardar nem renderizar etapas artificiais de progresso");
+  assert.equal(renders.at(-1).clock, 0);
+  assertAuthenticatedTasks(harness, cachedUser);
+  const renderCount = renders.length;
+  harness.advanceTo(10000);
+  await flushPromiseCallbacks();
+  assert.equal(renders.length, renderCount, "temporizadores visuais tardios não podem sobrescrever a tela pronta");
+  for (const name of ["architecture-listeners", "oauth", "restore-cache"]) {
+    assert.equal(calls.filter((call) => call === name).length, 1,
+      `${name} deve executar uma única vez na abertura rápida`);
+  }
+  assertAuthenticatedTasks(harness, cachedUser);
+  assertHealthyLayers(harness);
+}
+
+async function testPendingAuthenticationWithoutAnimationFrame(cachedUser) {
+  const harness = createStartupHarness(cachedUser);
+  const { window, document, calls, timers, renders } = harness;
+  assert.deepEqual(timers.map((timer) => timer.delay), [700, 1500, 2300],
+    "temporizadores de progresso devem permanecer disponíveis apenas como feedback não bloqueante");
+  await harness.startup;
+  assert(calls.includes("architecture-listeners"));
+  assert(calls.includes("oauth"));
   assert.equal(renders[0].step, 1);
   assert.equal(window.SimplificaAppBootstrap.startAuthenticated(), false,
     "identidade cacheada não pode iniciar tarefas antes da validação e do render saudáveis");
@@ -406,17 +470,11 @@ async function testStartupWithoutAnimationFrame(cachedUser) {
   assert.equal(renders.at(-1).step, 3);
   harness.advanceTo(2300);
   assert.equal(renders.at(-1).step, 4);
-  harness.advanceTo(2999);
+  harness.advanceTo(60000);
   await flushPromiseCallbacks();
-  assert(!calls.includes("oauth"), "verificação deve manter a duração de 3 segundos");
-  assert(!calls.includes("architecture-listeners"));
-
-  harness.advanceTo(3000);
-  await harness.startup;
-  assert(calls.includes("architecture-listeners"), "startup deve continuar sem um quadro de animação");
-  assert(calls.includes("oauth"));
   assert(!calls.includes("restore-cache"), "cache deve aguardar o retorno OAuth");
-  assert.equal(document.documentElement.dataset.simplificaBootstrap, "restoring");
+  assert.equal(document.documentElement.dataset.simplificaBootstrap, "restoring",
+    "mesmo após todos os temporizadores, OAuth pendente deve manter o acesso bloqueado");
   assert(!calls.includes("auto-backup"), "tarefas autenticadas devem aguardar a restauração");
   assert.equal(window.SimplificaAppBootstrap.startAuthenticated(), false,
     "o starter público deve continuar bloqueado enquanto OAuth/cache não terminam");
@@ -425,6 +483,8 @@ async function testStartupWithoutAnimationFrame(cachedUser) {
   await flushPromiseCallbacks();
   assert(calls.includes("restore-cache"));
   assert(!calls.includes("superadmin-route"));
+  harness.advanceTo(120000);
+  await flushPromiseCallbacks();
   assert.equal(document.documentElement.dataset.simplificaBootstrap, "restoring",
     "o temporizador visual não pode encerrar uma restauração ainda pendente");
   assert.equal(window.__simplificaSessionCheckVisualState.step, 4);
@@ -440,24 +500,12 @@ async function testStartupWithoutAnimationFrame(cachedUser) {
   assert(calls.indexOf("superadmin-route") > calls.indexOf("restore-cache"));
   assert(calls.indexOf("android-route") > calls.indexOf("restore-cache"));
   assert(!calls.includes("diagnostic"));
-  const authenticatedTasks = ["auto-backup", "plan-monitor", "license-monitor", "free-backup-reminder", "promotions-monitor", "session-monitor", "recover-order"];
-  for (const name of authenticatedTasks) {
-    assert.equal(calls.filter((call) => call === name).length, cachedUser ? 1 : 0,
-      `${name} deve iniciar somente com usuário restaurado`);
-  }
-  assert.equal(window.SimplificaAppBootstrap.startAuthenticated(), false,
-    "tarefas autenticadas não devem duplicar nem iniciar sem usuário");
-  assert.equal(harness.getScreen(), cachedUser ? "dashboard" : "admin");
-  if (cachedUser) {
-    assert(calls.indexOf("auto-backup") > calls.lastIndexOf("render"),
-      "primeiro backup deve ser iniciado somente depois do render final saudável");
-  }
+  assertAuthenticatedTasks(harness, cachedUser);
   assertHealthyLayers(harness);
 }
 
 async function testHandledOAuthRemainsHealthy(cachedUser) {
   const harness = createStartupHarness(cachedUser, { oauthAttemptsStarter: true });
-  harness.advanceTo(3000);
   await harness.startup;
   harness.oauth.resolve(true);
   await flushPromiseCallbacks();
@@ -481,8 +529,10 @@ async function testHandledOAuthRemainsHealthy(cachedUser) {
 
 (async () => {
   testFailureBoundaryContract();
-  await testStartupWithoutAnimationFrame(null);
-  await testStartupWithoutAnimationFrame({ id: "cached-fixture" });
+  await testImmediateStartupWithoutAnimationFrame(null);
+  await testImmediateStartupWithoutAnimationFrame({ id: "cached-fixture" });
+  await testPendingAuthenticationWithoutAnimationFrame(null);
+  await testPendingAuthenticationWithoutAnimationFrame({ id: "cached-fixture" });
   await testHandledOAuthRemainsHealthy(null);
   await testHandledOAuthRemainsHealthy({ id: "oauth-fixture" });
   await testStartupFailureMatrix();
@@ -491,7 +541,7 @@ async function testHandledOAuthRemainsHealthy(cachedUser) {
       { label: "usuario-cacheado", user: { id: "cached-fixture" }, admin: false });
   }
   console.log("APP BOOTSTRAP: 2 falhas de monitores controladas; camadas limpas apenas em falha; starter aguarda render saudável.");
-  console.log("APP BOOTSTRAP: 3 segundos sem RAF, OAuth/cache aguardados e tarefas autenticadas protegidas.");
+  console.log("APP BOOTSTRAP: caminho pronto no relógio 0 sem RAF; OAuth/cache pendentes continuam bloqueados após 120 segundos simulados.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
 // HERMES_PHASE0_TEST 
 
