@@ -2,7 +2,36 @@
   "use strict";
 
   let started = false;
+  let startupFailed = false;
+  let bootstrapDocument = global.document;
   let startAuthenticated = () => false;
+
+  function renderFailure() {
+    if (!startupFailed) return false;
+    const root = bootstrapDocument.getElementById?.("app")
+      || bootstrapDocument.getElementById?.("app-shell") || bootstrapDocument.body;
+    if (!root) return true;
+    bootstrapDocument.body?.classList?.add("auth-screen-active");
+    for (const id of ["modal-layer", "drawer-layer", "overlay-layer", "toast-layer"]) {
+      const layer = bootstrapDocument.getElementById?.(id);
+      if (!layer) continue;
+      layer.innerHTML = "";
+      layer.classList?.remove?.("is-active");
+    }
+    bootstrapDocument.body?.classList?.remove?.("app-modal-open", "app-drawer-open", "app-layer-open");
+    bootstrapDocument.getElementById?.("introOverlay")?.remove?.();
+    bootstrapDocument.querySelector?.("[data-ai-assistant-shortcut]")?.remove();
+    // Independente dos inicializadores e do renderer que podem ter falhado.
+    // Só uma nova abertura reinicia o fluxo; cache não equivale a sessão validada.
+    root.innerHTML = `<section class="auth-page" aria-label="Falha na abertura">
+      <div class="auth-card card" role="alert">
+        <h1>Não foi possível abrir o aplicativo</h1>
+        <p>Não conseguimos concluir a verificação com segurança. Tente novamente.</p>
+        <button id="bootstrapRetryBtn" class="btn auth-primary primary" type="button" onclick="location.reload()">Tentar novamente</button>
+      </div>
+    </section>`;
+    return true;
+  }
 
   function start(context = {}) {
     if (started) return false;
@@ -77,6 +106,19 @@
       finalizarJanelaDashboard,
       finalizarCalculadora
     } = context;
+    bootstrapDocument = documentRef;
+
+    const failStartup = (erro) => {
+      if (startupFailed) return;
+      startupFailed = true;
+      documentRef.documentElement.dataset.simplificaBootstrap = "failed";
+      delete global.__simplificaSessionCheckVisualState;
+      renderFailure();
+      try {
+        // Mensagens arbitrárias de erro podem carregar dados da sessão.
+        registrarDiagnostico("Bootstrap", "Abertura interrompida com acesso bloqueado", erro instanceof TypeError ? "TypeError" : "STARTUP_FAILED", { silent: true });
+      } catch (_) { /* A falha da telemetria não pode impedir a recuperação. */ }
+    };
 
     global.addEventListener("resize", () => {
       clearTimeoutRef(getResizeTimer());
@@ -102,6 +144,7 @@
     }
 
     const persistLocalState = () => {
+      if (startupFailed) return;
       storefrontFlushAutosaveNow();
       salvarRascunhoPedidoRapidoLocal({ force: true });
       salvarCacheSessaoLocal();
@@ -110,6 +153,7 @@
 
     global.addEventListener("pagehide", persistLocalState);
     documentRef.addEventListener("visibilitychange", () => {
+      if (startupFailed) return;
       if (documentRef.visibilityState === "hidden") {
         persistLocalState();
       } else if (documentRef.visibilityState === "visible" && getUsuarioAtual()) {
@@ -124,6 +168,7 @@
     });
 
     global.addEventListener("online", () => {
+      if (startupFailed) return;
       if (!getUsuarioAtual()) return;
       atualizarIndicadorSincronizacao("syncing", "Reconectando");
       atualizarStorefrontConnectionBadge();
@@ -137,6 +182,7 @@
     });
 
     global.addEventListener("offline", () => {
+      if (startupFailed) return;
       if (!getUsuarioAtual()) return;
       salvarRascunhoPedidoRapidoLocal({ force: true });
       atualizarStorefrontConnectionBadge();
@@ -150,84 +196,95 @@
 
     let authenticatedStarted = false;
     startAuthenticated = () => {
-      if (authenticatedStarted || !getUsuarioAtual()) return false;
+      if (startupFailed || documentRef.documentElement?.dataset.simplificaBootstrap === "restoring"
+        || authenticatedStarted || !getUsuarioAtual()) return false;
       authenticatedStarted = true;
       iniciarAutoBackup();
       iniciarMonitorPlanoSaas();
       iniciarMonitorLicencaOnline();
       iniciarLembreteBackupPlanoFree();
       iniciarMonitorPromocoes3d();
-      setTimeoutRef(verificarBancosDadosAoEntrar, 1800);
+      setTimeoutRef(() => {
+        if (!startupFailed) verificarBancosDadosAoEntrar();
+      }, 1800);
       monitorarSessao();
       return true;
     };
     documentRef.addEventListener("DOMContentLoaded", async () => {
       documentRef.documentElement.dataset.simplificaBootstrap = "restoring";
-      if (global.UiV3Dev?.isRoute) {
-        global.UiV3Dev.mount();
-        return;
-      }
-      configurarTelemetriaErros();
-      processarRetornoOAuthMercadoLivre();
-      configurarMonetizacaoAds();
-      ensureAppShellLayers();
-      iniciarIntroAbertura();
-      // Mesmo com a sessão ainda válida, a abertura passa por uma tela de
-      // verificação. Isso deixa explícito que a identidade foi conferida antes
-      // de liberar a Home e dá uma base visual para o prompt biométrico.
-      const etapasVerificacao = [
-        { title: "Verificando sessão", message: "Conferindo o acesso deste dispositivo...", progress: 16, step: 1 },
-        { title: "Confirmando sua conta", message: "Validando credenciais protegidas...", progress: 38, step: 2 },
-        { title: "Preparando seu espaço", message: "Restaurando suas preferências...", progress: 66, step: 3 },
-        { title: "Quase pronto", message: "Finalizando a entrada com segurança...", progress: 90, step: 4 }
-      ];
-      global.__simplificaSessionCheckVisualState = etapasVerificacao[0];
-      renderApp();
-      [700, 1500, 2300].forEach((delay, index) => {
-        setTimeoutRef(() => {
-          if (documentRef.documentElement.dataset.simplificaBootstrap !== "restoring") return;
-          global.__simplificaSessionCheckVisualState = etapasVerificacao[index + 1];
-          renderApp();
-        }, delay);
-      });
-      // O WebView pode suspender requestAnimationFrame quando não está visível.
-      // A pausa visual não pode impedir o início da validação real da sessão.
-      await new Promise((resolve) => setTimeoutRef(resolve, 3000));
-      configurarEventListenersArquitetura();
-      configurarGestosDrawerLateral();
-      configurarMenusContextuaisProdutosLoja();
-      configurarAtalhosOperacionais();
-      configurarViewportOperacionalMobile();
-      configurarNavegacaoInternaApp();
-      configurarProtecaoGestosMobile();
-      processarRotaPublicaLegal();
-      processarParametrosAssinaturaUrl();
-      processarRetornoOAuthSupabase().then(async (processou) => {
-        if (!processou) {
-          await restaurarCacheSessaoLocal();
-          processarRotaSuperadminInicial();
-          normalizarTelaInicialAndroid();
-          if (!getUsuarioAtual() && !getAdminLogado() && getTelaAtual() === "dashboard") setTelaAtual("admin");
-          if (getUsuarioAtual()) {
-            startAuthenticated();
-            recuperarPedidoRapidoAposReabertura();
-          }
+      try {
+        if (global.UiV3Dev?.isRoute) {
+          global.UiV3Dev.mount();
+          return;
         }
-      }).catch((erro) => {
-        registrarDiagnostico("Bootstrap", "Restauração inicial não concluída", erro?.message || String(erro), { silent: true });
-      }).finally(() => {
-        delete global.__simplificaSessionCheckVisualState;
-        delete documentRef.documentElement.dataset.simplificaBootstrap;
+        configurarTelemetriaErros();
+        processarRetornoOAuthMercadoLivre();
+        configurarMonetizacaoAds();
+        ensureAppShellLayers();
+        iniciarIntroAbertura();
+        // Mesmo com a sessão ainda válida, a abertura passa por uma tela de
+        // verificação. Isso deixa explícito que a identidade foi conferida antes
+        // de liberar a Home e dá uma base visual para o prompt biométrico.
+        const etapasVerificacao = [
+          { title: "Verificando sessão", message: "Conferindo o acesso deste dispositivo...", progress: 16, step: 1 },
+          { title: "Confirmando sua conta", message: "Validando credenciais protegidas...", progress: 38, step: 2 },
+          { title: "Preparando seu espaço", message: "Restaurando suas preferências...", progress: 66, step: 3 },
+          { title: "Quase pronto", message: "Finalizando a entrada com segurança...", progress: 90, step: 4 }
+        ];
+        global.__simplificaSessionCheckVisualState = etapasVerificacao[0];
         renderApp();
-      });
-      iniciarMonitorAtualizacao();
-      documentRef.addEventListener("pointermove", moverJanelaDashboard);
-      documentRef.addEventListener("pointermove", moverCalculadora);
-      documentRef.addEventListener("pointerdown", verificarDuploToqueForaCalculadora);
-      documentRef.addEventListener("pointerup", finalizarJanelaDashboard);
-      documentRef.addEventListener("pointerup", finalizarCalculadora);
-      documentRef.addEventListener("pointercancel", finalizarJanelaDashboard);
-      documentRef.addEventListener("pointercancel", finalizarCalculadora);
+        [700, 1500, 2300].forEach((delay, index) => {
+          setTimeoutRef(() => {
+            if (documentRef.documentElement.dataset.simplificaBootstrap !== "restoring") return;
+            global.__simplificaSessionCheckVisualState = etapasVerificacao[index + 1];
+            try { renderApp(); } catch (erro) { failStartup(erro); }
+          }, delay);
+        });
+        // O WebView pode suspender requestAnimationFrame quando não está visível.
+        // A pausa visual não pode impedir o início da validação real da sessão.
+        await new Promise((resolve) => setTimeoutRef(resolve, 3000));
+        if (startupFailed) return;
+        configurarEventListenersArquitetura();
+        configurarGestosDrawerLateral();
+        configurarMenusContextuaisProdutosLoja();
+        configurarAtalhosOperacionais();
+        configurarViewportOperacionalMobile();
+        configurarNavegacaoInternaApp();
+        configurarProtecaoGestosMobile();
+        processarRotaPublicaLegal();
+        processarParametrosAssinaturaUrl();
+        iniciarMonitorAtualizacao();
+        documentRef.addEventListener("pointermove", moverJanelaDashboard);
+        documentRef.addEventListener("pointermove", moverCalculadora);
+        documentRef.addEventListener("pointerdown", verificarDuploToqueForaCalculadora);
+        documentRef.addEventListener("pointerup", finalizarJanelaDashboard);
+        documentRef.addEventListener("pointerup", finalizarCalculadora);
+        documentRef.addEventListener("pointercancel", finalizarJanelaDashboard);
+        documentRef.addEventListener("pointercancel", finalizarCalculadora);
+        processarRetornoOAuthSupabase().then(async (processou) => {
+          if (startupFailed) return;
+          if (!processou) {
+            await restaurarCacheSessaoLocal();
+            if (startupFailed) return;
+            processarRotaSuperadminInicial();
+            normalizarTelaInicialAndroid();
+            if (!getUsuarioAtual() && !getAdminLogado() && getTelaAtual() === "dashboard") setTelaAtual("admin");
+            if (getUsuarioAtual()) {
+              recuperarPedidoRapidoAposReabertura();
+            }
+          }
+        }).catch(failStartup).finally(() => {
+          delete global.__simplificaSessionCheckVisualState;
+          if (startupFailed) { renderFailure(); return; }
+          delete documentRef.documentElement.dataset.simplificaBootstrap;
+          try {
+            renderApp();
+            startAuthenticated();
+          } catch (erro) { failStartup(erro); }
+        });
+      } catch (erro) {
+        failStartup(erro);
+      }
     });
 
     global.addEventListener("error", (event) => {
@@ -240,5 +297,5 @@
     return true;
   }
 
-  global.SimplificaAppBootstrap = Object.freeze({ start, startAuthenticated: () => startAuthenticated() });
+  global.SimplificaAppBootstrap = Object.freeze({ start, startAuthenticated: () => startAuthenticated(), hasFailed: () => startupFailed, renderFailure });
 })(window);

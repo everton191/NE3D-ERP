@@ -5163,6 +5163,7 @@ salvarDados();
 const SUPERADMIN_MAINTENANCE_SESSION_KEY = "simplificaSuperadminMaintenanceSession";
 
 function getUsuarioSessaoReal() {
+  if (window.SimplificaAppBootstrap?.hasFailed?.()) return null;
   const emailAtual = normalizarEmail(usuarioAtualEmail);
   if (!emailAtual) return null;
   usuarios = normalizarUsuarios(usuarios);
@@ -13252,6 +13253,7 @@ function atualizarPainelMonitorPromocoes3d() {
 function agendarAtualizacaoPromocoes3d() {
   if (promotions3dRefreshTimer) clearTimeout(promotions3dRefreshTimer);
   promotions3dRefreshTimer = setTimeout(() => {
+    if (window.SimplificaAppBootstrap?.hasFailed?.()) return;
     if (!estaOnline()) {
       agendarAtualizacaoPromocoes3d();
       return;
@@ -13264,6 +13266,7 @@ function iniciarMonitorPromocoes3d() {
   carregarMonitorPromocoes3d();
   atualizarIndicadoresMenuPromocoes3d();
   setTimeout(() => {
+    if (window.SimplificaAppBootstrap?.hasFailed?.()) return;
     if ((getUsuarioAtual() || adminLogado) && estaOnline()) {
       carregarPromocoes3d({ force: true, background: true });
       return;
@@ -29520,6 +29523,7 @@ function logoutUsuario() {
 }
 
 function registrarAtividadeSessao() {
+  if (window.SimplificaAppBootstrap?.hasFailed?.()) return;
   if (!usuarioAtualEmail && !adminLogado) return;
   sessionStorage.setItem("sessionLastActivity", String(Date.now()));
   const ultimo = Date.parse(syncConfig.lastActivityAt || 0) || 0;
@@ -29533,6 +29537,7 @@ function monitorarSessao() {
   if (sessionTimer) clearInterval(sessionTimer);
   window.SimplificaAppDomainEvents.configureSessionMonitor({ document, deps: { registrarAtividadeSessao } });
   sessionTimer = setInterval(() => {
+    if (window.SimplificaAppBootstrap?.hasFailed?.()) return;
     if (!usuarioAtualEmail && !adminLogado) return;
     const ultimo = Number(sessionStorage.getItem("sessionLastActivity") || Date.now());
     const inativo = Date.now() - ultimo;
@@ -31548,6 +31553,7 @@ function obterIntervaloAutoBackupMs() {
 }
 
 function iniciarAutoBackup() {
+  if (window.SimplificaAppBootstrap?.hasFailed?.()) return;
   if (autoBackupTimer) {
     clearInterval(autoBackupTimer);
     autoBackupTimer = null;
@@ -31575,6 +31581,7 @@ function iniciarAutoBackup() {
 }
 
 async function executarAutoBackup(forcar = false) {
+  if (window.SimplificaAppBootstrap?.hasFailed?.()) return;
   if ((!syncConfig.autoBackupEnabled && !forcar) || autoBackupRodando) return;
 
   autoBackupRodando = true;
@@ -39040,6 +39047,7 @@ function processarRotaPublicaLegal() {
 function iniciarMonitorPlanoSaas() {
   verificarVencimentoPlanoLocal(true);
   setInterval(() => {
+    if (window.SimplificaAppBootstrap?.hasFailed?.()) return;
     verificarVencimentoPlanoLocal(true);
   }, 24 * 60 * 60 * 1000);
 }

@@ -93,6 +93,7 @@
     "supabase:printer-monitoring:validate": "node scripts/printer-monitoring-remote-controlled.js validate",
     "test:auth-hotfix": "node scripts/test-auth-hotfix.js",
     "test:app-bootstrap": "node scripts/test-app-bootstrap.js",
+    "test:bootstrap-background-boundary": "node scripts/test-bootstrap-background-boundary.js",
     "test:offline-session-restoration": "node scripts/test-offline-session-restoration.js",
     "test:logout-account-overlays": "node scripts/test-logout-account-overlays.js",
     "test:auth-ui": "node scripts/test-auth-ui.js",

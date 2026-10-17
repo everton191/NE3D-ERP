@@ -103,3 +103,8 @@ anterior documentado no [relatório de instalação](android-instalacao-local-20
 
 Sem migrações, escrita em banco, publicação, AAB, push, deploy ou ativação de IA.
 `apps/opticore` preexistente preservado. **Não pronto para publicar.**
+
+Continuação posterior: o item 3 foi corrigido e testado localmente no
+[relatório de recuperação segura](android-bootstrap-recovery-2026-10-17.md).
+Validação física dos dois ajustes continua pendente; este texto preserva o
+estado histórico da primeira correção.

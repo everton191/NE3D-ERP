@@ -74,6 +74,38 @@ async function run() {
   assert.equal(authMarkup, "session-check");
   assert.equal(sessionCheck.biometric, true);
   assert.equal(sessionCheck.title, "Confirme sua identidade");
-  console.log("Auth boundary: profile awaited; PRE_AUTH, restoration and biometric shells stay isolated; stage logs contain no user data.");
+  // A failed bootstrap must not enter the normal shell, even with a stale
+  // identity or another broken initializer. Recovery is owned by bootstrap.
+  publicDeps.document.documentElement.dataset.simplificaBootstrap = "failed";
+  window.SimplificaAppBootstrap = {
+    renderFailure() { authMarkup = "startup-failed"; return true; }
+  };
+  publicDeps.ensureAppShellLayers = () => { throw new Error("failed startup cannot initialize the private shell"); };
+  publicDeps.getUsuarioAtual = () => { throw new Error("failed startup cannot resolve cached identity"); };
+  window.SimplificaAppUiRenderers.renderApp(publicDeps);
+  assert.equal(authMarkup, "startup-failed");
+
+  const getterSource = read("app.js").match(/^function getUsuarioSessaoReal\(\) \{[\s\S]*?^\}/m)?.[0];
+  assert(getterSource, "canonical session getter must exist");
+  const stored = new Map([["simplificaSuperadminAuthenticated", "true"]]);
+  let failed = true;
+  const cachedUser = { email: "cached-fixture@example.invalid", ativo: true, papel: "user" };
+  const getterContext = {
+    window: { SimplificaAppBootstrap: { hasFailed: () => failed } },
+    usuarioAtualEmail: cachedUser.email,
+    usuarios: [cachedUser],
+    normalizarEmail: (value) => String(value || "").toLowerCase(),
+    normalizarUsuarios: (value) => value,
+    sessionStorage: { getItem: (key) => stored.get(key) }
+  };
+  vm.runInNewContext(getterSource, getterContext);
+  assert.equal(getterContext.getUsuarioSessaoReal(), null, "failed startup must mask cached user and superadmin identity");
+  assert.equal(getterContext.usuarioAtualEmail, cachedUser.email, "do not erase persisted/active identity during failure recovery");
+  assert.equal(stored.get("simplificaSuperadminAuthenticated"), "true", "do not mutate session storage during failure recovery");
+  failed = false;
+  assert.equal(getterContext.getUsuarioSessaoReal().papel, "superadmin", "healthy startup must retain the existing identity rules");
+  stored.delete("simplificaSuperadminAuthenticated");
+  assert.equal(getterContext.getUsuarioSessaoReal().papel, "user");
+  console.log("Auth boundary: profile awaited; PRE_AUTH, restoration, biometric and failed-startup shells stay isolated; stage logs contain no user data.");
 }
 run().catch((error) => { console.error(error); process.exitCode = 1; });

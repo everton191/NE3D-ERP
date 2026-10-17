@@ -24,6 +24,7 @@
   }
 
   function renderApp(deps) {
+    if (deps.window.SimplificaAppBootstrap?.renderFailure?.()) return;
     deps.ensureAppShellLayers();
     const app = deps.document.getElementById("app");
     if (!app) return;
