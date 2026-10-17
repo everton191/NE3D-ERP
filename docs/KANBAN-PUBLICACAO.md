@@ -80,6 +80,7 @@ credenciais sandbox e assinatura são dependências externas, não PASS presumid
 | 16/10/2026 | K03/K04 | Continuação: formulário, persistência, cancelamento, falha de conexão e novo login PASS local. Catálogo carregou via RPC; sync canônico corrigido após reprodução visual. 5.040 ordens e oito syncs em memória PASS; integração Auth/API real repetida PASS. Commits `85fe056` e `183ccdb`; ver relatório da continuação. |
 | 16/10/2026 | K02 | Logout real pelo perfil deixou login sem overlay/identidade anterior; novo login funcionou no navegador integrado local. |
 | 16/10/2026 | K05 | Após inventário somente leitura, usuário escolheu continuar apenas com correções locais. Staging e sandbox permanecem sem homologação nesta rodada. |
+| 16/10/2026 | Interface Superadmin | Controles proporcionais e simplificação local sem remover funções; 12 áreas e 7 submenus de empresa percorridos no navegador, mobile e desktop. Ver [relatório de interface](superadmin-interface-2026-10-16.md). Não altera os gates de staging/Android/publicação. |
 
 ### Falhas antigas dos testes — corrigidas
 

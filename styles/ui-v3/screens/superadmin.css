@@ -16,4 +16,144 @@
 body[data-theme="dark"] [data-ui-version="v3"].ui3-superadmin :where(.superadmin-sidebar-action,.superadmin-kpi-card,.superadmin-overview-card,.superadmin-attention-card,.superadmin-system-card,.superadmin-plan-card,.superadmin-recent-row,.clients-saas-panel,.superadmin-maintenance-console,.superadmin-profile-card,.superadmin-company-metric,.client-admin-row){background:var(--ui3-surface)!important;color:var(--ui3-text)!important;border-color:var(--ui3-border)!important}
 body[data-theme="dark"] [data-ui-version="v3"].ui3-superadmin :where(.superadmin-kpi-card,.superadmin-overview-card,.superadmin-plan-card,.superadmin-recent-row) :where(h2,h3,strong,p,small,em){color:inherit}
 @media(max-width:1080px){[data-ui-version="v3"].ui3-superadmin{grid-template-columns:minmax(0,1fr)}[data-ui-version="v3"].ui3-superadmin .superadmin-platform-sidebar{display:none}}
-@media(max-width:767px){[data-ui-version="v3"].ui3-superadmin{width:100%;min-height:100%;display:block;border:0;border-radius:0}[data-ui-version="v3"].ui3-superadmin .superadmin-platform-topbar{position:static;padding:calc(var(--ui3-space-3) + var(--ui3-safe-top)) var(--ui3-space-3) var(--ui3-space-3)}[data-ui-version="v3"].ui3-superadmin .superadmin-platform-content{overflow:visible;padding:var(--ui3-space-3) var(--ui3-space-3) calc(var(--ui3-space-6) + var(--ui3-bottom-nav-height) + var(--ui3-safe-bottom))}[data-ui-version="v3"].ui3-superadmin .superadmin-kpi-grid>*{grid-column:span 1}[data-ui-version="v3"].ui3-superadmin .superadmin-kpi-card{min-height:0;padding:var(--ui3-space-2)}[data-ui-version="v3"].ui3-superadmin .superadmin-kpi-card :is(strong,small){overflow-wrap:anywhere}[data-ui-version="v3"].ui3-superadmin .superadmin-placeholder-grid>*{grid-column:span 2}[data-ui-version="v3"].ui3-superadmin .superadmin-secondary-shortcuts>*{grid-column:span 2}[data-ui-version="v3"].ui3-superadmin .superadmin-company-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-rows:auto}[data-ui-version="v3"].ui3-superadmin .superadmin-company-actions>.btn{height:auto!important;min-height:42px!important;padding:6px 8px!important;overflow:visible!important;line-height:1.15!important;white-space:normal!important;text-overflow:clip}[data-ui-version="v3"].ui3-superadmin .superadmin-company-actions>.btn:last-child{grid-column:1/-1!important}}
+
+/* One compact control scale for the platform, without changing ERP controls.
+   Important declarations only override legacy/shared action sizing. */
+body.app-shell-ready [data-ui-version="v3"].ui3-superadmin{
+  --sa-control-height:40px;
+}
+body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .superadmin-platform-page-title{
+  display:grid;
+  grid-template-columns:32px minmax(0,1fr);
+  gap:4px 8px;
+}
+body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .superadmin-platform-mark{width:32px;height:32px;border-radius:10px}
+body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .superadmin-platform-page-title em{grid-column:2;justify-self:start;min-height:20px;padding:2px 6px;font-size:10px}
+body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .superadmin-platform-erp{
+  width:auto;
+  min-height:var(--sa-control-height)!important;
+  height:auto!important;
+  padding:8px 12px!important;
+  font-size:13px!important;
+}
+body.app-shell-ready [data-ui-version="v3"].ui3-superadmin :is(.superadmin-platform-nav-item,.superadmin-sidebar-action){
+  min-height:48px;
+  padding:7px 10px;
+  border-radius:10px;
+  box-shadow:none;
+}
+body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .superadmin-module-widget{
+  min-height:80px;
+  padding:10px;
+  border-radius:12px;
+  background:var(--ui3-surface);
+  box-shadow:none;
+}
+body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .superadmin-module-widget-icon{
+  width:32px;
+  height:32px;
+  border-radius:9px;
+}
+body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .superadmin-module-widget-copy strong{font-size:20px}
+body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .sync-grid:has(>.field:only-child){grid-template-columns:minmax(0,1fr)!important}
+body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .superadmin-platform-content :is(.btn,.superadmin-profile-danger,.profile-action-row){
+  min-width:0;
+  max-width:100%;
+  min-height:var(--sa-control-height)!important;
+  height:auto!important;
+  padding:8px 12px!important;
+  border-radius:10px!important;
+  font-size:13px!important;
+  line-height:1.3!important;
+  white-space:normal!important;
+  overflow-wrap:break-word;
+}
+body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .superadmin-platform-content .btn svg{
+  width:18px;
+  height:18px;
+  flex-shrink:0;
+}
+/* Match the shared action-bar exclusions so its four-column !important grid
+   cannot stretch these local action groups or strand the last action. */
+body.app-shell-ready [data-ui-version="v3"].ui3-superadmin :is(
+  .actions:not(.quick-actions):not(.pagination-actions):not(.compact-actions):not(.stacked-actions):not(.legal-actions):not(.superadmin-company-actions),
+  .superadmin-company-actions,.superadmin-profile-hero-actions,.superadmin-plan-actions
+){
+  display:flex!important;
+  flex-wrap:wrap;
+  grid-auto-rows:auto;
+  align-items:center!important;
+  gap:8px!important;
+}
+body.app-shell-ready [data-ui-version="v3"].ui3-superadmin :is(
+  .actions:not(.quick-actions):not(.pagination-actions):not(.compact-actions):not(.stacked-actions):not(.legal-actions):not(.superadmin-company-actions),
+  .superadmin-company-actions,.superadmin-profile-hero-actions,.superadmin-plan-actions
+)>:is(button,.btn){
+  width:auto!important;
+  max-width:100%!important;
+  min-width:0!important;
+  min-height:var(--sa-control-height)!important;
+  height:auto!important;
+  grid-column:auto!important;
+  padding:8px 12px!important;
+  overflow:visible!important;
+  font-size:13px!important;
+  line-height:1.3!important;
+  white-space:normal!important;
+}
+body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .superadmin-plan-actions>.btn{
+  flex:1 1 10rem;
+}
+body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .superadmin-plan-remote-panel>.row-title>.btn{width:auto;justify-self:start}
+body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .superadmin-plan-remote-price{
+  display:grid;
+  gap:4px;
+}
+body.app-shell-ready [data-ui-version="v3"].ui3-superadmin :is(.superadmin-plan-price,.superadmin-plan-remote-price){
+  min-width:0;
+  flex-wrap:wrap;
+  overflow-wrap:anywhere;
+}
+body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .superadmin-plan-stats>span{
+  min-width:0;
+  padding:8px;
+  overflow-wrap:break-word;
+}
+body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .superadmin-action-menu-panel .btn{
+  width:100%;
+}
+body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .superadmin-action-menu-trigger{
+  width:var(--sa-control-height)!important;
+  min-width:var(--sa-control-height)!important;
+  min-height:var(--sa-control-height)!important;
+  height:auto!important;
+}
+body.app-shell-ready [data-ui-version="v3"].ui3-superadmin :is(.superadmin-action-menu.is-compact,.superadmin-user-actions){width:var(--sa-control-height)!important;min-width:var(--sa-control-height)!important}
+body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .superadmin-user-card{grid-template-columns:minmax(0,1fr) auto var(--sa-control-height)!important}
+body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .client-admin-row .row-actions{grid-template-columns:repeat(2,minmax(0,1fr)) var(--sa-control-height)!important}
+body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .superadmin-platform-content .client-admin-row :is(.row-actions .btn,.superadmin-action-menu-trigger){
+  min-height:var(--sa-control-height)!important;
+  height:auto!important;
+  padding:8px 10px!important;
+  font-size:13px!important;
+}
+@media(max-width:767px){
+  body.app-shell-ready [data-ui-version="v3"].ui3-superadmin{--sa-control-height:44px}
+  body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .superadmin-platform-topbar{
+    grid-template-columns:minmax(0,1fr) auto!important;
+    grid-template-areas:"title actions" "search search" "erp erp";
+    gap:8px;
+  }
+  body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .superadmin-platform-page-title{display:flex;flex-wrap:wrap}
+  body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .superadmin-platform-erp{grid-area:erp;grid-column:1/-1;justify-self:start;width:auto}
+  body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .client-admin-row .row-actions{grid-template-columns:repeat(2,minmax(0,1fr)) 44px!important;grid-auto-rows:auto}
+  body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .client-admin-row .superadmin-action-menu-trigger{min-width:44px!important}
+  body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .superadmin-company-actions{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;align-items:stretch!important}
+  body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .superadmin-company-actions>.btn{width:100%!important}
+  body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .superadmin-company-actions>.btn:last-child{grid-column:auto!important}
+  body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .superadmin-module-widget{min-height:76px;grid-template-columns:24px minmax(0,1fr) 8px;gap:6px;padding:8px}
+  body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .superadmin-module-widget-icon{width:24px;height:24px}
+  body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .superadmin-module-widget-icon svg{width:16px;height:16px}
+  body.app-shell-ready [data-ui-version="v3"].ui3-superadmin .superadmin-profile-hero-actions>.btn{flex:1 1 8rem}
+}
+@media(max-width:767px){[data-ui-version="v3"].ui3-superadmin{width:100%;min-height:100%;display:block;border:0;border-radius:0}[data-ui-version="v3"].ui3-superadmin .superadmin-platform-topbar{position:static;padding:calc(var(--ui3-space-3) + var(--ui3-safe-top)) var(--ui3-space-3) var(--ui3-space-3)}[data-ui-version="v3"].ui3-superadmin .superadmin-platform-content{overflow:visible;padding:var(--ui3-space-3) var(--ui3-space-3) calc(var(--ui3-space-6) + var(--ui3-bottom-nav-height) + var(--ui3-safe-bottom))}[data-ui-version="v3"].ui3-superadmin .superadmin-kpi-grid>*{grid-column:span 1}[data-ui-version="v3"].ui3-superadmin .superadmin-kpi-card{min-height:0;padding:var(--ui3-space-2)}[data-ui-version="v3"].ui3-superadmin .superadmin-kpi-card :is(strong,small){overflow-wrap:anywhere}[data-ui-version="v3"].ui3-superadmin .superadmin-placeholder-grid>*{grid-column:span 2}[data-ui-version="v3"].ui3-superadmin .superadmin-secondary-shortcuts>*{grid-column:span 2}}

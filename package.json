@@ -309,6 +309,7 @@
     "test:plan-presentation-persistence": "node scripts/test-plan-presentation-persistence.js",
     "test:plan-presentation-editor": "node scripts/test-plan-presentation-editor.js",
     "test:superadmin-plan-catalog-loader": "node scripts/test-superadmin-plan-catalog-loader.js",
+    "test:superadmin-control-layout": "node scripts/test-superadmin-control-layout.js",
     "test:plan-catalog-canonical-precedence": "node scripts/test-plan-catalog-canonical-precedence.js",
     "test:saas-admin-command-bindings": "node scripts/test-saas-admin-command-bindings.js",
     "test:manual-plan-licenses": "node scripts/test-manual-plan-licenses.js",
