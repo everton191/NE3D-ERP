@@ -304,6 +304,7 @@ function assertFailureLayers(harness, label) {
 async function testStartupFailure(options, identity) {
   const harness = createStartupHarness(identity.user, { ...options, cachedAdmin: identity.admin });
   const { window, document, calls } = harness;
+  if (options.faultAt === "render-initial") harness.advanceTo(0);
   if (options.faultAt === "render-timer") harness.advanceTo(700);
   await harness.startup;
   await flushPromiseCallbacks();
@@ -417,8 +418,11 @@ async function testImmediateStartupWithoutAnimationFrame(cachedUser) {
     "inicializadores devem começar no relógio 0, sem a antiga espera obrigatória de 3 segundos");
   assert(calls.includes("oauth"), "a validação real deve começar imediatamente, sem esperar temporizador ou RAF");
   assert(!calls.includes("requestAnimationFrame"));
-  assert.deepEqual(timers.map((timer) => timer.delay), [700, 1500, 2300],
+  assert.deepEqual(timers.map((timer) => timer.delay), [0, 700, 1500, 2300],
     "só as etapas visuais não bloqueantes devem ficar agendadas antes da validação");
+  assert.equal(renders.length, 0, "não deve haver render de progresso síncrono na abertura");
+  assert.equal(window.__simplificaSessionCheckVisualState, undefined,
+    "a sessão pronta não deve receber um estado visual antes de o temporizador executar");
   await harness.startup;
   assert.equal(window.SimplificaAppBootstrap.startAuthenticated(), false);
   assert.equal(document.documentElement.dataset.simplificaBootstrap, "restoring");
@@ -437,8 +441,8 @@ async function testImmediateStartupWithoutAnimationFrame(cachedUser) {
   assert(timers.every((timer) => !timer.executed));
   assert.equal(document.documentElement.dataset.simplificaBootstrap, undefined);
   assert.equal(window.__simplificaSessionCheckVisualState, undefined);
-  assert.deepEqual(renders.map((render) => render.phase), ["initial", "final"],
-    "sessão pronta não deve aguardar nem renderizar etapas artificiais de progresso");
+  assert.deepEqual(renders.map((render) => render.phase), ["final"],
+    "sessão pronta deve renderizar apenas a tela final, sem a janela de etapas");
   assert.equal(renders.at(-1).clock, 0);
   assertAuthenticatedTasks(harness, cachedUser);
   const renderCount = renders.length;
@@ -456,12 +460,20 @@ async function testImmediateStartupWithoutAnimationFrame(cachedUser) {
 async function testPendingAuthenticationWithoutAnimationFrame(cachedUser) {
   const harness = createStartupHarness(cachedUser);
   const { window, document, calls, timers, renders } = harness;
-  assert.deepEqual(timers.map((timer) => timer.delay), [700, 1500, 2300],
+  assert.deepEqual(timers.map((timer) => timer.delay), [0, 700, 1500, 2300],
     "temporizadores de progresso devem permanecer disponíveis apenas como feedback não bloqueante");
+  assert.equal(renders.length, 0, "autenticação pendente também não deve renderizar progresso de forma síncrona");
+  assert.equal(window.__simplificaSessionCheckVisualState, undefined,
+    "nenhuma etapa deve existir antes da execução do primeiro temporizador");
   await harness.startup;
   assert(calls.includes("architecture-listeners"));
   assert(calls.includes("oauth"));
+  assert.equal(renders.length, 0, "microtasks pendentes não devem antecipar a janela de etapas");
+  harness.advanceTo(0);
   assert.equal(renders[0].step, 1);
+  assert.equal(renders[0].clock, 0);
+  assert.equal(renders[0].restoring, true,
+    "a primeira etapa só deve aparecer se a restauração ainda estiver pendente no temporizador");
   assert.equal(window.SimplificaAppBootstrap.startAuthenticated(), false,
     "identidade cacheada não pode iniciar tarefas antes da validação e do render saudáveis");
   harness.advanceTo(700);
@@ -506,6 +518,8 @@ async function testPendingAuthenticationWithoutAnimationFrame(cachedUser) {
 
 async function testHandledOAuthRemainsHealthy(cachedUser) {
   const harness = createStartupHarness(cachedUser, { oauthAttemptsStarter: true });
+  assert.equal(harness.renders.length, 0, "OAuth pronto também não deve renderizar etapas síncronas");
+  assert.equal(harness.window.__simplificaSessionCheckVisualState, undefined);
   await harness.startup;
   harness.oauth.resolve(true);
   await flushPromiseCallbacks();
@@ -518,6 +532,8 @@ async function testHandledOAuthRemainsHealthy(cachedUser) {
   assert(!harness.calls.includes("diagnostic"));
   assert(harness.calls.includes("oauth-start:false"),
     "starter chamado pelo login OAuth deve aguardar o render final saudável");
+  assert.deepEqual(harness.renders.map((render) => render.phase), ["final"],
+    "OAuth já tratado deve renderizar somente a tela final, sem piscar a janela de etapas");
   assert.equal(harness.calls.filter((call) => call === "auto-backup").length, cachedUser ? 1 : 0,
     "depois do render saudável, OAuth deve iniciar uma única vez as tarefas do usuário autenticado");
   if (cachedUser) {
@@ -541,7 +557,7 @@ async function testHandledOAuthRemainsHealthy(cachedUser) {
       { label: "usuario-cacheado", user: { id: "cached-fixture" }, admin: false });
   }
   console.log("APP BOOTSTRAP: 2 falhas de monitores controladas; camadas limpas apenas em falha; starter aguarda render saudável.");
-  console.log("APP BOOTSTRAP: caminho pronto no relógio 0 sem RAF; OAuth/cache pendentes continuam bloqueados após 120 segundos simulados.");
+  console.log("APP BOOTSTRAP: sessão pronta renderiza só a tela final no relógio 0; etapas só em autenticação pendente; OAuth/cache continuam bloqueados após 120 segundos simulados.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
 // HERMES_PHASE0_TEST 
 

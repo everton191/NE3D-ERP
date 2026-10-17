@@ -156,3 +156,78 @@ instalação/diagnóstico permanecem em
 `apps/opticore` preexistente preservado. Sem backend remoto, mudanças comerciais,
 UI nova, tuning, ativação da IA, produção, AAB, push ou deploy.
 **Publicação não liberada.**
+
+## Continuação — não piscar etapas com sessão válida
+
+Base desta continuação: `ad7baec`. O usuário pediu que a janela de etapas não
+aparecesse enquanto a sessão estivesse no período permitido. A causa restante
+era o primeiro `renderApp()` incondicional, anterior à própria restauração.
+
+A primeira etapa agora é agendada junto às demais em `[0, 700, 1500, 2300]`.
+Uma restauração local pronta conclui suas microtasks e o render final antes do
+primeiro timer, que então não faz nada. Não foi adicionada espera ao caminho
+pronto. Enquanto `restoring` não tiver estado visual, preparo de login nem trava,
+o renderer retorna sem desenhar login **ou conteúdo privado**. Não foi criada uma
+segunda classificação de sessão, prazo ou autorização.
+
+OAuth/renovação que realmente aguardem resposta continuam podendo mostrar as
+etapas. Login explícito em `SESSION_PREPARING`/`PROFILE_READY` e trava/digital
+aparecem mesmo sem estado visual prévio. A verificação real, `renderFailure`,
+retry, bloqueio de tarefas autenticadas e prazos anteriores foram preservados.
+
+### Evidências desta continuação
+
+| Estado | Verificação | Resultado / limite |
+| --- | --- | --- |
+| PASS | RED antes / GREEN depois | Bootstrap antigo não tinha timer inicial adiado; renderer antigo desenhava `session-check` no caminho silencioso. Os dois testes novos falharam antes e passaram após a correção. |
+| PASS | Regressão | Mesmas 17 suítes listadas acima, incluindo 78+2 falhas, 21 callbacks e 38 cenários de sessão. Sintaxe dos cinco JS alterados e diferenças PASS. |
+| PASS | Fronteira visual | Sessão pronta renderiza só tela final; silêncio não lê identidade/navegação privadas; progresso explícito, digital sem estado visual e preparo de login continuam renderizando. Timers tardios não sobrescrevem sucesso/falha. |
+| PASS | Build | Web sync e PlayDebug compilados; bootstrap e renderer empacotados idênticos às fontes. Flags Play continuam false, sem modelos/runtime IA no APK. |
+| PASS | Atualização | ASUS Android 13, install -r Success, hash instalado igual ao gerado, mesma assinatura e versão 1.0.39/67. Dados não limpos. |
+| PASS limitado | Abertura a frio | Sessão existente offline estável, seis indicadores locais true, sem progresso/retry/trava e sem ocorrências selecionadas de erro fatal. Não é novo login. |
+| PASS limitado | Histórico de DOM desde o início da recarga | Observador instalado antes dos scripts da página, sem alterar sessão: versão anterior inseriu painel/login; nova versão não inseriu nenhum deles. Uma recarga offline por versão, não benchmark nem prova de todos os aparelhos. |
+| PASS | Runtime e preservação | App/AdMob presentes; IA/updater/checkout externo ausentes; PDF 3165 bytes e QR em memória. Modelo QAD manteve tamanho/hash anteriores. |
+| PASS | Encerramento | App encerrado antes da restauração de Wi-Fi/dados 1/1; modo avião 0; nenhum encaminhamento ADB restante. |
+
+Histórico observado na recarga, não apenas fotografia da tela final:
+
+| Indicador | Antes: `0.1.0-0c971df2969175a0` | Depois: `0.1.0-13ee3eac04468d68` |
+| --- | --- | --- |
+| Painel/etapas inseridos no DOM | true, uma inserção | false, zero inserções |
+| Formulário de login inserido | true | false |
+| Área de trabalho final estável | true | true |
+
+APK novo: 31.367.653 bytes, SHA-256
+`5daf6ba3ffed4bc829fbf88cdc7522864a1b434f1156a97a94094ace7b914c24`.
+Certificado igual ao descrito acima. Metadados mínimo/alvo/compile 24/36/36,
+arm64-v8a. Nenhum ajuste de assinatura, versão ou dependências.
+
+A sondagem a frio desta continuação observou primeira tela pronta pós-
+DOMContentLoaded em 417 ms antes e 1008 ms depois; MainActivity TotalTime em
+1075 ms e 1400 ms. Essa amostra variou e **não comprova ganho adicional de
+velocidade**: a mudança desta continuação elimina o desenho transitório das
+etapas. Os valores incluem atraso de conexão/sondagem e não são o instante exato
+da conclusão ou tempo total desde tocar no ícone.
+
+O primeiro diagnóstico de histórico retornou `observation: null`, portanto FAIL
+de instrumentação, sem comprovar o histórico de DOM. Habilitado o domínio Page
+somente no diagnóstico descartável, a repetição na mesma versão antiga observou
+uma inserção, e a versão corrigida observou zero. Não foi alterado estado de
+autenticação para obter PASS.
+
+Evidências ignoradas: `artifacts/android-quiet-startup-20261017/before/` e
+`after/`, com `startup-stage-observation.json` e
+`offline-readiness-confirmed.json`. Backup do APK anterior preservado. Observador
+temporário de DOM não lê valores pessoais e é destruído ao encerrar o processo;
+não integra o produto. Capturas existentes continuam privadas e fora do Git.
+
+Arquivos desta continuação: `src/app/bootstrap.js`,
+`src/features/app-ui/app-ui-renderers.js`, `index.html`,
+`scripts/test-app-bootstrap.js`, `scripts/test-auth-session-boundary.js`,
+`scripts/test-auth-ui.js`, este relatório e `docs/KANBAN-PUBLICACAO.md`.
+
+Continuam PENDENTES login/renovação remotos, digital real aceita/cancelada e
+reconexão em ambiente isolado. Não se forçou vencimento ou logout da conta real.
+As limitações de K08 e publicação permanecem. Sem acesso à produção, deploy,
+AAB ou mudanças no OptiCore. Orientação de sessões Supabase utilizada para
+separar apresentação de validação, sem mudanças de autenticação/backend.

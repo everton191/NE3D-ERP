@@ -222,20 +222,19 @@
         configurarMonetizacaoAds();
         ensureAppShellLayers();
         iniciarIntroAbertura();
-        // Inicie a restauração imediatamente. As etapas são apenas informativas
-        // enquanto login/biometria estiverem pendentes, sem duração mínima.
+        // A restauração local pronta termina nas microtasks, antes dos timers.
+        // Só mostre etapas se ainda houver autenticação pendente, sem antecipar
+        // o acesso nem desenhar o login no caminho de sessão já válida.
         const etapasVerificacao = [
           { title: "Verificando sessão", message: "Conferindo o acesso deste dispositivo...", progress: 16, step: 1 },
           { title: "Confirmando sua conta", message: "Validando credenciais protegidas...", progress: 38, step: 2 },
           { title: "Preparando seu espaço", message: "Restaurando suas preferências...", progress: 66, step: 3 },
           { title: "Quase pronto", message: "Finalizando a entrada com segurança...", progress: 90, step: 4 }
         ];
-        global.__simplificaSessionCheckVisualState = etapasVerificacao[0];
-        renderApp();
-        [700, 1500, 2300].forEach((delay, index) => {
+        [0, 700, 1500, 2300].forEach((delay, index) => {
           setTimeoutRef(() => {
             if (documentRef.documentElement.dataset.simplificaBootstrap !== "restoring") return;
-            global.__simplificaSessionCheckVisualState = etapasVerificacao[index + 1];
+            global.__simplificaSessionCheckVisualState = etapasVerificacao[index];
             try { renderApp(); } catch (erro) { failStartup(erro); }
           }, delay);
         });

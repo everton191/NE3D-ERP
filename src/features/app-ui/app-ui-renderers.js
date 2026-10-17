@@ -31,6 +31,10 @@
     const stage = deps.window.SimplificaAuthCommands.getLoginStage();
     const preparing = stage === "SESSION_PREPARING" || stage === "PROFILE_READY";
     const restoringSession = deps.document.documentElement.dataset.simplificaBootstrap === "restoring";
+    // Enquanto a restauração local resolve, não desenhe login/etapas nem a
+    // interface privada. Login em andamento e trava local continuam visíveis.
+    if (restoringSession && !preparing && !deps.window.__simplificaLocalLockActive
+      && !deps.window.__simplificaSessionCheckVisualState) return;
     if (restoringSession || preparing) {
       const awaitingIdentity = Boolean(deps.window.__simplificaLocalLockActive);
       const visualState = deps.window.__simplificaSessionCheckVisualState || {};

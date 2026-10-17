@@ -56,7 +56,7 @@ assert.match(renderCalculadora, /root\.innerHTML = "";/, "calculadora flutuante 
 assert.match(css, /body\.auth-screen-active header[\s\S]*display:none;/, "header deve sumir na tela de auth");
 assert.match(css, /\.auth-card[\s\S]*width:430px;[\s\S]*max-width:100%;/, "auth deve ter card central controlado");
 assert.match(renderers, /renderAuthPublica\(\{[\s\S]*verificacaoSessao/, "a verificação deve reutilizar a tela de login existente");
-assert.match(renderers, /Fazendo login/, "sessão válida deve informar o login automático");
+assert.match(renderers, /Fazendo login/, "autenticação pendente deve informar o login");
 assert.match(renderers, /Solicitando sua digital para continuar/, "sessão fora do intervalo deve informar a verificação biométrica");
 assert.match(app, /function renderAuthPublica\(\{ verificacaoSessao = null \} = \{\}\)/, "o formulário de login deve aceitar o estado de verificação");
 assert.match(app, /data-auth-session-check/, "o formulário deve marcar a verificação de sessão para leitores de tela");
@@ -65,13 +65,13 @@ assert.match(app, /auth-session-progress/, "a verificação deve exibir o progre
 assert.match(css, /\.auth-page\.auth-session-check::before[\s\S]*background:#071019;/, "a verificação não deve usar imagem de fundo");
 assert.match(css, /body\.theme-light \.auth-page\.auth-session-check::before[\s\S]*background:#f7f9fc;/, "o tema claro deve usar fundo branco na verificação");
 assert.match(css, /\.auth-session-dock\{[\s\S]*position:fixed;[\s\S]*bottom:calc\(var\(--app-safe-bottom, 0px\) \+ 14px\);[\s\S]*pointer-events:none;/, "o status deve ficar abaixo sem interceptar o login");
-assert.match(bootstrap, /\[700, 1500, 2300\]/, "as etapas devem continuar informativas quando a autenticação estiver pendente");
+assert.match(bootstrap, /\[0, 700, 1500, 2300\]/, "as etapas devem ser agendadas sem render síncrono obrigatório");
 assert.doesNotMatch(bootstrap, /setTimeoutRef\(resolve, 3000\)/, "a abertura não deve impor a antiga espera de três segundos");
 assert.match(bootstrap, /etapasVerificacao/, "a abertura deve atualizar as etapas de verificação");
 assert.match(app, /ativarTravaLocal\(motivo\);[\s\S]*renderApp\(\);[\s\S]*tentarDesbloqueioLocalComBiometria\(\{ silencioso: true \}\)/, "a tela de verificação deve aparecer antes da biometria nativa");
 assert.match(index, /style\.css\?v=auth-status-dock-20261008/, "o CSS do login deve ter versão nova");
-assert.match(index, /src\/app\/bootstrap\.js\?v=fast-startup-20261017/, "o bootstrap deve invalidar a versão com espera fixa");
-assert.match(index, /src\/features\/app-ui\/app-ui-renderers\.js\?v=bootstrap-failure-20261017/, "o renderizador do login deve ter versão nova");
+assert.match(index, /src\/app\/bootstrap\.js\?v=quiet-session-startup-20261017/, "o bootstrap deve invalidar a versão que sempre desenhava as etapas");
+assert.match(index, /src\/features\/app-ui\/app-ui-renderers\.js\?v=quiet-session-startup-20261017/, "o renderizador deve invalidar a versão que sempre mostrava o login durante a restauração");
 assert.match(index, /app\.js\?v=1\.0\.41-bootstrap-failure-20261017/, "o app principal deve ter versão nova");
 assert.match(serviceWorker, /simplifica-3d-v1042-auth-status-build-__SIMPLIFICA_BUILD_ID__/, "o cache deve ser renovado para a nova tela de login");
 assert(index.indexOf('id="app-shell"') < index.indexOf('/assets/vendor/jspdf.umd.min.js'), "o shell inicial deve ser montado antes das bibliotecas de PDF e QR");

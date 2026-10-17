@@ -43,6 +43,9 @@ async function run() {
   const noop = () => {};
   let authMarkup = "";
   let sessionCheck;
+  const renderHistory = [];
+  let rejectIdentityReads = false;
+  const cachedIdentity = { email: "cached-fixture@example.invalid", ativo: true, papel: "user" };
   const publicDeps = new Proxy({
     window,
     document: {
@@ -51,29 +54,65 @@ async function run() {
       querySelector: () => null,
       body: { classList: { add: noop } }
     },
-    getUsuarioAtual: () => null, getAdminLogado: () => false,
+    getUsuarioAtual: () => rejectIdentityReads ? cachedIdentity : null, getAdminLogado: () => false,
     getTelaAtual: () => "admin", isTelaPublica: () => false,
     ensureAppShellLayers: noop, setTelaAtual: noop, aplicarPersonalizacao: noop, applyViewportModeClasses: noop,
     renderAuthPublica: (options) => {
       sessionCheck = options?.verificacaoSessao;
       return sessionCheck ? "session-check" : "login-form";
     },
-    atualizarArvoreInterface: (_, html) => { authMarkup = html; }
-  }, { get(target, key) { if (key in target) return target[key]; throw new Error(`PRE_AUTH accessed private dependency: ${String(key)}`); } });
+    atualizarArvoreInterface: (_, html) => { authMarkup = html; renderHistory.push(html); }
+  }, { get(target, key) {
+    if (rejectIdentityReads && ["getUsuarioAtual", "getAdminLogado", "getTelaAtual", "isTelaPublica"].includes(key)) {
+      throw new Error(`silent restoration accessed cached identity/private navigation: ${String(key)}`);
+    }
+    if (key in target) return target[key];
+    throw new Error(`PRE_AUTH accessed private dependency: ${String(key)}`);
+  } });
   window.SimplificaAppUiRenderers.renderApp(publicDeps);
   assert.equal(authMarkup, "login-form");
   assert.equal(sessionCheck, undefined);
-  // The current bootstrap exposes a public session-check shell while restoring.
-  // Its DOM marker must not cause PRE_AUTH to touch authenticated dependencies.
+  // Quiet restoration must not flash either authentication or private content.
+  // Even a cached identity cannot be read until restoration has completed.
   publicDeps.document.documentElement.dataset.simplificaBootstrap = "restoring";
+  renderHistory.length = 0;
+  authMarkup = "unchanged-startup";
+  rejectIdentityReads = true;
+  window.SimplificaAppUiRenderers.renderApp(publicDeps);
+  window.SimplificaAppUiRenderers.renderApp(publicDeps);
+  assert.deepEqual(renderHistory, [], "quiet restoration must have no authentication/private render, including repeated renders with cached identity");
+  assert.equal(authMarkup, "unchanged-startup", "quiet restoration must leave startup content unchanged");
+  assert.equal(window.__simplificaSessionCheckVisualState, undefined, "renderer cannot manufacture progress to reveal the session-check window");
+  // A slow/required check explicitly revealed by bootstrap may render only the
+  // public check shell; cached identity and private navigation remain blocked.
+  window.__simplificaSessionCheckVisualState = { title: "Verificando sessão", message: "Aguarde", progress: 42, step: 2 };
   window.SimplificaAppUiRenderers.renderApp(publicDeps);
   assert.equal(authMarkup, "session-check");
-  assert.equal(sessionCheck.title, "Fazendo login");
+  assert.equal(sessionCheck.title, "Verificando sessão");
+  assert.equal(sessionCheck.progress, 42);
+  assert.equal(sessionCheck.step, 2);
+  delete window.__simplificaSessionCheckVisualState;
   window.__simplificaLocalLockActive = true;
   window.SimplificaAppUiRenderers.renderApp(publicDeps);
   assert.equal(authMarkup, "session-check");
   assert.equal(sessionCheck.biometric, true);
   assert.equal(sessionCheck.title, "Confirme sua identidade");
+  window.__simplificaLocalLockActive = false;
+  for (const bootstrapState of ["restoring", "ready"]) {
+    publicDeps.document.documentElement.dataset.simplificaBootstrap = bootstrapState;
+    for (const stage of ["SESSION_PREPARING", "PROFILE_READY"]) {
+      window.SimplificaAuthCommands.traceLogin(stage);
+      window.SimplificaAppUiRenderers.renderApp(publicDeps);
+      assert.equal(authMarkup, "session-check", `${bootstrapState}/${stage} must show the required login check even without visual state`);
+      assert.equal(sessionCheck.title, "Fazendo login");
+      assert.equal(sessionCheck.biometric, false);
+    }
+  }
+  window.SimplificaAuthCommands.traceLogin("SESSION_READY");
+  rejectIdentityReads = false;
+  window.SimplificaAppUiRenderers.renderApp(publicDeps);
+  assert.equal(authMarkup, "login-form", "completed restoration without an authenticated user must still show login");
+  assert.equal(sessionCheck, undefined);
   // A failed bootstrap must not enter the normal shell, even with a stale
   // identity or another broken initializer. Recovery is owned by bootstrap.
   publicDeps.document.documentElement.dataset.simplificaBootstrap = "failed";
@@ -106,6 +145,6 @@ async function run() {
   assert.equal(getterContext.getUsuarioSessaoReal().papel, "superadmin", "healthy startup must retain the existing identity rules");
   stored.delete("simplificaSuperadminAuthenticated");
   assert.equal(getterContext.getUsuarioSessaoReal().papel, "user");
-  console.log("Auth boundary: profile awaited; PRE_AUTH, restoration, biometric and failed-startup shells stay isolated; stage logs contain no user data.");
+  console.log("Auth boundary: profile awaited; quiet restoration renders nothing, required login/biometric checks and failed startup stay isolated; stage logs contain no user data.");
 }
 run().catch((error) => { console.error(error); process.exitCode = 1; });
