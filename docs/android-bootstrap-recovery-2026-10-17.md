@@ -105,3 +105,7 @@ Sem Supabase remoto, migrations, clientes reais, deploy, push ou publicação.
 `apps/opticore` preexistente preservado. As orientações de sessão Supabase e de
 verificação ponta a ponta guiaram a preservação da identidade/cache e o teste
 real da recuperação no navegador, sem confundir esses resultados com Android.
+
+Continuação após reconectar o aparelho: [instalação e smoke offline físicos](android-validacao-fisica-2026-10-17.md)
+aprovados com sessão existente. As pendências desta rodada acima são históricas;
+o relatório posterior distingue esse PASS limitado da homologação Android completa.
