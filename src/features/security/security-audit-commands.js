@@ -88,7 +88,11 @@
       deps.setSaasClients(deps.mesclarListaPorId(deps.getSaasClients(), clientesOnline, deps.normalizarClienteSaas));
       deps.setSaasSubscriptions(deps.mesclarAssinaturasPorCliente(deps.getSaasSubscriptions(), assinaturasOnline));
       deps.setSaasPayments(deps.mesclarListaPorId(deps.getSaasPayments(), pagamentosOnline, deps.normalizarPagamentoSaas));
-      deps.setSaasPlans(deps.mesclarListaPorId(deps.getSaasPlans(), planosOnline, deps.normalizarPlanoSaas));
+      // Preserve source slugs until the catalog resolves canonical/legacy rows.
+      // Normalizing each row first turns legacy aliases into competing Pro/Free
+      // rows and lets their inactive flags replace the canonical catalog.
+      deps.setSaasPlans(deps.mesclarListaPorId(deps.getSaasPlans(), planosOnline, (plano) => plano));
+      deps.garantirPlanosSaas();
       deps.setSaasSessions(deps.mesclarListaPorId(deps.getSaasSessions(), sessoesOnline, deps.normalizarSessaoSaas));
       deps.setUsuarios(deps.mesclarUsuariosSupabase(deps.getUsuarios(), [...perfisOnline, ...perfisErpOnline]));
       deps.restringirDadosSaasAoEscopoAtual();

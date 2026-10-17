@@ -221,6 +221,8 @@ let plansCarouselScrollTimer = null;
 let superAdminPlanCatalogRemoteState = { status: "idle", message: "", updatedAt: "", data: null };
 let planPresentationRemoteOverrides = null;
 let planPresentationRemoteState = { status: "idle", message: "" };
+let planPresentationEditorOpen = false;
+let planPresentationEditorCancel = null;
 const planDiagnosticsSeen = new Set();
 const PAID_PRICE_TIERS = [
   { limit: 100, price: 19.9 },
@@ -4613,10 +4615,16 @@ function normalizarSessaoSaas(sessao = {}) {
 function garantirPlanosSaas() {
   const mapa = new Map();
   DEFAULT_SAAS_PLANS.forEach((plano) => mapa.set(plano.slug, normalizarPlanoSaas(plano)));
-  (Array.isArray(saasPlans) ? saasPlans : []).forEach((plano) => {
+  const fontes = Array.isArray(saasPlans) ? saasPlans : [];
+  const canonicos = new Set(fontes.map((plano) => String(plano.slug || plano.id || "").toLowerCase().trim())
+    .filter((slug) => ["free", "start", "pro"].includes(slug)));
+  fontes.forEach((plano) => {
     const slugOriginal = String(plano.slug || plano.id || "").toLowerCase().trim().replace(/-/g, "_");
     if (!["free", "premium_trial", "premium", "start", "pro"].includes(slugOriginal)) return;
     const normalizado = normalizarPlanoSaas(plano);
+    // Legacy aliases remain readable, but cannot replace an explicit canonical
+    // row (including its ID and active=false) simply because they arrived last.
+    if (slugOriginal !== normalizado.slug && canonicos.has(normalizado.slug)) return;
     mapa.set(normalizado.slug, { ...mapa.get(normalizado.slug), ...normalizado });
   });
   saasPlans = Array.from(mapa.values()).sort((a, b) => (a.sortOrder || 100) - (b.sortOrder || 100) || a.price - b.price);
@@ -27386,37 +27394,110 @@ function resetarPlanoApresentacaoInterativo(event) {
   card.style.removeProperty("--plan-pointer-y");
 }
 
+function solicitarCamposPlanoSuperadmin({ titulo, campos }) {
+  return new Promise((resolve) => {
+    const popup = document.getElementById("popup");
+    if (!popup) return resolve(null);
+    fecharPopup();
+    popup.innerHTML = `
+      <div class="modal-backdrop" role="dialog" aria-modal="true">
+        <form class="modal-card" id="planPresentationEditorForm">
+          <div class="modal-header">
+            <h2>${escaparHtml(titulo)}</h2>
+            <button class="icon-button" type="button" id="planPresentationEditorCancelTop" title="Fechar">✕</button>
+          </div>
+          <p class="muted">Somente informações exibidas nos cards. Os valores cobrados e os recursos dos planos não serão alterados.</p>
+          ${campos.map((campo) => `
+            <label class="field">
+              <span>${escaparHtml(campo.label)}</span>
+              ${campo.multiline
+                ? `<textarea id="planPresentationEditor-${escaparAttr(campo.key)}" rows="${campo.key === "features" ? 6 : 3}" ${campo.required ? "required" : ""} ${campo.maxLength ? `maxlength="${campo.maxLength}"` : ""}>${escaparHtml(campo.value || "")}</textarea>`
+                : `<input id="planPresentationEditor-${escaparAttr(campo.key)}" type="text" value="${escaparAttr(campo.value || "")}" ${campo.required ? "required" : ""} ${campo.maxLength ? `maxlength="${campo.maxLength}"` : ""}>`}
+            </label>
+          `).join("")}
+          <div class="actions">
+            <button class="btn ghost" type="button" id="planPresentationEditorCancel">Cancelar</button>
+            <button class="btn" type="submit">Salvar</button>
+          </div>
+        </form>
+      </div>
+    `;
+    let settled = false;
+    const onEscape = (event) => {
+      if (event.key === "Escape") { event.preventDefault(); fecharPopup(); }
+    };
+    const onBack = () => fecharPopup();
+    const finalizar = (resultado, fechar = true) => {
+      if (settled) return;
+      settled = true;
+      planPresentationEditorCancel = null;
+      document.removeEventListener("keydown", onEscape);
+      window.removeEventListener("popstate", onBack);
+      if (fechar) fecharPopup();
+      resolve(resultado);
+    };
+    planPresentationEditorCancel = () => finalizar(null, false);
+    const host = promoverPopupParaDialogUiV3(popup, { title: titulo, onClose: () => finalizar(null, false) });
+    const form = document.getElementById("planPresentationEditorForm");
+    if (!form || campos.some((campo) => !document.getElementById(`planPresentationEditor-${campo.key}`))) {
+      finalizar(null);
+      return;
+    }
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (settled) return;
+      if (form.reportValidity && !form.reportValidity()) return;
+      finalizar(Object.fromEntries(campos.map((campo) => [campo.key,
+        document.getElementById(`planPresentationEditor-${campo.key}`).value])));
+    });
+    const cancelar = () => finalizar(null);
+    document.getElementById("planPresentationEditorCancel")?.addEventListener("click", cancelar);
+    document.getElementById("planPresentationEditorCancelTop")?.addEventListener("click", cancelar);
+    host.querySelector(".modal-backdrop")?.addEventListener("click", (event) => {
+      if (event.target === event.currentTarget) cancelar();
+    });
+    document.addEventListener("keydown", onEscape);
+    window.addEventListener("popstate", onBack);
+    setTimeout(() => {
+      if (!settled) document.getElementById(`planPresentationEditor-${campos[0].key}`)?.focus();
+    }, 50);
+  });
+}
+
 async function editarPlanoApresentacaoSuperadmin(slug) {
-  if (!isSuperAdmin()) return;
+  if (planPresentationEditorOpen || !isSuperAdmin()) return;
   if (!podeSalvarAdminSupabaseRemoto()) {
     mostrarToast("Entre como superadmin Supabase para editar planos.", "erro", 5200);
     return;
   }
   const plan = getPlanPresentationData({ incluirIndisponiveis: true }).find((item) => item.slug === slug);
   if (!plan) return;
-  const name = prompt("Nome exibido do plano", plan.name || "");
-  if (name === null) return;
-  const headline = prompt("Título comercial do card", plan.headline || "");
-  if (headline === null) return;
-  const description = prompt("Descrição comercial", plan.description || "");
-  if (description === null) return;
-  const features = prompt("Benefícios (um por linha)", (plan.features || []).join("\n"));
-  if (features === null) return;
-  const badge = prompt("Selo/badge", plan.badge || "");
-  if (badge === null) return;
-  const ctaLabel = prompt("Texto do botão", plan.ctaLabel || "");
-  if (ctaLabel === null) return;
-  const changes = {
-    name: name.trim(), headline: headline.trim(), description: description.trim(),
-    features: features.split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
-    badge: badge.trim(), ctaLabel: ctaLabel.trim()
-  };
-  if (!changes.name || !changes.headline || !changes.description || changes.features.length > 16) {
-    mostrarToast("Preencha nome, título e descrição; use no máximo 16 benefícios.", "erro", 5200);
-    return;
-  }
-  const toast = mostrarToast("Salvando no Supabase...", "loading");
+  planPresentationEditorOpen = true;
+  let toast = null;
   try {
+    const values = await solicitarCamposPlanoSuperadmin({ titulo: "Editar apresentação do plano", campos: [
+      { key: "name", label: "Nome exibido do plano", value: plan.name, required: true, maxLength: 80 },
+      { key: "headline", label: "Título comercial do card", value: plan.headline, required: true, maxLength: 120 },
+      { key: "description", label: "Descrição comercial", value: plan.description, multiline: true, required: true, maxLength: 600 },
+      { key: "features", label: "Benefícios (um por linha, até 16)", value: (plan.features || []).join("\n"), multiline: true },
+      { key: "badge", label: "Selo/badge", value: plan.badge, maxLength: 80 },
+      { key: "ctaLabel", label: "Texto do botão", value: plan.ctaLabel, maxLength: 80 }
+    ] });
+    if (values === null) return;
+    const changes = {
+      name: values.name.trim(), headline: values.headline.trim(), description: values.description.trim(),
+      features: values.features.split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
+      badge: values.badge.trim(), ctaLabel: values.ctaLabel.trim()
+    };
+    if (!changes.name || !changes.headline || !changes.description || changes.features.length > 16) {
+      mostrarToast("Preencha nome, título e descrição; use no máximo 16 benefícios.", "erro", 5200);
+      return;
+    }
+    if (changes.features.some((item) => Array.from(item).length > 180)) {
+      mostrarToast("Use no máximo 180 caracteres por benefício.", "erro", 5200);
+      return;
+    }
+    toast = mostrarToast("Salvando no Supabase...", "loading");
     await salvarApresentacaoPlanoSuperadmin(slug, changes);
     registrarAuditoria("plano apresentação alterado", { slug, source: "supabase" }, getClientIdAtual());
     mostrarToast("Apresentação salva e confirmada no Supabase.", "sucesso", 4200);
@@ -27425,25 +27506,33 @@ async function editarPlanoApresentacaoSuperadmin(slug) {
     registrarDiagnostico("Superadmin Planos", "Falha ao salvar apresentação", erro.message);
     mostrarToast(planPresentationRemoteState.message, "erro", 6500);
     renderApp();
-  } finally { toast?.remove?.(); }
+  } finally {
+    toast?.remove?.();
+    planPresentationEditorOpen = false;
+  }
 }
 
 async function editarPrecoExibidoPlanoSuperadmin(slug) {
-  if (!isSuperAdmin()) return;
+  if (planPresentationEditorOpen || !isSuperAdmin()) return;
   if (!podeSalvarAdminSupabaseRemoto()) {
     mostrarToast("Entre como superadmin Supabase para editar planos.", "erro", 5200);
     return;
   }
   const plan = getPlanPresentationData({ incluirIndisponiveis: true }).find((item) => item.slug === slug);
   if (!plan) return;
-  const valor = prompt("Preço exibido no card. Isto não altera cobrança real.", plan.priceLabel || "");
-  if (valor === null) return;
-  if (!valor.trim()) {
-    mostrarToast("Informe o preço exibido.", "erro", 4200);
-    return;
-  }
-  const toast = mostrarToast("Salvando no Supabase...", "loading");
+  planPresentationEditorOpen = true;
+  let toast = null;
   try {
+    const values = await solicitarCamposPlanoSuperadmin({ titulo: "Editar preço informativo", campos: [
+      { key: "priceLabel", label: "Preço exibido no card. Isto não altera cobrança real.", value: plan.priceLabel, required: true, maxLength: 80 }
+    ] });
+    if (values === null) return;
+    const valor = values.priceLabel;
+    if (!valor.trim()) {
+      mostrarToast("Informe o preço exibido.", "erro", 4200);
+      return;
+    }
+    toast = mostrarToast("Salvando no Supabase...", "loading");
     await salvarApresentacaoPlanoSuperadmin(slug, { priceLabel: valor.trim() });
     registrarAuditoria("plano preço exibido alterado", { slug, billingSafeMode: true, source: "supabase" }, getClientIdAtual());
     mostrarToast("Preço informativo confirmado no Supabase. A cobrança não mudou.", "sucesso", 5200);
@@ -27452,7 +27541,10 @@ async function editarPrecoExibidoPlanoSuperadmin(slug) {
     registrarDiagnostico("Superadmin Planos", "Falha ao salvar preço informativo", erro.message);
     mostrarToast(planPresentationRemoteState.message, "erro", 6500);
     renderApp();
-  } finally { toast?.remove?.(); }
+  } finally {
+    toast?.remove?.();
+    planPresentationEditorOpen = false;
+  }
 }
 
 function renderPlanMiniDashboard(plan = {}) {
@@ -36915,6 +37007,7 @@ function getSecurityAuditDeps() {
     normalizarClienteSaas,
     normalizarPagamentoSaas,
     normalizarPlanoSaas,
+    garantirPlanosSaas,
     normalizarSessaoSaas,
     mesclarUsuariosSupabase,
     restringirDadosSaasAoEscopoAtual,
@@ -37347,6 +37440,7 @@ function promoverPopupParaDialogUiV3(popup, options = {}) {
 }
 
 function fecharPopup() {
+  if (typeof planPresentationEditorCancel === "function") planPresentationEditorCancel();
   window.UiV3?.closeOverlay?.();
   closeModal();
   closeDrawer();

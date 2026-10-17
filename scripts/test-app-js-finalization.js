@@ -301,9 +301,16 @@ const domainEventNeedles = [
   'document.addEventListener("focusin", (event) => {',
   'document.addEventListener("pointerdown", (event) => {\n      document.querySelectorAll(".stock-item-menu[open]"'
 ];
+// The plan form owns one temporary cancellation listener, not application
+// navigation. Keep the global-router prohibition and allow only this exact
+// registration; its lifecycle is exercised by test-plan-presentation-editor.
+const editorBackListener = 'window.addEventListener("popstate", onBack);';
+assert.equal(app.split(editorBackListener).length - 1, 1, "editor deve registrar um único cancelamento temporário");
+assert(app.includes('window.removeEventListener("popstate", onBack);'), "editor deve remover seu cancelamento temporário");
+const appDomainSource = app.replace(editorBackListener, "");
 let domainEventListenerCount = 0;
 for (const needle of domainEventNeedles) {
-  if (app.includes(needle)) domainEventListenerCount += 1;
+  if (appDomainSource.includes(needle)) domainEventListenerCount += 1;
 }
 assert.equal(domainEventListenerCount, 0, `DOMAIN_EVENT_LISTENERS_IN_APP_JS deve ser 0, restaram: ${domainEventListenerCount}`);
 assert.match(app, /function\s+configurarNavegacaoInternaApp[\s\S]{0,200}SimplificaAppDomainEvents\.configureNavigationPopstate/, "popstate deve ser bridge para app-domain-events");
