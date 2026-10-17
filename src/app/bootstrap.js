@@ -190,11 +190,9 @@
           renderApp();
         }, delay);
       });
-      await new Promise((resolve) => {
-        const afterFrame = () => setTimeoutRef(resolve, 3000);
-        if (typeof global.requestAnimationFrame === "function") global.requestAnimationFrame(afterFrame);
-        else afterFrame();
-      });
+      // O WebView pode suspender requestAnimationFrame quando não está visível.
+      // A pausa visual não pode impedir o início da validação real da sessão.
+      await new Promise((resolve) => setTimeoutRef(resolve, 3000));
       configurarEventListenersArquitetura();
       configurarGestosDrawerLateral();
       configurarMenusContextuaisProdutosLoja();

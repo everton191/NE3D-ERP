@@ -69,7 +69,7 @@ assert.match(bootstrap, /\[700, 1500, 2300\][\s\S]*setTimeoutRef\(resolve, 3000\
 assert.match(bootstrap, /etapasVerificacao/, "a abertura deve atualizar as etapas de verificação");
 assert.match(app, /ativarTravaLocal\(motivo\);[\s\S]*renderApp\(\);[\s\S]*tentarDesbloqueioLocalComBiometria\(\{ silencioso: true \}\)/, "a tela de verificação deve aparecer antes da biometria nativa");
 assert.match(index, /style\.css\?v=auth-status-dock-20261008/, "o CSS do login deve ter versão nova");
-assert.match(index, /src\/app\/bootstrap\.js\?v=auth-status-dock-20261008/, "o bootstrap deve ter versão nova");
+assert.match(index, /src\/app\/bootstrap\.js\?v=offline-bootstrap-20261017/, "o bootstrap deve invalidar a versão que dependia de animação");
 assert.match(index, /src\/features\/app-ui\/app-ui-renderers\.js\?v=auth-status-dock-20261008/, "o renderizador do login deve ter versão nova");
 assert.match(index, /app\.js\?v=1\.0\.41-auth-status-dock-20261008/, "o app principal deve ter versão nova");
 assert.match(serviceWorker, /simplifica-3d-v1042-auth-status-build-__SIMPLIFICA_BUILD_ID__/, "o cache deve ser renovado para a nova tela de login");

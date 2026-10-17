@@ -1,6 +1,6 @@
 # Simplifica 3D — Kanban de preparação para publicação
 
-Atualizado em 16/10/2026. Branch: `codex/melhorias-setembro-2026`.
+Atualizado em 17/10/2026. Branch: `codex/melhorias-setembro-2026`.
 Checkpoint inicial desta rodada: `6f20dae`. **Liberação para publicar: NÃO.**
 Resultados anteriores: [fechamento inicial](fechamento-publicacao-2026-10-16.md).
 Continuação local: [editor, catálogo e evidências de persistência](homologacao-editor-planos-2026-10-16.md).
@@ -15,7 +15,7 @@ staging, produção ou aparelho aprovados. Este documento não executa tarefas s
 | --- | --- | --- | --- |
 | — | — | K05 — Staging, Edge e sandbox | B01 — Flavor Play e API 36 no código |
 | K07 — Dois navegadores/aparelhos | — | K06 — Revisão de históricos | B02 — Proteções de cobrança: PASS local |
-| — | — | K08 — Android Play no aparelho | B03 — Licenças na UI/API: PASS parcial local |
+| K08 — Android: reteste físico do bootstrap | — | — | B03 — Licenças na UI/API: PASS parcial local |
 | — | — | K09 — Privacidade e Play Console | K00 — Quadro e sequência registrados |
 | — | — | K10 — Implantação autorizada | K01 — Vencimento: PASS Auth/API local |
 | — | — | K11 — Assinatura, AAB e envio | K02 — Logout: PASS frontend e navegador local |
@@ -34,7 +34,7 @@ staging, produção ou aparelho aprovados. Este documento não executa tarefas s
 | K05 | P0; aguardando acesso | Confirmar staging isolado e executar migrations/Edge real e Mercado Pago sandbox. Conexão atual não listou projetos e a configuração local não identifica o staging esperado com segurança. Usuário decidiu continuar somente local; nenhum projeto reativado/alterado. Retomar com acesso e sandbox seguros. Validar contrato recorrente, checkout ida/volta, aprovação, eventos antigos, duplicação, resposta ambígua e falhas. Não criar projetos pagos nem usar assinaturas reais. |
 | K06 | P0 de implantação; K05 | Inventariar históricos sem origem/data/plano, contratos externos incertos e espelhos de vencimento divergentes; definir revisão/reconciliação comprovável sem inventar datas, crédito extra nem cancelamento automático. K01 corrige operações futuras, não reescreve cadastros anteriores. Inspeção de produção depende de autorização própria. |
 | K07 | P0 de validação; K04; K05 para cobrança | Dois navegadores ou aparelhos realmente distintos: licença/cards após recarregar, logout/login, bloqueio administrativo, falha e reconexão. Duas origens do mesmo navegador não são duas plataformas certificadas. |
-| K08 | P0; K04 e ambiente isolado | Com autorização para gerar/instalar pacote: testar flavor Play atualizado no aparelho. IA/init/download ausentes; sem atualizador/checkout externo. Login, assinaturas existentes, pedidos, produção, estoque, caixa, calculadora, PDF/QR, arquivos/câmera quando usados, voltar Android, offline/retorno e permissões negadas. Verificar compatibilidade nativa de 16 KB no pacote final e em execução. |
+| K08 | P0; validação física parcial | Em 17/10, APK PlayDebug de `48d7301` instalado com autorização e dados preservados. PASS abertura nativa, PDF/QR em memória e IA/updater/checkout externo ausentes. FAIL físico: restauração persiste offline, ver [instalação](android-instalacao-local-2026-10-17.md). Continuação: dependência de animação corrigida com RED/GREEN, 22 cenários offline e build PASS, sem bypass; [relatório da correção](android-bootstrap-offline-2026-10-17.md). Novo APK preparado, não instalado: aparelho desconectado; causa do episódio físico e reteste pendentes. Tratamento de exceções pré-OAuth identificado, ainda não corrigido. Restam autenticação legítima isolada, assinaturas, pedidos, produção, estoque, caixa, calculadora, arquivos/câmera, voltar Android, offline/retorno, permissões negadas e 16 KB no artefato/aparelho compatível. Não é aprovação de release. |
 | K09 | P0; pode avançar em paralelo | Confirmar conta Play Console, requisitos de testes aplicáveis, política e exclusão de conta públicas/funcionais, formulário de dados/SDKs/permissões, classificação, imagens, descrição e acesso de revisão. Estado da conta não foi consultado nesta rodada. |
 | K10 | P0; K05–K07 e autorização expressa | Antes de implantar: backup, inventário do que está realmente instalado, ordem das migrations/handlers, rollback e plano de pós-validação. Só executar com autorização específica; homologação não autoriza produção. |
 | K11 | Final; K08–K10, Console apta e autorização | Confirmar chave de upload sem expor segredos, versão/código aceitos, gerar AAB atualizado assinado, inspecionar e validar faixa interna. Upload/publicação exigem autorização. APK de teste não substitui AAB final. |
@@ -64,7 +64,9 @@ staging, produção ou aparelho aprovados. Este documento não executa tarefas s
 3. K08 em pacote de teste autorizado; K10 só com aprovação explícita.
 4. K11 somente depois dos gates anteriores e autorização para gerar/enviar/publicar.
 
-Não gerar APK/AAB nesta rodada. Não fazer push, deploy, migrations em produção,
+Na rodada inicial de 16/10, não gerar APK/AAB. Em 17/10 houve autorização
+específica para gerar/instalar somente APK de teste em K08; AAB continua fora
+do escopo. Não fazer push, deploy, migrations em produção,
 tuning ou ativação de IA. Não alterar `apps/opticore`, Home, calculadora ou carrossel.
 Não utilizar dados/contratos reais nos ensaios. A verificação da conta Play,
 credenciais sandbox e assinatura são dependências externas, não PASS presumidos.
@@ -81,6 +83,8 @@ credenciais sandbox e assinatura são dependências externas, não PASS presumid
 | 16/10/2026 | K02 | Logout real pelo perfil deixou login sem overlay/identidade anterior; novo login funcionou no navegador integrado local. |
 | 16/10/2026 | K05 | Após inventário somente leitura, usuário escolheu continuar apenas com correções locais. Staging e sandbox permanecem sem homologação nesta rodada. |
 | 16/10/2026 | Interface Superadmin | Controles proporcionais e simplificação local sem remover funções; 12 áreas e 7 submenus de empresa percorridos no navegador, mobile e desktop. Ver [relatório de interface](superadmin-interface-2026-10-16.md). Não altera os gates de staging/Android/publicação. |
+| 17/10/2026 | K08 | Usuário autorizou APK de teste: instalação PlayDebug concluída, build/hash conferidos no ASUS, modelo preservado. Smoke técnico PASS; finalização do login offline FAIL/PENDENTE de correção. Rede restaurada, app encerrado, sem produção. Evidências no relatório Android. |
+| 17/10/2026 | K08 | Corrigido agendamento de três segundos que dependia de quadro de animação: RED em `48d7301`, GREEN atual. Restauração/autorização preservadas; 22 casos offline PASS. PlayDebug `0.1.0-04256611e51b367d` preparado, sem nova instalação porque o ASUS desconectou. Validação física e recuperação de exceções pré-OAuth ainda pendentes. |
 
 ### Falhas antigas dos testes — corrigidas
 
