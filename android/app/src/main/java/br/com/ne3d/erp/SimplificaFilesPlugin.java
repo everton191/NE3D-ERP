@@ -218,17 +218,27 @@ public class SimplificaFilesPlugin extends Plugin {
                     return;
                 }
 
-                try (OutputStream output = resolver.openOutputStream(uri)) {
-                    if (output == null) {
-                        call.reject("Não foi possível abrir o arquivo em Downloads.");
-                        return;
+                final Uri createdUri = uri;
+                PendingDownloadWriter.write(bytes, new PendingDownloadWriter.Entry() {
+                    @Override
+                    public OutputStream open() throws Exception {
+                        return resolver.openOutputStream(createdUri);
                     }
-                    output.write(bytes);
-                }
 
-                values.clear();
-                values.put(MediaStore.Downloads.IS_PENDING, 0);
-                resolver.update(uri, values, null, null);
+                    @Override
+                    public int publish() {
+                        ContentValues published = new ContentValues();
+                        published.put(MediaStore.Downloads.IS_PENDING, 0);
+                        return resolver.update(createdUri, published, null, null);
+                    }
+
+                    @Override
+                    public void discard() throws Exception {
+                        if (resolver.delete(createdUri, null, null) != 1) {
+                            throw new IOException("Não foi possível remover o arquivo incompleto em Downloads.");
+                        }
+                    }
+                });
             } else {
                 File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Simplifica3D");
                 if (!dir.exists() && !dir.mkdirs()) {
@@ -248,6 +258,8 @@ public class SimplificaFilesPlugin extends Plugin {
             result.put("fileName", fileName);
             result.put("uri", uri.toString());
             call.resolve(result);
+        } catch (PendingDownloadWriter.OpenFailedException error) {
+            call.reject(error.getMessage(), error);
         } catch (Exception error) {
             call.reject("Falha ao salvar " + label + ": " + error.getMessage(), error);
         }
