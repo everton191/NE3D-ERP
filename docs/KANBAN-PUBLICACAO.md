@@ -9,6 +9,47 @@ Este é o quadro de acompanhamento desta etapa. Atualizar o cartão e sua evidê
 ao terminar cada trabalho; não recriar itens já resolvidos. PASS local não significa
 staging, produção ou aparelho aprovados. Este documento não executa tarefas sozinho.
 
+## Ponto de retomada — somente tarefas sem Supabase
+
+Salvo por solicitação do usuário em 17/10/2026. Checkpoint funcional: `02a13fc`,
+precedido por `ad7baec`. Antes de retomar, conferir branch, HEAD, diferenças e
+aparelho disponíveis; não presumir que continuam iguais. Alteração preexistente
+em `apps/opticore` preservada e fora dos commits desta etapa.
+
+Já concluído neste corte: retirada da espera fixa de três segundos e do painel
+transitório de etapas com sessão local pronta. Login, renovação necessária,
+digital e recuperação de falha continuam bloqueando quando exigidos. As 17
+suítes passaram no checkpoint; APK PlayDebug `0.1.0-13ee3eac04468d68` foi
+instalado sem limpeza no ASUS, e o histórico de DOM da recarga offline não
+registrou painel nem formulário de login. Isso não certifica login remoto nem
+ganho adicional de velocidade. [Evidências e limites](android-abertura-rapida-2026-10-17.md).
+
+Próxima sequência, ainda **PENDENTE**; são desdobramentos dos cartões existentes,
+não novos recursos ou autorização para publicação:
+
+| Ordem | Cartão | Trabalho que pode avançar sem Supabase |
+| --- | --- | --- |
+| 1 | K08 | Inspecionar no APK de teste existente empacotamento, bibliotecas nativas, alinhamento/compatibilidade 16 KB, permissões e flags Play. Distinguir inspeção estática de execução em aparelho 16 KB. |
+| 2 | K08 | Conferir navegação mobile, botão voltar Android, camadas e retorno do segundo plano; começar por testes locais/sintéticos, sem alterar conta ou dados reais. |
+| 3 | K08 | Validar PDF/QR além da geração em memória, arquivos/câmera e permissões negadas/recuperação, somente com dados sintéticos em cenário isolado e sem chamadas remotas. Não considerar impressão/compartilhamento aprovados pelo smoke já feito. |
+| 4 | K08 | Completar medições offline frias/quentes quando necessário e recuperação de falhas em cenário isolado. Preservar sessão/datas/credenciais; não forçar digital ou vencimento da conta real. |
+| 5 | K07 | Preparar regressão frontend em dois navegadores/perfis descartáveis com mocks e dados sintéticos. Não marcar persistência Auth/API entre plataformas como homologada por esse ensaio. |
+| 6 | K09 | Preparar inventário local de dados, SDKs, permissões e documentação de privacidade/exclusão. Estado do Play Console, páginas públicas e funcionamento da exclusão remota continuam sem validação por esse trabalho local. |
+
+Nesta retomada, não iniciar nem acessar Supabase local, staging ou produção,
+nem cobrar/pagar/cancelar assinaturas. Escritas de teste apenas em ambiente
+descartável e sintético, com rede remota bloqueada; se o isolamento não puder
+ser comprovado, limitar à inspeção/testes simulados e registrar a pendência.
+O app instalado mantém configuração remota anterior: não abri-lo online como
+teste nem usar sua conta real para operações. Rever conexão/autorização do
+aparelho antes de novos ensaios; preservar dados e restaurar o estado da rede.
+
+Ficam separados: K05/K06/K10 (staging/sandbox, históricos e implantação), os
+ensaios de login/renovação, digital e reconexão que precisem Auth/API isolada,
+e a persistência real de licenças/cards de K07. K11/AAB/publicação dependem de
+outra etapa e autorização. Sem push, deploy, tuning, ativação de IA ou alterações
+no OptiCore. K08 e a liberação para publicar continuam incompletos.
+
 ## Quadro
 
 | A fazer | Em andamento | Aguardando ambiente / autorização | Concluído com limite de evidência |
