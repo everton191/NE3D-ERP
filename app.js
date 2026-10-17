@@ -8801,6 +8801,10 @@ function navegarVoltarSeguroInterno() {
     atualizarHistoricoBrowserApp(true);
     return true;
   }
+  if (telaAtual === "pedidos" && pedidoVisualizandoId != null) {
+    fecharDetalhesPedido();
+    return true;
+  }
   if (navegarVoltarLojaSeguroInterno()) return true;
   if (isDashboardRoute()) return false;
 
