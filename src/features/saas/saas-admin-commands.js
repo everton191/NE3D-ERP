@@ -1,7 +1,7 @@
 (function attachSaasAdmin(global) {
   "use strict";
 
-  async function atualizarClienteSaasSupabaseParcial(id, payload = {}) {
+  async function atualizarClienteSaasSupabaseParcial(id, payload = {}, deps = {}) {
     if (!deps.podeSalvarAdminSupabaseRemoto()) return { ok: false, skipped: true, reason: "NO_SUPABASE_SESSION" };
     await deps.requisicaoSupabase(`/rest/v1/clients?id=eq.${deps.encodeURIComponent(id)}`, {
       method: "PATCH",
@@ -11,7 +11,7 @@
     return { ok: true };
   }
 
-  async function atualizarStatusPerfisClienteSupabase(id, status) {
+  async function atualizarStatusPerfisClienteSupabase(id, status, deps = {}) {
     if (!deps.podeSalvarAdminSupabaseRemoto()) return { ok: false, skipped: true, reason: "NO_SUPABASE_SESSION" };
     const statusPerfil = status === "blocked" ? "blocked" : "active";
     await deps.Promise.all([
@@ -29,7 +29,7 @@
     return { ok: true };
   }
 
-  async function atualizarDadosPerfisClienteSupabase(id, payload = {}) {
+  async function atualizarDadosPerfisClienteSupabase(id, payload = {}, deps = {}) {
     if (!deps.podeSalvarAdminSupabaseRemoto()) return { ok: false, skipped: true, reason: "NO_SUPABASE_SESSION" };
     const atualizadoEm = new deps.Date().toISOString();
     await deps.Promise.all([
@@ -55,7 +55,7 @@
     return { ok: true };
   }
 
-  async function atualizarFlagTesteClienteSaasSupabase(id, isTestUser) {
+  async function atualizarFlagTesteClienteSaasSupabase(id, isTestUser, deps = {}) {
     if (!deps.podeSalvarAdminSupabaseRemoto()) return { ok: false, skipped: true, reason: "NO_SUPABASE_SESSION" };
     await deps.Promise.all([
       deps.requisicaoSupabase(`/rest/v1/clients?id=eq.${deps.encodeURIComponent(id)}`, {
@@ -77,7 +77,7 @@
     return { ok: true };
   }
 
-  async function atualizarAnonimizacaoClienteSaasSupabase(id, emailAnonimo) {
+  async function atualizarAnonimizacaoClienteSaasSupabase(id, emailAnonimo, deps = {}) {
     if (!deps.podeSalvarAdminSupabaseRemoto()) return { ok: false, skipped: true, reason: "NO_SUPABASE_SESSION" };
     const atualizadoEm = new deps.Date().toISOString();
     await deps.Promise.all([
@@ -109,7 +109,7 @@
     return { ok: true };
   }
 
-  async function obterPlanIdSupabase(slug) {
+  async function obterPlanIdSupabase(slug, deps = {}) {
     const plano = deps.getPlanoSaas(slug);
     if (deps.pareceUuid(plano.id)) return plano.id;
     if (!deps.podeSalvarAdminSupabaseRemoto()) return "";
@@ -125,7 +125,7 @@
     return "";
   }
 
-  async function excluirUsuarioTesteSaas(id) {
+  async function excluirUsuarioTesteSaas(id, deps = {}) {
     if (!deps.isSuperAdmin()) return;
     const cliente = deps.getClienteSaasPorId(id);
     if (!cliente) return;
@@ -184,7 +184,7 @@
     }
   }
 
-  async function carregarCatalogoPlanosSuperadminRemoto({ feedback = true } = {}) {
+  async function carregarCatalogoPlanosSuperadminRemoto({ feedback = true } = {}, deps = {}) {
     if (!deps.isSuperAdmin()) return null;
     if (!deps.syncConfig.supabaseAccessToken || !deps.syncConfig.supabaseUrl) {
       deps.setSuperAdminPlanCatalogRemoteState({
