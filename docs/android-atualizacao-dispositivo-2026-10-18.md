@@ -108,3 +108,8 @@ permanecem nos artefatos por bloqueio anterior de limpeza, sem novas tentativas.
 Próximos cartões locais: K08 restante, K07 com dados sintéticos/mocks e inventário
 K09. Supabase/staging/sandbox e persistência remota continuam por último, em
 etapa própria. Sem push, deploy, AAB ou publicação. **Publicação não liberada.**
+
+Continuação posterior: os testes de Bridge encontraram e corrigiram uma falha
+de bindings PDF; novo APK `0.1.0-29e9c1b79666b110` instalado. Ver
+[testes, falhas preservadas e limites](android-testes-bridge-pdf-2026-10-18.md).
+Os hashes/resultados acima identificam a atualização anterior, não o APK final.
