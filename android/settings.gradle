@@ -3,3 +3,8 @@ include ':capacitor-cordova-android-plugins'
 project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins/')
 
 apply from: 'capacitor.settings.gradle'
+
+// Explicit, local-only MediaStore validation. Never replaces the ERP package.
+if (providers.gradleProperty('simplificaMediaValidation').orNull == 'true') {
+    include ':media-validation'
+}

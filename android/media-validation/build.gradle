@@ -1,0 +1,61 @@
+apply plugin: 'com.android.application'
+
+// This opt-in APK has no ERP activity, web assets, native AI, ads or network.
+// Compile the exact production file-saving implementation, not a test copy.
+android {
+    namespace = 'br.com.ne3d.erp.validation'
+    compileSdk = rootProject.ext.compileSdkVersion
+
+    defaultConfig {
+        applicationId 'br.com.ne3d.erp.validation'
+        minSdkVersion 29
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName '1.0-local-validation'
+        testApplicationId 'br.com.ne3d.erp.validation.test'
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+        buildConfigField 'boolean', 'AI_ENABLED', 'false'
+        buildConfigField 'boolean', 'SELF_UPDATE_ENABLED', 'false'
+        buildConfigField 'boolean', 'EXTERNAL_CHECKOUT_ENABLED', 'false'
+    }
+
+    sourceSets {
+        main {
+            java.srcDirs = ['../app/src/main/java']
+            java.includes = [
+                'br/com/ne3d/erp/SimplificaFilesPlugin.java',
+                'br/com/ne3d/erp/PendingDownloadWriter.java'
+            ]
+            assets.srcDirs = []
+            jniLibs.srcDirs = []
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+    buildFeatures {
+        buildConfig true
+    }
+    androidResources {
+        // Capacitor's transitive bridge script is not needed without a WebView.
+        ignoreAssetsPattern = '*'
+    }
+    packaging {
+        jniLibs.excludes += ['**/*.so']
+    }
+}
+
+androidComponents {
+    beforeVariants(selector().withBuildType('release')) { variant ->
+        variant.enable = false
+    }
+}
+
+dependencies {
+    implementation project(':capacitor-android')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+}

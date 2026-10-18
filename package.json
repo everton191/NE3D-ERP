@@ -199,6 +199,7 @@
     "test:operational-core-phase2": "node scripts/test-operational-core-phase2.js",
     "test:navigation-stage-1": "node scripts/test-navigation-stage-1.js",
     "test:android-back-navigation": "node scripts/test-android-back-navigation.js",
+    "test:android-media-validation-isolation": "node scripts/test-android-media-validation-isolation.js",
     "test:visual-polish-stage": "node scripts/test-visual-polish-stage.js",
     "test:user-facing-technical-copy": "node scripts/test-user-facing-technical-copy.js",
     "test:motion-tokens": "node scripts/test-motion-tokens.js",
