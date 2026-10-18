@@ -30,6 +30,9 @@ novos recursos ou autorização para publicação. Continuação em `71af7fe`,
 Em 18/10, `b034248` corrigiu sucesso falso de cópia do extrato; `9363b98`
 adicionou o pacote isolado de testes: 12 ensaios MediaStore reais PASS no ASUS,
 sem abrir/reinstalar o ERP. [Evidências e limites atuais](android-mediastore-isolado-2026-10-18.md).
+Após nova reconexão, o ERP foi atualizado sem limpeza para PlayDebug
+`0.1.0-408b0682f0c50e6f`, com smoke offline PASS e rede restaurada;
+[relatório da atualização](android-atualizacao-dispositivo-2026-10-18.md).
 
 | Ordem | Cartão | Trabalho que pode avançar sem Supabase |
 | --- | --- | --- |
@@ -79,7 +82,7 @@ no OptiCore. K08 e a liberação para publicar continuam incompletos.
 | K05 | P0; aguardando acesso | Confirmar staging isolado e executar migrations/Edge real e Mercado Pago sandbox. Conexão atual não listou projetos e a configuração local não identifica o staging esperado com segurança. Usuário decidiu continuar somente local; nenhum projeto reativado/alterado. Retomar com acesso e sandbox seguros. Validar contrato recorrente, checkout ida/volta, aprovação, eventos antigos, duplicação, resposta ambígua e falhas. Não criar projetos pagos nem usar assinaturas reais. |
 | K06 | P0 de implantação; K05 | Inventariar históricos sem origem/data/plano, contratos externos incertos e espelhos de vencimento divergentes; definir revisão/reconciliação comprovável sem inventar datas, crédito extra nem cancelamento automático. K01 corrige operações futuras, não reescreve cadastros anteriores. Inspeção de produção depende de autorização própria. |
 | K07 | P0 de validação; K04; K05 para cobrança | Dois navegadores ou aparelhos realmente distintos: licença/cards após recarregar, logout/login, bloqueio administrativo, falha e reconexão. Duas origens do mesmo navegador não são duas plataformas certificadas. |
-| K08 | P0; validação física parcial | [Abertura sem espera/painel](android-abertura-rapida-2026-10-17.md), Downloads, Voltar e recursos PDF corrigidos (`71af7fe`/`53fe141`/`2a8568b`); cópia do extrato sem falso sucesso (`b034248`). 29 suítes JS e 74 JUnit PASS. Novo pacote isolado (`9363b98`): 12 testes MediaStore reais PASS no ASUS, PDF/JSON lidos e falhas injetadas limpas; fixtures/pacotes removidos, ERP não aberto/reinstalado. [Relatório atual](android-mediastore-isolado-2026-10-18.md). ERP instalado mantém PlayDebug `0.1.0-36aba7e81164a1b1`; nova correção JS ainda não instalada nele. ZIP/ELF 16 KB PASS estático; execução pendente por boot/espaço no emulador. Restam navegação/segundo plano, Bridge/arquivos visual, impressão/partilha, câmera/permissões, API 24–28 e 16 KB, além de login/biometria/ERP isolados. Sem backend remoto nem aprovação de release. |
+| K08 | P0; validação física parcial | [Abertura sem espera/painel](android-abertura-rapida-2026-10-17.md), Downloads, Voltar e recursos PDF corrigidos (`71af7fe`/`53fe141`/`2a8568b`); cópia do extrato sem falso sucesso (`b034248`). Corte anterior: 29 suítes JS e 74 JUnit PASS; pacote isolado (`9363b98`) com 12 testes MediaStore reais PASS no ASUS, PDF/JSON e falhas injetadas; fixtures/pacotes removidos. [Relatório isolado](android-mediastore-isolado-2026-10-18.md). Após reconexão, ERP atualizado sem limpeza para PlayDebug `0.1.0-408b0682f0c50e6f`; build/hash/runtime, sessão existente offline e PDF/QR em memória PASS, modelo preservado e rede restaurada. [Atualização e limites](android-atualizacao-dispositivo-2026-10-18.md). Cópia/partilha visual não validada. ZIP/ELF 16 KB PASS estático; execução pendente por boot/espaço. Restam navegação/segundo plano, Bridge/arquivos visual, impressão/partilha, câmera/permissões, API 24–28 e 16 KB, além de login/biometria/ERP isolados. Sem backend remoto nem aprovação de release. |
 | K09 | P0; pode avançar em paralelo | Confirmar conta Play Console, requisitos de testes aplicáveis, política e exclusão de conta públicas/funcionais, formulário de dados/SDKs/permissões, classificação, imagens, descrição e acesso de revisão. Estado da conta não foi consultado nesta rodada. |
 | K10 | P0; K05–K07 e autorização expressa | Antes de implantar: backup, inventário do que está realmente instalado, ordem das migrations/handlers, rollback e plano de pós-validação. Só executar com autorização específica; homologação não autoriza produção. |
 | K11 | Final; K08–K10, Console apta e autorização | Confirmar chave de upload sem expor segredos, versão/código aceitos, gerar AAB atualizado assinado, inspecionar e validar faixa interna. Upload/publicação exigem autorização. APK de teste não substitui AAB final. |
@@ -111,8 +114,9 @@ no OptiCore. K08 e a liberação para publicar continuam incompletos.
 
 Na rodada inicial de 16/10, não gerar APK/AAB. Em 17/10 houve autorização
 específica para gerar/instalar somente APK de teste em K08; AAB continua fora
-do escopo. Em 18/10, somente APKs de validação com IDs próprios foram instalados
-e removidos; o ERP instalado não foi atualizado. Não fazer push, deploy, migrations em produção,
+do escopo. Em 18/10, primeiro os APKs de validação com IDs próprios foram instalados
+e removidos; após reconexão houve atualização separada do ERP e smoke offline.
+Não fazer push, deploy, migrations em produção,
 tuning ou ativação de IA. Não alterar `apps/opticore`, Home, calculadora ou carrossel.
 Não utilizar dados/contratos reais nos ensaios. A verificação da conta Play,
 credenciais sandbox e assinatura são dependências externas, não PASS presumidos.
@@ -137,6 +141,7 @@ credenciais sandbox e assinatura são dependências externas, não PASS presumid
 | 17/10/2026 | K08 | Sessão pronta sem janela de etapas: render informativo adiado sem bloquear a restauração; renderer silencioso não lê identidade privada e preserva login/digital/falha. RED/GREEN e 17 suítes PASS. APK atualizado sem limpeza; histórico real de DOM na recarga offline mudou de uma inserção de painel/login para zero, com sessão final estável. Sem novo ganho de velocidade comprovado. Relatório de abertura rápida atualizado; K08 continua parcial. |
 | 17/10/2026 | K08 | Continuação sem Supabase: Downloads pendentes corrigidos (`71af7fe`), Voltar em detalhe sem histórico (`53fe141`) e limpeza de recursos PDF (`2a8568b`). RED/GREEN; 27 suítes JS e 74 JUnit PASS. ZIP/ELF 16 KB PASS estático, execução 16 KB pendente. Novo PlayDebug `0.1.0-36aba7e81164a1b1` instalado sem limpeza; abertura e histórico de DOM offline PASS. Nenhum ensaio físico de gravação/impressão/câmera ou backend. Ver relatório de correções locais. |
 | 18/10/2026 | K08 | Cópia do extrato sem sucesso falso (`b034248`) e módulo MediaStore opt-in sem Internet (`9363b98`). 29 suítes JS/74 JUnit PASS; 12 testes físicos PASS no ASUS, com bytes PDF/JSON, publicação, falhas injetadas e limpeza das próprias URIs. Pacotes novos removidos, APK ERP idêntico e não aberto. Execução 16 KB pendente: boot offline e depois falta de espaço; temporários do novo AVD permanecem nos artefatos por bloqueio de limpeza. Supabase continua por último. Ver relatório de 18/10. |
+| 18/10/2026 | K08 | Telefone reconectado: PlayDebug `0.1.0-408b0682f0c50e6f` de `791e0dd` instalado com install -r; certificado/hash/assets conferidos. Sessão existente e runtime/PDF/QR em memória PASS offline; modelo QAD idêntico, app encerrado e Wi-Fi/dados restaurados 1/1. Quatro suítes locais repetidas PASS; tarefa JUnit UP-TO-DATE, sem reexecução dos 74 casos. Sem teste visual de cópia/impressão/câmera ou Supabase. Ver relatório da atualização de 18/10. |
 
 ### Falhas antigas dos testes — corrigidas
 

@@ -191,3 +191,9 @@ download e entrada manual não comprovam scanner; não criar essa funcionalidade
 para completar um teste. A cópia do extrato ainda requer validação visual em
 contexto descartável e eventual atualização autorizada do ERP no dispositivo.
 Sem liberação de publicação, mudanças em IA ou assinatura Android.
+
+Continuação após reconexão do telefone: a correção foi instalada no ERP com
+dados preservados e smoke offline; ver
+[atualização do dispositivo em 18/10](android-atualizacao-dispositivo-2026-10-18.md).
+O registro acima descreve o corte anterior, no qual somente os pacotes isolados
+haviam sido instalados. Não confundir os dois ensaios nem seus APKs.
