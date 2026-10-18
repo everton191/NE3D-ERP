@@ -47,6 +47,9 @@ async function evaluate(socketUrl, expression, timeoutMs = 30000) {
       const capacitor = globalThis.Capacitor;
       let pdfBytes = 0;
       let qrNodes = 0;
+      const pdfEncoding = typeof globalThis.arrayBufferParaBase64 === "function"
+        ? globalThis.arrayBufferParaBase64(new Uint8Array([37, 80, 68, 70, 0, 255]).buffer)
+        : "";
       if (globalThis.jspdf?.jsPDF) {
         const document = new globalThis.jspdf.jsPDF();
         document.text("Simplifica 3D", 10, 10);
@@ -70,6 +73,7 @@ async function evaluate(socketUrl, expression, timeoutMs = 30000) {
         aiShortcutCount: document.querySelectorAll("[data-ai-assistant-shortcut]").length,
         viewportReady: innerWidth > 0 && innerHeight > 0,
         pdfBytes,
+        pdfEncoding,
         qrNodes
       };
     })()`);
@@ -90,6 +94,7 @@ async function evaluate(socketUrl, expression, timeoutMs = 30000) {
     if (expectAiDisabled && result?.aiShortcutCount !== 0) failures.push("AI shortcut visible");
     if (!result?.viewportReady) failures.push("viewport");
     if (!(result?.pdfBytes > 500)) failures.push("PDF");
+    if (result?.pdfEncoding !== "JVBERgD/") failures.push("PDF browser encoding binding");
     if (!(result?.qrNodes > 0)) failures.push("QR Code");
     if (failures.length) throw new Error(`ANDROID_RUNTIME_SMOKE_FAILED: ${failures.join(", ")}`);
   } finally {
