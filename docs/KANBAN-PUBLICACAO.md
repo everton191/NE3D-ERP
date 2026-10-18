@@ -1,7 +1,8 @@
 # Simplifica 3D — Kanban de preparação para publicação
 
 Atualizado em 18/10/2026. Branch: `codex/melhorias-setembro-2026`.
-Checkpoint inicial desta rodada: `6f20dae`. **Liberação para publicar: NÃO.**
+Base histórica do quadro: `6f20dae`. HEAD inicial da retomada Supabase de 18/10:
+`d5667bf`. **Liberação para publicar: NÃO.**
 Resultados anteriores: [fechamento inicial](fechamento-publicacao-2026-10-16.md).
 Continuação local: [editor, catálogo e evidências de persistência](homologacao-editor-planos-2026-10-16.md).
 
@@ -9,7 +10,25 @@ Este é o quadro de acompanhamento desta etapa. Atualizar o cartão e sua evidê
 ao terminar cada trabalho; não recriar itens já resolvidos. PASS local não significa
 staging, produção ou aparelho aprovados. Este documento não executa tarefas sozinho.
 
-## Ponto de retomada — somente tarefas sem Supabase
+## Retomada Supabase autorizada — 18/10/2026
+
+Após o usuário autorizar o início desta etapa, staging recuperado pela CLI:
+`sgcsgudgaxzysqyqxnik`, ativo, sem reativação/custo novo. Foram aplicadas 14
+migrations pendentes somente nele, totalizando 95 versões. Licenças e pagamentos
+sintéticos Auth/API remotos PASS, com sete contas removidas e dados anteriores
+preservados. [Evidências, hashes, avisos e pendências](homologacao-staging-licencas-2026-10-18.md).
+
+K05 não está completo: staging sem funções publicadas/segredos de integração;
+faltam novas RPCs de cobrança exercitadas remotamente e Mercado Pago sandbox.
+O `.env.staging` antigo aponta a um ref obsoleto e
+não foi utilizado. Raiz continua vinculada à produção; foi usado contexto CLI
+separado. Não executar comandos remotos pelo vínculo padrão. Produção,
+deploy de funções, APK/AAB e publicação não foram executados nesta etapa.
+
+## Histórico do ponto de retomada — somente tarefas sem Supabase
+
+As restrições de 17/10 abaixo registram o corte anterior. A autorização de
+18/10 permite agora a homologação isolada descrita acima, não produção.
 
 Salvo por solicitação do usuário em 17/10/2026. Checkpoint funcional: `02a13fc`,
 precedido por `ad7baec`. Antes de retomar, conferir branch, HEAD, diferenças e
@@ -64,7 +83,7 @@ no OptiCore. K08 e a liberação para publicar continuam incompletos.
 
 | A fazer | Em andamento | Aguardando ambiente / autorização | Concluído com limite de evidência |
 | --- | --- | --- | --- |
-| — | — | K05 — Staging, Edge e sandbox | B01 — Flavor Play e API 36 no código |
+| — | K05 — Banco/Auth/API staging PASS; Edge/sandbox pendentes | — | B01 — Flavor Play e API 36 no código |
 | K07 — Dois navegadores/aparelhos | — | K06 — Revisão de históricos | B02 — Proteções de cobrança: PASS local |
 | K08 — Android: fluxos completos pendentes | — | — | B03 — Licenças na UI/API: PASS parcial local |
 | — | — | K09 — Privacidade e Play Console | K00 — Quadro e sequência registrados |
@@ -82,7 +101,7 @@ no OptiCore. K08 e a liberação para publicar continuam incompletos.
 | K02 | P0; concluído local | Logout central fecha overlays, sem redesenhar a interface. PASS para perfil/topbar em legado/UiV3, logout repetido e troca de conta/licença em VM/DOM simulado (`13a781f`). Nesta continuação, saída pelo perfil deixou login limpo e novo login funcionou no navegador local. Repetição em plataformas distintas e aparelho permanece K07/K08; não prova revogação Auth remota. |
 | K03 | P0; concluído local | Formulário controlado substitui `prompt()` sem CSS novo. Seis campos e preço informativo gravados pela UI; cancelamento e falha real do proxy sem sucesso falso; releitura independente autenticada, recarga e novo login mantiveram dados. Preço cobrado intacto. Corrigidos bindings administrativos e precedência canônica também no caminho de sincronização. Evidências no relatório da continuação. |
 | K04 | P0; concluído local | Auth/API reais no esquema completo local: Free/Start/Pro, datas, renovação, vencimento, concorrência, auditoria, RLS, negações e falha/recuperação PASS. Regressão frontend/build web PASS; K03 aprovado em UI/API local. Fixtures desta rodada limpas, cards restaurados e hashes dos 11 clientes/assinaturas anteriores idênticos. Não certifica Edge/sandbox, PWA completo nem Android. |
-| K05 | P0; aguardando acesso | Confirmar staging isolado e executar migrations/Edge real e Mercado Pago sandbox. Conexão atual não listou projetos e a configuração local não identifica o staging esperado com segurança. Usuário decidiu continuar somente local; nenhum projeto reativado/alterado. Retomar com acesso e sandbox seguros. Validar contrato recorrente, checkout ida/volta, aprovação, eventos antigos, duplicação, resposta ambígua e falhas. Não criar projetos pagos nem usar assinaturas reais. |
+| K05 | P0; parcial remoto | Staging confirmado ativo pela CLI; 14 migrations aplicadas somente nele (95 totais). Free/Start/Pro, renovação/vencimento/concorrência, autorização/RLS e persistência de cards PASS por Auth/API remotos; pagamentos sintéticos PASS no caminho legado privilegiado do trigger. Sete contas limpas e dez clientes/assinaturas anteriores com hashes idênticos. Novas RPCs financeiras apenas instaladas/ACL conferida, ainda sem execução remota. Staging sem funções/segredos de integração; falta configurar e homologar Edge real/Mercado Pago sandbox. Validar contrato recorrente, checkout ida/volta, aprovação, eventos antigos, duplicação, resposta ambígua e falhas. Não criar projetos pagos, usar assinaturas reais nem executar wrappers ligados à produção. Ver relatório de 18/10. |
 | K06 | P0 de implantação; K05 | Inventariar históricos sem origem/data/plano, contratos externos incertos e espelhos de vencimento divergentes; definir revisão/reconciliação comprovável sem inventar datas, crédito extra nem cancelamento automático. K01 corrige operações futuras, não reescreve cadastros anteriores. Inspeção de produção depende de autorização própria. |
 | K07 | P0 de validação; K04; K05 para cobrança | Dois navegadores ou aparelhos realmente distintos: licença/cards após recarregar, logout/login, bloqueio administrativo, falha e reconexão. Duas origens do mesmo navegador não são duas plataformas certificadas. |
 | K08 | P0; validação física parcial | Abertura, Downloads, Voltar, recursos PDF e cópia do extrato corrigidos nos cortes anteriores. Agora bindings PDF corrigidos (`1869012`); 32 suítes JS/74 JUnit reexecutados PASS, host isolado com 8/8 no roteiro revisado (`6e8f832`), PDF/JSON pela Bridge real e 16 navegações/85 assertions de caixa com estado sintético. Impressão: abre/cancela job próprio/destrói host; Voltar manual e impressão física não aprovados. APK atual `0.1.0-29e9c1b79666b110` instalado sem limpeza; codificação PDF canônica no runtime PASS (`4bb6739`), modelo preservado/rede restaurada. [Evidências e ressalva de processo após a segunda rodada](android-testes-bridge-pdf-2026-10-18.md). Supabase não foi administrado; ausência absoluta de tráfego naquele intervalo não certificada. Restam UI completa/segundo plano do ERP, impressão/partilha manuais, seleção de imagem/permissões, API 24–28/16 KB e Auth/API isolados. Não é aprovação de release. |
