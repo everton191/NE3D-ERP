@@ -8,3 +8,8 @@ apply from: 'capacitor.settings.gradle'
 if (providers.gradleProperty('simplificaMediaValidation').orNull == 'true') {
     include ':media-validation'
 }
+
+// Separate local-only WebView/Bridge target; never included in normal ERP builds.
+if (providers.gradleProperty('simplificaBridgeValidation').orNull == 'true') {
+    include ':bridge-validation'
+}

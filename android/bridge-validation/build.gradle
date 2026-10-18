@@ -1,0 +1,72 @@
+apply plugin: 'com.android.application'
+
+// Only these two canonical implementations and this module's host are compiled.
+// No ERP bootstrap, credentials, web bundle, AI models or native binaries.
+def validationAssets = layout.buildDirectory.dir('generated/validation-assets')
+def copyCanonicalDelivery = tasks.register('copyCanonicalDelivery', Sync) {
+    into validationAssets.map { it.dir('public/canonical') }
+    from('../../src/features/company') { include 'pdf-document-delivery.js' }
+    from('../../src/features/cash') { include 'cash-renderer.js' }
+}
+def copyBrowserCases = tasks.register('copyBrowserCases', Copy) {
+    from('../../scripts/fixtures/android-back-navigation-cases.js')
+    into validationAssets.map { it.dir('public') }
+}
+def generateBrowserContracts = tasks.register('generateBrowserContracts', Exec) {
+    inputs.files('../../scripts/build-android-browser-test-assets.js',
+        '../../scripts/test-cash-renderer.js', '../../app.js')
+    outputs.files(validationAssets.map { it.file('public/canonical-navigation.js') },
+        validationAssets.map { it.file('public/android-browser-behavior.js') },
+        validationAssets.map { it.file('public/canonical-pdf-dependencies.js') })
+    commandLine 'node', file('../../scripts/build-android-browser-test-assets.js').absolutePath,
+        validationAssets.get().dir('public').asFile.absolutePath
+}
+
+android {
+    namespace = 'br.com.ne3d.erp.bridgevalidation'
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId 'br.com.ne3d.erp.bridgevalidation'
+        minSdkVersion 29
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName '1.0-local-bridge-validation'
+        testApplicationId 'br.com.ne3d.erp.bridgevalidation.test'
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+        buildConfigField 'boolean', 'AI_ENABLED', 'false'
+        buildConfigField 'boolean', 'SELF_UPDATE_ENABLED', 'false'
+        buildConfigField 'boolean', 'EXTERNAL_CHECKOUT_ENABLED', 'false'
+    }
+    sourceSets {
+        main {
+            java.srcDirs = ['src/main/java', '../app/src/main/java']
+            java.includes = [
+                'br/com/ne3d/erp/SimplificaFilesPlugin.java',
+                'br/com/ne3d/erp/PendingDownloadWriter.java',
+                'br/com/ne3d/erp/bridgevalidation/ValidationBridgeActivity.java'
+            ]
+            assets.srcDirs = ['src/main/assets', validationAssets]
+            jniLibs.srcDirs = []
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+    buildFeatures { buildConfig true }
+    packaging { jniLibs.excludes += ['**/*.so'] }
+}
+
+tasks.named('preBuild').configure {
+    dependsOn copyCanonicalDelivery, copyBrowserCases, generateBrowserContracts
+}
+androidComponents {
+    beforeVariants(selector().withBuildType('release')) { variant -> variant.enable = false }
+}
+
+dependencies {
+    implementation project(':capacitor-android')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+}
