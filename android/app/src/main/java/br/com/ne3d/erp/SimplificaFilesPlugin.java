@@ -80,7 +80,7 @@ public class SimplificaFilesPlugin extends Plugin {
     @PluginMethod
     public void savePdf(PluginCall call) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && getPermissionState("storage") != PermissionState.GRANTED) {
-            requestPermissionForAlias("storage", call, "storagePermsCallback");
+            requestPermissionForAlias("storage", call, "storagePdfPermsCallback");
             return;
         }
 
@@ -90,7 +90,7 @@ public class SimplificaFilesPlugin extends Plugin {
     @PluginMethod
     public void saveFile(PluginCall call) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && getPermissionState("storage") != PermissionState.GRANTED) {
-            requestPermissionForAlias("storage", call, "storagePermsCallback");
+            requestPermissionForAlias("storage", call, "storageFilePermsCallback");
             return;
         }
 
@@ -169,14 +169,18 @@ public class SimplificaFilesPlugin extends Plugin {
     }
 
     @PermissionCallback
-    private void storagePermsCallback(PluginCall call) {
+    private void storagePdfPermsCallback(PluginCall call) {
         if (getPermissionState("storage") == PermissionState.GRANTED) {
-            String fileName = call.getString("fileName", "");
-            if (fileName.toLowerCase().endsWith(".pdf")) {
-                writePdf(call);
-            } else {
-                writeFile(call);
-            }
+            writePdf(call);
+        } else {
+            call.reject("Permissão de armazenamento negada.");
+        }
+    }
+
+    @PermissionCallback
+    private void storageFilePermsCallback(PluginCall call) {
+        if (getPermissionState("storage") == PermissionState.GRANTED) {
+            writeFile(call);
         } else {
             call.reject("Permissão de armazenamento negada.");
         }
