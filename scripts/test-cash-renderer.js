@@ -151,4 +151,101 @@ assert.ok(topbar.includes("abrirCardCaixaRapido('historico');setTimeout"), "topb
 assert.equal(renderer.renderStatusSessaoCaixaSimples(context), "", "sem sessao e sem modo simples o status nao renderiza");
 
 view = "movimentos";
-console.log("Cash renderer: caixa, busca, visões, extrato, linha, texto e topbar validados.");
+
+async function testStatementShareRecovery() {
+  function fixture(navigator = {}, extra = {}) {
+    const state = { alerts: [], toasts: [], blocked: [], copied: [] };
+    return {
+      state,
+      context: {
+        ...context,
+        navigator,
+        alert: (value) => state.alerts.push(value),
+        mostrarToast: (...args) => state.toasts.push(args),
+        mostrarBloqueioRecursoPro: (...args) => state.blocked.push(args),
+        ...extra
+      }
+    };
+  }
+
+  for (const navigator of [{}, { clipboard: {} }, { clipboard: { writeText: true } }]) {
+    const f = fixture(navigator);
+    assert.equal(await renderer.compartilharExtratoFinanceiro(f.context), false,
+      "sem API de cópia utilizável não pode afirmar que o extrato foi copiado");
+    assert.deepEqual(f.state.toasts, [], "sem cópia não pode exibir sucesso");
+    assert.deepEqual(f.state.alerts, [texto], "deve manter o fallback com o texto completo");
+  }
+
+  const denied = Object.assign(new Error("Permissão negada"), { name: "NotAllowedError" });
+  const rejected = fixture({ clipboard: { writeText: async () => { throw denied; } } });
+  assert.equal(await renderer.compartilharExtratoFinanceiro(rejected.context), false);
+  assert.deepEqual(rejected.state.toasts, []);
+  assert.deepEqual(rejected.state.alerts, [texto]);
+
+  let resolveCopy;
+  const pending = fixture({ clipboard: { writeText: (value) => {
+    pending.state.copied.push(value);
+    return new Promise((resolve) => { resolveCopy = resolve; });
+  } } });
+  let copyFinished = false;
+  const copying = renderer.compartilharExtratoFinanceiro(pending.context).then((result) => {
+    copyFinished = true;
+    return result;
+  });
+  await Promise.resolve();
+  assert.equal(copyFinished, false, "deve aguardar a confirmação da API de cópia");
+  assert.deepEqual(pending.state.toasts, [], "cópia pendente não pode anunciar sucesso");
+  resolveCopy();
+  assert.equal(await copying, true);
+  assert.deepEqual(pending.state.copied, [texto]);
+  assert.equal(pending.state.toasts.length, 1);
+  assert.equal(pending.state.toasts[0][1], "sucesso");
+  assert.deepEqual(pending.state.alerts, []);
+
+  const nativeCalls = [];
+  const native = fixture({ share: async (value) => { nativeCalls.push(value); } });
+  assert.equal(await renderer.compartilharExtratoFinanceiro(native.context), true);
+  assert.deepEqual(nativeCalls, [{ title: "Extrato Financeiro Simplifica 3D", text: texto }]);
+  assert.deepEqual(native.state.alerts, []);
+  assert.deepEqual(native.state.toasts, []);
+
+  let copiedAfterAbort = false;
+  const cancelled = fixture({
+    share: async () => { throw Object.assign(new Error("Cancelado"), { name: "AbortError" }); },
+    clipboard: { writeText: async () => { copiedAfterAbort = true; } }
+  });
+  assert.equal(await renderer.compartilharExtratoFinanceiro(cancelled.context), true,
+    "cancelamento mantém o contrato sem acionar outra ação");
+  assert.equal(copiedAfterAbort, false, "cancelamento não deve copiar o texto sem solicitação");
+  assert.deepEqual(cancelled.state.alerts, []);
+  assert.deepEqual(cancelled.state.toasts, []);
+
+  const recovered = fixture({
+    share: async () => { throw denied; },
+    clipboard: { writeText: async (value) => { recovered.state.copied.push(value); } }
+  });
+  assert.equal(await renderer.compartilharExtratoFinanceiro(recovered.context), true);
+  assert.deepEqual(recovered.state.copied, [texto]);
+  assert.equal(recovered.state.toasts.length, 1);
+  assert.deepEqual(recovered.state.alerts, []);
+
+  const unavailable = fixture({ share: async () => { throw denied; } });
+  assert.equal(await renderer.compartilharExtratoFinanceiro(unavailable.context), false);
+  assert.deepEqual(unavailable.state.alerts, [texto]);
+  assert.deepEqual(unavailable.state.toasts, []);
+
+  let blockedAction = false;
+  const blocked = fixture({ share: async () => { blockedAction = true; } }, { planoPermiteRecurso: () => false });
+  assert.equal(await renderer.compartilharExtratoFinanceiro(blocked.context), false);
+  assert.equal(blockedAction, false);
+  assert.equal(blocked.state.blocked.length, 1);
+  assert.deepEqual(blocked.state.alerts, []);
+  assert.deepEqual(blocked.state.toasts, []);
+}
+
+testStatementShareRecovery().then(() => {
+  console.log("Cash renderer: caixa, busca, visões, extrato, linha, texto, topbar e 10 cenários de compartilhamento validados.");
+}).catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

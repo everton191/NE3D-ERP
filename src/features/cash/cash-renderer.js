@@ -905,7 +905,8 @@ async function compartilharExtratoFinanceiro(context = {}) {
     }
   }
   try {
-    await navigator.clipboard?.writeText(texto);
+    if (typeof navigator.clipboard?.writeText !== "function") throw new Error("Clipboard API indisponível");
+    await navigator.clipboard.writeText(texto);
     mostrarToast("Extrato copiado para a área de transferência.", "sucesso", 2800);
     return true;
   } catch (_) {
