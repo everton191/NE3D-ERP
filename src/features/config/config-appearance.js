@@ -1,6 +1,7 @@
 (function attachConfigAppearance(global) {
   "use strict";
 
+const previewsImagemPersonalizacao = new WeakMap();
 
 
 function normalizarPdfTheme(valor, context = {}) {
@@ -513,18 +514,32 @@ async function otimizarImagemPersonalizacao(arquivo, tipo = "brand-logo", contex
 
 async function prepararPreviewImagemPersonalizacao(input, tipo = "brand-logo", context = {}) {
   const { document, escaparAttr, mostrarToast, temAcessoCompleto, window } = context;
+  if (!input) return;
+  const request = {};
+  previewsImagemPersonalizacao.set(input, request);
   const arquivo = input?.files?.[0];
-  if (!arquivo) return;
+  const selecaoAtual = () => previewsImagemPersonalizacao.get(input) === request
+    && input.files?.[0] === arquivo
+    && (!input.id || document.getElementById(input.id) === input);
+  if (window.__personalizationImageCache) delete window.__personalizationImageCache[input.id];
+  if (!arquivo) {
+    delete input.dataset.optimizing;
+    previewsImagemPersonalizacao.delete(input);
+    return;
+  }
   if (!temAcessoCompleto()) {
     mostrarToast("Recurso PRO", "warning", 4200);
     input.value = "";
+    delete input.dataset.optimizing;
+    previewsImagemPersonalizacao.delete(input);
     return;
   }
   try {
     input.dataset.optimizing = "1";
     const otimizada = await otimizarImagemPersonalizacao(arquivo, tipo, context);
+    if (!selecaoAtual()) return;
     window.__personalizationImageCache = window.__personalizationImageCache || {};
-    window.__personalizationImageCache[input.id] = { fileName: arquivo.name, lastModified: arquivo.lastModified, tipo, ...otimizada };
+    window.__personalizationImageCache[input.id] = { file: arquivo, fileName: arquivo.name, lastModified: arquivo.lastModified, tipo, ...otimizada };
     const dica = document.getElementById("personalizationImageHint");
     if (dica) {
       dica.hidden = false;
@@ -544,11 +559,15 @@ async function prepararPreviewImagemPersonalizacao(input, tipo = "brand-logo", c
     }
     mostrarToast("Imagem ajustada automaticamente para o melhor tamanho.", "sucesso", 2600);
   } catch (erro) {
+    if (!selecaoAtual()) return;
     console.warn("[Personalização] Falha ao otimizar imagem", erro);
     mostrarToast("Não foi possível usar esta imagem. Escolha outra foto ou arquivo.", "erro", 5200);
     input.value = "";
   } finally {
-    delete input.dataset.optimizing;
+    if (previewsImagemPersonalizacao.get(input) === request) {
+      delete input.dataset.optimizing;
+      previewsImagemPersonalizacao.delete(input);
+    }
   }
 }
 
@@ -562,13 +581,13 @@ async function lerImagemConfiguracao(idInput, valorAtual = "", tipo = "brand-log
     return valorAtual || "";
   }
   const cache = window.__personalizationImageCache?.[idInput];
-  if (cache && cache.fileName === arquivo.name && Number(cache.lastModified || 0) === Number(arquivo.lastModified || 0)) {
+  if (cache && cache.file === arquivo && cache.tipo === tipo) {
     return cache.dataUrl || valorAtual || "";
   }
   try {
     const otimizada = await otimizarImagemPersonalizacao(arquivo, tipo, context);
     window.__personalizationImageCache = window.__personalizationImageCache || {};
-    window.__personalizationImageCache[idInput] = { fileName: arquivo.name, lastModified: arquivo.lastModified, tipo, ...otimizada };
+    window.__personalizationImageCache[idInput] = { file: arquivo, fileName: arquivo.name, lastModified: arquivo.lastModified, tipo, ...otimizada };
     return otimizada.dataUrl || valorAtual || "";
   } catch (erro) {
     mostrarToast("Não foi possível usar esta imagem. Escolha outra foto ou arquivo.", "erro", 5200);
