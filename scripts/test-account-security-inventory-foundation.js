@@ -1,6 +1,7 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const vm = require("node:vm");
 
 const root = path.resolve(__dirname, "..");
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
@@ -16,7 +17,7 @@ const pkg = read("package.json");
 function extractFunction(source, name) {
   const start = source.indexOf(`function ${name}`);
   assert.notEqual(start, -1, `${name} deve existir`);
-  const open = source.indexOf("{", start);
+  const open = source.indexOf("{", source.indexOf(")", start));
   let depth = 0;
   for (let index = open; index < source.length; index += 1) {
     const char = source[index];
@@ -92,10 +93,36 @@ assert.match(app, /const WHATSAPP_2FA_BACKEND_ENABLED = false;/, "2FA do app dev
 const authCode = [
   extractFunction(app, "renderAuthPublica"),
   extractFunction(app, "renderAuthEntrar"),
-  extractFunction(app, "renderAuthCriarConta")
+  extractFunction(app, "renderAuthCriarConta"),
+  extractFunction(app, "renderGoogleAuthButton")
 ].join("\n");
-assert.match(authCode, /renderGoogleAuthButton\("Entrar com Google"\)/i, "login Google ativado deve aparecer no fluxo publico");
-assert.match(app, /const GOOGLE_AUTH_ENABLED = true;/, "login Google deve usar gate explicito");
+const googleGate = app.match(/const GOOGLE_AUTH_ENABLED = (true|false);/)?.[0];
+assert.equal(googleGate, "const GOOGLE_AUTH_ENABLED = false;", "Google deve permanecer desligado ate a configuracao oficial OAuth");
+const authSandbox = {
+  appConfig: {}, usuarioAtualEmail: "", syncConfig: {}, authTab: "signin",
+  carregarEmailLoginSalvo: () => "homologacao@example.invalid",
+  escaparAttr: String, escaparHtml: String,
+  renderMarcaOficialProjeto: () => "", renderVerificacao2FA: () => ""
+};
+authSandbox.getAuthTabAtual = () => authSandbox.authTab;
+vm.runInNewContext(`${googleGate}\n${authCode}`, authSandbox);
+const signinHtml = authSandbox.renderAuthPublica();
+assert.match(signinHtml, /<form[^>]+loginUsuario\(\)/, "login por senha deve permanecer funcional no renderizador");
+for (const id of ["usuarioLoginEmail", "usuarioLoginSenha", "loginUsuarioBtn"]) {
+  assert.match(signinHtml, new RegExp(`id="${id}"`), `${id} deve aparecer no login renderizado`);
+}
+assert.match(signinHtml, /homologacao@example\.invalid/, "login deve preservar email salvo");
+authSandbox.authTab = "signup";
+const signupHtml = authSandbox.renderAuthPublica();
+assert.match(signupHtml, /<form[^>]+cadastrarClienteSaas\(\)/, "cadastro por senha deve permanecer funcional no renderizador");
+for (const id of ["signupNome", "signupEmail", "signupSenha", "signupConfirmarSenha", "signupNegocio", "signupTelefone", "signupAceite", "signupBtn"]) {
+  assert.match(signupHtml, new RegExp(`id="${id}"`), `${id} deve aparecer no cadastro renderizado`);
+}
+assert.match(signupHtml, /Termos de Uso/, "cadastro deve preservar os termos");
+assert.match(signupHtml, /Política de Privacidade/, "cadastro deve preservar a politica de privacidade");
+assert.doesNotMatch(signinHtml + signupHtml, /data-action="login-google"|auth-google-button|(?:Entrar|Criar conta) com Google/i, "gate desligado nao deve oferecer Google em nenhuma aba");
+assert.equal(authSandbox.renderGoogleAuthButton("Entrar com Google"), "", "helper deve respeitar o gate desligado");
+assert.match(authSandbox.renderAuthPublica({ verificacaoSessao: { progress: 40, step: 2 } }), /data-auth-session-check/, "extracao deve executar o corpo completo mesmo com parametro desestruturado");
 assert.doesNotMatch(pkg, /"googleapis"|"@google\//i, "nenhum SDK Google deve ser adicionado");
 
 console.log("Account security and inventory foundation tests OK");

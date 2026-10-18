@@ -1,6 +1,7 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const vm = require("node:vm");
 
 const root = path.resolve(__dirname, "..");
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
@@ -12,7 +13,7 @@ const googleConfig = require("../src/integrations/google/google.config.example.j
 function extractFunction(source, name) {
   const start = source.indexOf(`function ${name}`);
   assert.notEqual(start, -1, `${name} deve existir`);
-  const open = source.indexOf("{", start);
+  const open = source.indexOf("{", source.indexOf(")", start));
   let depth = 0;
   for (let i = open; i < source.length; i += 1) {
     if (source[i] === "{") depth += 1;
@@ -87,8 +88,37 @@ async function run() {
   const authCode = [authPublica, authEntrar, authCriarConta].join("\n");
   assert.match(authCode, /usuarioLoginEmail/, "login por email/senha deve permanecer");
   assert.match(authCode, /usuarioLoginSenha/, "campo senha deve permanecer");
-  assert.match(authCode, /renderGoogleAuthButton\("Entrar com Google"\)/i, "auth Supabase deve exibir botao Google");
-  assert.match(app, /const GOOGLE_AUTH_ENABLED = true;/, "auth Google deve estar ativado sem habilitar integracoes Google");
+  assert.match(app, /const GOOGLE_AUTH_ENABLED = false;/, "auth Google deve permanecer desligado ate a configuracao oficial OAuth");
+  const googleButton = extractFunction(app, "renderGoogleAuthButton");
+  for (const enabled of [false, true]) {
+    const sandbox = { escaparHtml: String };
+    vm.runInNewContext(`const GOOGLE_AUTH_ENABLED = ${enabled};\n${googleButton}`, sandbox);
+    const button = sandbox.renderGoogleAuthButton("Entrar com Google");
+    if (!enabled) assert.equal(button, "", "gate desligado nao deve renderizar botao Google");
+    else {
+      assert.match(button, /data-action="login-google"/, "helper preservado deve produzir acao Google quando habilitado isoladamente");
+      assert.match(button, />Entrar com Google<\//, "helper preservado deve produzir o rotulo solicitado");
+    }
+  }
+  const remoteSandbox = { window: {} };
+  vm.runInNewContext(read("src/features/account/auth-remote-commands.js"), remoteSandbox);
+  let notices = 0;
+  let diagnostics = 0;
+  let redirects = 0;
+  await remoteSandbox.window.SimplificaAuthRemote.loginGoogleSupabase({
+    GOOGLE_AUTH_ENABLED: false,
+    syncConfig: {},
+    SUPABASE_DEFAULT_URL: "https://homologacao.invalid",
+    SUPABASE_DEFAULT_ANON_KEY: "synthetic-key",
+    normalizarUrlSupabase: String,
+    mostrarToast: () => { notices += 1; },
+    registrarDiagnostico: () => { diagnostics += 1; },
+    montarRedirectSupabaseOAuth: () => { throw new Error("Gate desligado nao pode preparar OAuth"); },
+    window: { location: { assign: () => { redirects += 1; } } }
+  });
+  assert.equal(notices, 1, "comando desativado deve informar o usuario");
+  assert.equal(diagnostics, 1, "comando desativado deve registrar o bloqueio");
+  assert.equal(redirects, 0, "comando Google desativado nao deve iniciar OAuth nem redirecionar");
   assert.doesNotMatch(app, /GOCSPX-|external_google_secret|client_secret\s*[:=]/i, "frontend nao deve conter segredo Google");
 
   const service = read("src/integrations/google/googleIntegrationService.js");

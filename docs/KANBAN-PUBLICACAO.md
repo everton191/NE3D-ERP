@@ -10,6 +10,32 @@ Este é o quadro de acompanhamento desta etapa. Atualizar o cartão e sua evidê
 ao terminar cada trabalho; não recriar itens já resolvidos. PASS local não significa
 staging, produção ou aparelho aprovados. Este documento não executa tarefas sozinho.
 
+## Ordem atual — webhook por último
+
+Decisão do usuário em 18/10: continuar as outras correções e deixar
+webhook/Edge/Mercado Pago sandbox para a última frente de homologação externa.
+Não remover/desligar o webhook real nem implantar alterações de cobrança por
+essa decisão. K05 segue parcial, não dispensado ou aprovado.
+
+1. K08: concluir correções e ensaios Android/imagens em ambiente descartável.
+2. K07: validar login, licença e persistência nas plataformas distintas.
+3. K09: corrigir e homologar privacidade/exclusão de dados; preparar Console.
+4. K06: preparar revisão de históricos, sem consultar produção sem autorização.
+5. K05: por último, novas RPCs financeiras, Edge, webhook e sandbox isolados.
+6. Só então K10/implantação e K11/AAB/publicação, com autorizações próprias.
+
+Continuação local a partir de `95745db`, com checkpoints `2468ae5` e `fbb9cf3`:
+callback PDF/arquivo após permissão e
+seleção concorrente de imagens corrigidos; fingerprint web atualizado e testes
+antigos OAuth alinhados sem reativar Google. 24 suítes JS selecionadas e 74 JUnit
+frescos PASS; build web `0.1.0-4718b10a8c334d08`. Sem APK novo/instalação,
+Supabase ou deploy nesta continuação. [Resultados e limites](correcoes-locais-webhook-adiado-2026-10-18.md).
+
+K09 tem bloqueadores locais concretos: sucesso de exclusão/cancelamento sem
+verificar gravação e processador que só desativa a empresa/bloqueia membros,
+sem concluir sozinho a exclusão dos dados. Não executar purga de dados reais
+como teste. [Inventário e critérios de correção](privacidade-inventario-local-2026-10-18.md).
+
 ## Retomada Supabase autorizada — 18/10/2026
 
 Após o usuário autorizar o início desta etapa, staging recuperado pela CLI:
@@ -83,10 +109,10 @@ no OptiCore. K08 e a liberação para publicar continuam incompletos.
 
 | A fazer | Em andamento | Aguardando ambiente / autorização | Concluído com limite de evidência |
 | --- | --- | --- | --- |
-| — | K05 — Banco/Auth/API staging PASS; Edge/sandbox pendentes | — | B01 — Flavor Play e API 36 no código |
+| — | — | K05 — Banco/Auth/API parcial PASS; webhook/sandbox por último | B01 — Flavor Play e API 36 no código |
 | K07 — Dois navegadores/aparelhos | — | K06 — Revisão de históricos | B02 — Proteções de cobrança: PASS local |
 | K08 — Android: fluxos completos pendentes | — | — | B03 — Licenças na UI/API: PASS parcial local |
-| — | — | K09 — Privacidade e Play Console | K00 — Quadro e sequência registrados |
+| — | K09 — Inventário concluído; exclusão/privacidade com bloqueadores | Play Console: validação externa pendente | K00 — Quadro e sequência registrados |
 | — | — | K10 — Implantação autorizada | K01 — Vencimento: PASS Auth/API local |
 | — | — | K11 — Assinatura, AAB e envio | K02 — Logout: PASS frontend e navegador local |
 | — | — | — | K03 — Editor e catálogo: PASS UI/API local |
@@ -101,11 +127,11 @@ no OptiCore. K08 e a liberação para publicar continuam incompletos.
 | K02 | P0; concluído local | Logout central fecha overlays, sem redesenhar a interface. PASS para perfil/topbar em legado/UiV3, logout repetido e troca de conta/licença em VM/DOM simulado (`13a781f`). Nesta continuação, saída pelo perfil deixou login limpo e novo login funcionou no navegador local. Repetição em plataformas distintas e aparelho permanece K07/K08; não prova revogação Auth remota. |
 | K03 | P0; concluído local | Formulário controlado substitui `prompt()` sem CSS novo. Seis campos e preço informativo gravados pela UI; cancelamento e falha real do proxy sem sucesso falso; releitura independente autenticada, recarga e novo login mantiveram dados. Preço cobrado intacto. Corrigidos bindings administrativos e precedência canônica também no caminho de sincronização. Evidências no relatório da continuação. |
 | K04 | P0; concluído local | Auth/API reais no esquema completo local: Free/Start/Pro, datas, renovação, vencimento, concorrência, auditoria, RLS, negações e falha/recuperação PASS. Regressão frontend/build web PASS; K03 aprovado em UI/API local. Fixtures desta rodada limpas, cards restaurados e hashes dos 11 clientes/assinaturas anteriores idênticos. Não certifica Edge/sandbox, PWA completo nem Android. |
-| K05 | P0; parcial remoto | Staging confirmado ativo pela CLI; 14 migrations aplicadas somente nele (95 totais). Free/Start/Pro, renovação/vencimento/concorrência, autorização/RLS e persistência de cards PASS por Auth/API remotos; pagamentos sintéticos PASS no caminho legado privilegiado do trigger. Sete contas limpas e dez clientes/assinaturas anteriores com hashes idênticos. Novas RPCs financeiras apenas instaladas/ACL conferida, ainda sem execução remota. Staging sem funções/segredos de integração; falta configurar e homologar Edge real/Mercado Pago sandbox. Validar contrato recorrente, checkout ida/volta, aprovação, eventos antigos, duplicação, resposta ambígua e falhas. Não criar projetos pagos, usar assinaturas reais nem executar wrappers ligados à produção. Ver relatório de 18/10. |
+| K05 | P0; parcial remoto; última homologação externa | Staging confirmado ativo pela CLI; 14 migrations aplicadas somente nele (95 totais). Free/Start/Pro, renovação/vencimento/concorrência, autorização/RLS e persistência de cards PASS por Auth/API remotos; pagamentos sintéticos PASS no caminho legado privilegiado do trigger. Sete contas limpas e dez clientes/assinaturas anteriores com hashes idênticos. Novas RPCs financeiras apenas instaladas/ACL conferida, ainda sem execução remota. Staging sem funções/segredos de integração; falta configurar e homologar Edge real/Mercado Pago sandbox. Adiado por decisão do usuário, não dispensado; manter cobrança atual intacta. Validar contrato recorrente, checkout ida/volta, aprovação, eventos antigos, duplicação, resposta ambígua e falhas. Não criar projetos pagos, usar assinaturas reais nem executar wrappers ligados à produção. Ver relatório de 18/10. |
 | K06 | P0 de implantação; K05 | Inventariar históricos sem origem/data/plano, contratos externos incertos e espelhos de vencimento divergentes; definir revisão/reconciliação comprovável sem inventar datas, crédito extra nem cancelamento automático. K01 corrige operações futuras, não reescreve cadastros anteriores. Inspeção de produção depende de autorização própria. |
 | K07 | P0 de validação; K04; K05 para cobrança | Dois navegadores ou aparelhos realmente distintos: licença/cards após recarregar, logout/login, bloqueio administrativo, falha e reconexão. Duas origens do mesmo navegador não são duas plataformas certificadas. |
 | K08 | P0; validação física parcial | Abertura, Downloads, Voltar, recursos PDF e cópia do extrato corrigidos nos cortes anteriores. Agora bindings PDF corrigidos (`1869012`); 32 suítes JS/74 JUnit reexecutados PASS, host isolado com 8/8 no roteiro revisado (`6e8f832`), PDF/JSON pela Bridge real e 16 navegações/85 assertions de caixa com estado sintético. Impressão: abre/cancela job próprio/destrói host; Voltar manual e impressão física não aprovados. APK atual `0.1.0-29e9c1b79666b110` instalado sem limpeza; codificação PDF canônica no runtime PASS (`4bb6739`), modelo preservado/rede restaurada. [Evidências e ressalva de processo após a segunda rodada](android-testes-bridge-pdf-2026-10-18.md). Supabase não foi administrado; ausência absoluta de tráfego naquele intervalo não certificada. Restam UI completa/segundo plano do ERP, impressão/partilha manuais, seleção de imagem/permissões, API 24–28/16 KB e Auth/API isolados. Não é aprovação de release. |
-| K09 | P0; pode avançar em paralelo | Confirmar conta Play Console, requisitos de testes aplicáveis, política e exclusão de conta públicas/funcionais, formulário de dados/SDKs/permissões, classificação, imagens, descrição e acesso de revisão. Estado da conta não foi consultado nesta rodada. |
+| K09 | P0; inventário local feito, correções pendentes | FAIL local: confirmação/cancelamento ignoram erros de gravação; rotina de exclusão somente lógica, sem prova de eliminação de dados; cron e fluxo de membro/empresa a validar. Inventariados SDKs, contatos, diagnósticos, avisos de mensagens, biometria, arquivos e backup. Não inferir coleta ausente da flag Ads desligada. Ver inventário de 18/10. Confirmar política/canal públicos e procedimento real, retenções, formulário de dados/SDKs/permissões, conta Console, testes aplicáveis, classificação e acesso de revisão. Produção/Console não consultados nesta continuação; sem purga real. |
 | K10 | P0; K05–K07 e autorização expressa | Antes de implantar: backup, inventário do que está realmente instalado, ordem das migrations/handlers, rollback e plano de pós-validação. Só executar com autorização específica; homologação não autoriza produção. |
 | K11 | Final; K08–K10, Console apta e autorização | Confirmar chave de upload sem expor segredos, versão/código aceitos, gerar AAB atualizado assinado, inspecionar e validar faixa interna. Upload/publicação exigem autorização. APK de teste não substitui AAB final. |
 
@@ -127,7 +153,10 @@ no OptiCore. K08 e a liberação para publicar continuam incompletos.
   editor K03, agora aprovado na continuação local acima. Não equivale a repetição
   visual em dois navegadores/aparelhos distintos.
 
-## Sequência e limites
+## Sequência histórica e limites
+
+A ordem atual de trabalho é a seção inicial “webhook por último”. A sequência
+abaixo registra a organização original; os limites de autorização continuam.
 
 1. K01 e K02 em correções pequenas e independentes; testes e checkpoints separados.
 2. K03 e K04, depois K05/K06/K07. K09 pode ser conferido em paralelo.
@@ -165,6 +194,9 @@ credenciais sandbox e assinatura são dependências externas, não PASS presumid
 | 18/10/2026 | K08 | Cópia do extrato sem sucesso falso (`b034248`) e módulo MediaStore opt-in sem Internet (`9363b98`). 29 suítes JS/74 JUnit PASS; 12 testes físicos PASS no ASUS, com bytes PDF/JSON, publicação, falhas injetadas e limpeza das próprias URIs. Pacotes novos removidos, APK ERP idêntico e não aberto. Execução 16 KB pendente: boot offline e depois falta de espaço; temporários do novo AVD permanecem nos artefatos por bloqueio de limpeza. Supabase continua por último. Ver relatório de 18/10. |
 | 18/10/2026 | K08 | Telefone reconectado: PlayDebug `0.1.0-408b0682f0c50e6f` de `791e0dd` instalado com install -r; certificado/hash/assets conferidos. Sessão existente e runtime/PDF/QR em memória PASS offline; modelo QAD idêntico, app encerrado e Wi-Fi/dados restaurados 1/1. Quatro suítes locais repetidas PASS; tarefa JUnit UP-TO-DATE, sem reexecução dos 74 casos. Sem teste visual de cópia/impressão/câmera ou Supabase. Ver relatório da atualização de 18/10. |
 | 18/10/2026 | K08 | Testes autorizados: 6/8 inicialmente por Illegal invocation em PDF; bindings Window corrigidos, 7/8 na repetição (identidade do diálogo invisível). Roteiro de impressão revisado sem ação global: 8/8, com job próprio encerrado/host destruído; cancelamento manual continua pendente. 32 suítes JS e 74 JUnit frescos PASS; APK `0.1.0-29e9c1b79666b110` atualizado e smoke da codificação real PASS. Pacotes/fixtures novos removidos, rede restaurada e modelo preservado. Logs FAIL anteriores e ressalva de processo após segunda rodada mantidos no novo relatório. Commits `1869012`, `6e8f832`, `4bb6739`; publicação não liberada. |
+
+| 18/10/2026 | K05 | Staging recuperado e 14 migrations aplicadas somente nele; 95 versões. Duas suítes Auth/API remotas PASS, sete contas limpas e dados anteriores preservados. Novas RPCs financeiras e Edge/sandbox não homologados. Commit `95745db`; ver relatório remoto. |
+| 18/10/2026 | K08/K09 | Webhook adiado por decisão do usuário. Corrigidos callback de permissão e corrida de imagens; fingerprint reconhece o módulo alterado. Dois testes OAuth obsoletos corrigidos sem mudar produto. 24 suítes JS selecionadas/74 JUnit PASS; build web novo, sem APK/Supabase/deploy. Inventário K09 documenta bloqueadores reais de exclusão, SDKs/permissões e validações externas. |
 
 ### Falhas antigas dos testes — corrigidas
 
