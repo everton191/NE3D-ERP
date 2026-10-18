@@ -38137,10 +38137,10 @@ function hexParaRgb(hex) {
 function getPdfDocumentDeliveryDeps() {
   return {
     appConfig,
-    alertRef: alert,
-    btoaRef: btoa,
-    clearTimeoutRef: clearTimeout,
-    confirmRef: confirm,
+    alertRef: alert.bind(window),
+    btoaRef: btoa.bind(window),
+    clearTimeoutRef: clearTimeout.bind(window),
+    confirmRef: confirm.bind(window),
     documentRef: document,
     FileRef: typeof File === "undefined" ? undefined : File,
     hasProfessionalPdfAccess: temAcessoPdfProfissional,
@@ -38150,7 +38150,7 @@ function getPdfDocumentDeliveryDeps() {
     logDiagnostic: registrarDiagnostico,
     logHistory: registrarHistorico,
     navigatorRef: navigator,
-    setTimeoutRef: setTimeout,
+    setTimeoutRef: setTimeout.bind(window),
     Uint8ArrayRef: Uint8Array,
     urlRef: URL,
     windowRef: window

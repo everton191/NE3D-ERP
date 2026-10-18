@@ -72,7 +72,7 @@ assert.match(app, /ativarTravaLocal\(motivo\);[\s\S]*renderApp\(\);[\s\S]*tentar
 assert.match(index, /style\.css\?v=auth-status-dock-20261008/, "o CSS do login deve ter versão nova");
 assert.match(index, /src\/app\/bootstrap\.js\?v=quiet-session-startup-20261017/, "o bootstrap deve invalidar a versão que sempre desenhava as etapas");
 assert.match(index, /src\/features\/app-ui\/app-ui-renderers\.js\?v=quiet-session-startup-20261017/, "o renderizador deve invalidar a versão que sempre mostrava o login durante a restauração");
-assert.match(index, /app\.js\?v=1\.0\.41-android-local-fixes-20261017/, "o app principal deve invalidar a versão anterior à correção de navegação");
+assert.match(index, /app\.js\?v=1\.0\.41-pdf-browser-bindings-20261018/, "o app principal deve invalidar a versão anterior à correção de bindings PDF");
 assert.match(serviceWorker, /simplifica-3d-v1042-auth-status-build-__SIMPLIFICA_BUILD_ID__/, "o cache deve ser renovado para a nova tela de login");
 assert(index.indexOf('id="app-shell"') < index.indexOf('/assets/vendor/jspdf.umd.min.js'), "o shell inicial deve ser montado antes das bibliotecas de PDF e QR");
 assert(index.indexOf('/assets/vendor/jspdf.umd.min.js') < index.indexOf('/app.js?'), "a biblioteca de PDF deve continuar disponível antes do app principal");
