@@ -20,14 +20,16 @@ const jwtPayload = (token: string) => {
 async function context(request: Request) {
   const token = clean(request.headers.get("authorization"), 5000).replace(/^Bearer\s+/i, "");
   if (!token) throw new Error("UNAUTHENTICATED");
-  const { data: { user } } = await admin.auth.getUser(token);
-  if (!user?.id || !user.email) throw new Error("UNAUTHENTICATED");
-  const { data: membership } = await admin.from("company_members").select("company_id,role,status").eq("user_id", user.id).eq("status", "active").maybeSingle();
-  const { data: owned } = await admin.from("companies").select("id,deletion_status,deletion_scheduled_at,status").eq("owner_user_id", user.id).maybeSingle();
+  const { data: { user }, error: authError } = await admin.auth.getUser(token);
+  if (authError || !user?.id || !user.email) throw new Error("UNAUTHENTICATED");
+  const { data: membership, error: membershipError } = await admin.from("company_members").select("company_id,role,status").eq("user_id", user.id).eq("status", "active").maybeSingle();
+  const { data: owned, error: ownerError } = await admin.from("companies").select("id,deletion_status,deletion_scheduled_at,status").eq("owner_user_id", user.id).maybeSingle();
+  if (membershipError || ownerError) throw new Error("SECURITY_CHECK_UNAVAILABLE");
   const companyId = membership?.company_id || owned?.id || null;
   const roleMap: Record<string, string> = { attendant: "sales", finance: "cashier", read_only: "viewer" };
   const role = owned?.id === companyId ? "owner" : (roleMap[membership?.role] || membership?.role || "viewer");
-  const { data: company } = companyId ? await admin.from("companies").select("id,deletion_status,deletion_scheduled_at,status").eq("id", companyId).single() : { data: null };
+  const { data: company, error: companyError } = companyId ? await admin.from("companies").select("id,deletion_status,deletion_scheduled_at,status").eq("id", companyId).single() : { data: null, error: null };
+  if (companyError || (companyId && !company)) throw new Error("SECURITY_CHECK_UNAVAILABLE");
   return { token, user, companyId, role, company, sessionId: clean(jwtPayload(token).session_id, 80) };
 }
 
@@ -97,8 +99,15 @@ async function verifyAuthOtp(email: string, code: string) {
   return data;
 }
 
-async function verifyChallenge(ctx: Awaited<ReturnType<typeof context>>, request: Request, challengeId: string, code: string) {
-  const { data: challenge } = await admin.from("user_2fa_challenges").select("*").eq("id", challengeId).eq("user_id", ctx.user.id).maybeSingle();
+async function verifyChallenge(ctx: Awaited<ReturnType<typeof context>>, request: Request, challengeId: string, code: string,
+  options: { purpose?: string; deferPersistence?: boolean } = {}) {
+  const { data: challenge, error: challengeError } = await admin.from("user_2fa_challenges").select("*").eq("id", challengeId).eq("user_id", ctx.user.id).maybeSingle();
+  if (challengeError) throw new Error("SECURITY_CHECK_UNAVAILABLE");
+  if (challenge && options.purpose) {
+    if (challenge.company_id !== ctx.companyId) throw new Error("CHALLENGE_COMPANY_MISMATCH");
+    if (challenge.purpose !== options.purpose) throw new Error("INVALID_CHALLENGE_PURPOSE");
+    if (challenge.status === "verified" || challenge.used_at) throw new Error("CHALLENGE_ALREADY_USED");
+  }
   if (!challenge || challenge.status !== "pending") throw new Error("CHALLENGE_NOT_FOUND");
   if (new Date(challenge.expires_at).getTime() <= Date.now()) {
     await admin.from("user_2fa_challenges").update({ status: "expired" }).eq("id", challenge.id);
@@ -115,6 +124,9 @@ async function verifyChallenge(ctx: Awaited<ReturnType<typeof context>>, request
   }
   const sessionId = clean(jwtPayload(session.access_token).session_id, 80);
   if (!sessionId) throw new Error("INVALID_VERIFIED_SESSION");
+  // The deletion RPC consumes the challenge, records MFA and commits the action
+  // and audit together. Do not persist a partial confirmation in this handler.
+  if (options.deferPersistence) return { challenge, session };
   await admin.from("user_2fa_sessions").upsert({
     user_id: ctx.user.id, company_id: ctx.companyId, auth_session_id: sessionId,
     verified_at: new Date().toISOString(), expires_at: new Date(Date.now() + 12 * 60 * 60_000).toISOString(), revoked_at: null
@@ -137,25 +149,51 @@ async function status(ctx: Awaited<ReturnType<typeof context>>) {
 }
 
 async function confirmDeletion(ctx: Awaited<ReturnType<typeof context>>, request: Request, challengeId: string, code: string, reason: string) {
-  ensureAllowed(ctx, "request_account_deletion");
-  const verified = await verifyChallenge(ctx, request, challengeId, code);
-  if (verified.challenge.purpose !== "account_deletion") throw new Error("INVALID_CHALLENGE_PURPOSE");
-  const now = new Date();
-  const scheduled = new Date(now.getTime() + 15 * 24 * 60 * 60_000);
-  await admin.from("companies").update({ deletion_status: "pending_deletion", deletion_requested_at: now.toISOString(), deletion_scheduled_at: scheduled.toISOString(), deletion_requested_by: ctx.user.id, deletion_cancelled_at: null }).eq("id", ctx.companyId);
-  await admin.from("account_deletion_requests").insert({ owner_id: ctx.user.id, requested_by: ctx.user.id, company_id: ctx.companyId, confirmation_email: ctx.user.email, status: "confirmed", requested_at: now.toISOString(), scheduled_delete_at: scheduled.toISOString(), confirmed_at: now.toISOString(), reason });
-  await audit(ctx, "account_deletion_requested", "success", request, "Exclusão lógica agendada com carência de 15 dias.");
-  return { scheduled_for: scheduled.toISOString(), session: verified.session };
+  return confirmDeletionAction(ctx, request, challengeId, code, "confirm_account_deletion", reason);
 }
 
 async function confirmCancellation(ctx: Awaited<ReturnType<typeof context>>, request: Request, challengeId: string, code: string) {
-  ensureAllowed(ctx, "cancel_account_deletion");
-  const verified = await verifyChallenge(ctx, request, challengeId, code);
-  if (verified.challenge.purpose !== "cancel_deletion") throw new Error("INVALID_CHALLENGE_PURPOSE");
-  await admin.from("companies").update({ deletion_status: "cancelled", deletion_cancelled_at: new Date().toISOString(), deletion_scheduled_at: null }).eq("id", ctx.companyId).eq("deletion_status", "pending_deletion");
-  await admin.from("account_deletion_requests").update({ status: "cancelled", cancelled_at: new Date().toISOString() }).eq("company_id", ctx.companyId).eq("status", "confirmed");
-  await audit(ctx, "account_deletion_cancelled", "success", request, "Exclusão da conta cancelada.");
-  return { cancelled: true, session: verified.session };
+  return confirmDeletionAction(ctx, request, challengeId, code, "confirm_cancel_deletion");
+}
+
+async function confirmDeletionAction(ctx: Awaited<ReturnType<typeof context>>, request: Request,
+  challengeId: string, code: string, action: string, reason = "") {
+  const deleting = action === "confirm_account_deletion";
+  ensureAllowed(ctx, deleting ? "request_account_deletion" : "cancel_account_deletion");
+  const verified = await verifyChallenge(ctx, request, challengeId, code,
+    { purpose: deleting ? "account_deletion" : "cancel_deletion", deferPersistence: true });
+  const proof = jwtPayload(verified.session.access_token);
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (verified.session.user?.id !== ctx.user.id || proof.sub !== ctx.user.id
+    || !uuid.test(String(proof.session_id || "")) || !(Number(proof.exp) * 1000 > Date.now())
+    || typeof verified.session.access_token !== "string" || !verified.session.access_token
+    || typeof verified.session.refresh_token !== "string" || !verified.session.refresh_token) throw new Error("INVALID_VERIFIED_SESSION");
+  let result;
+  try {
+    result = await admin.rpc("apply_account_deletion_action", {
+      p_actor_user_id: ctx.user.id, p_company_id: ctx.companyId, p_challenge_id: challengeId,
+      p_action: action, p_verified_session_id: proof.session_id,
+      p_ip_hash: await sha256(clean(request.headers.get("x-forwarded-for") || "unknown", 200)),
+      p_user_agent_hash: await sha256(clean(request.headers.get("user-agent") || "unknown", 500)),
+      p_reason: clean(reason, 500), p_confirmation_email: ctx.user.email
+    });
+  } catch { throw new Error("ACCOUNT_DELETION_UNAVAILABLE"); }
+  const { data, error } = result;
+  if (error) {
+    const known = ["OWNER_REQUIRED", "COMPANY_NOT_FOUND", "COMPANY_INACTIVE", "DELETION_COMPLETED",
+      "CHALLENGE_NOT_FOUND", "INVALID_CHALLENGE_PURPOSE", "CHALLENGE_ALREADY_USED", "CODE_EXPIRED",
+      "TOO_MANY_ATTEMPTS", "PENDING_DELETION", "DELETION_NOT_PENDING", "DELETION_STATE_CONFLICT"];
+    throw new Error(known.includes(error.message) ? error.message : "ACCOUNT_DELETION_UNAVAILABLE");
+  }
+  const scheduled = data?.scheduled_for;
+  const validDate = typeof scheduled === "string"
+    && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/.test(scheduled)
+    && Date.parse(scheduled) > Date.now();
+  if (data?.persisted !== true || data.action !== action || data.company_id !== ctx.companyId
+    || !uuid.test(String(data.request_id || "")) || (deleting ? !validDate : data.cancelled !== true)) {
+    throw new Error("ACCOUNT_DELETION_NOT_CONFIRMED");
+  }
+  return { ...data, session: verified.session };
 }
 
 serve(async (request) => {
@@ -203,7 +241,11 @@ serve(async (request) => {
     return response({ ok: true, data });
   } catch (error) {
     const message = clean(error instanceof Error ? error.message : error, 300) || "ACCOUNT_SECURITY_FAILED";
-    const statusCode = message === "SECURITY_CHECK_UNAVAILABLE" ? 503 : message === "UNAUTHENTICATED" ? 401 : ["OWNER_REQUIRED", "PENDING_DELETION", "MFA_REQUIRED"].includes(message) ? 403 : message.endsWith("_NOT_FOUND") ? 404 : 400;
+    const statusCode = ["SECURITY_CHECK_UNAVAILABLE", "ACCOUNT_DELETION_UNAVAILABLE", "ACCOUNT_DELETION_NOT_CONFIRMED"].includes(message) ? 503
+      : message === "UNAUTHENTICATED" ? 401
+      : ["OWNER_REQUIRED", "PENDING_DELETION", "MFA_REQUIRED", "INVALID_CHALLENGE_PURPOSE", "CHALLENGE_COMPANY_MISMATCH"].includes(message) ? 403
+      : message.endsWith("_NOT_FOUND") ? 404
+      : ["DELETION_STATE_CONFLICT", "DELETION_NOT_PENDING", "DELETION_COMPLETED", "CHALLENGE_ALREADY_USED", "COMPANY_INACTIVE"].includes(message) ? 409 : 400;
     return response({ ok: false, error: message }, statusCode);
   }
 });

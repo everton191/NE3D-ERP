@@ -248,6 +248,19 @@ function mensagemErroSegurancaConta(codigo = "", context = {}) {
     TOO_MANY_ATTEMPTS: "Muitas tentativas. Solicite um novo código.",
     OWNER_REQUIRED: "Somente o proprietário pode realizar esta ação.",
     PENDING_DELETION: "Esta ação está bloqueada enquanto a conta aguarda exclusão.",
+    ACCOUNT_DELETION_NOT_CONFIRMED: "A gravação não foi confirmada. Atualize a situação da conta antes de tentar novamente.",
+    ACCOUNT_DELETION_UNAVAILABLE: "Não foi possível confirmar a solicitação agora. Verifique a situação da conta antes de tentar novamente.",
+    SECURITY_CHECK_UNAVAILABLE: "Não foi possível verificar a segurança da conta agora. Tente novamente mais tarde.",
+    DELETION_STATE_CONFLICT: "A situação da solicitação mudou ou precisa de revisão. Atualize a tela da conta.",
+    DELETION_NOT_PENDING: "Não há uma solicitação pendente que possa ser cancelada.",
+    DELETION_COMPLETED: "A conta já foi desativada pelo processamento da solicitação. Contate o suporte.",
+    CHALLENGE_ALREADY_USED: "Este código já foi utilizado. Atualize a situação da conta e solicite outro código se necessário.",
+    CHALLENGE_NOT_FOUND: "Solicitação de confirmação não encontrada. Solicite outro código.",
+    INVALID_CHALLENGE_PURPOSE: "Este código não corresponde a esta ação. Solicite outro código.",
+    CHALLENGE_COMPANY_MISMATCH: "A confirmação não corresponde à empresa atual. Atualize a tela e solicite outro código.",
+    INVALID_VERIFIED_SESSION: "A verificação da sessão não foi confirmada. Solicite outro código.",
+    COMPANY_INACTIVE: "Esta empresa não está ativa. Contate o suporte.",
+    COMPANY_NOT_FOUND: "Empresa não encontrada. Atualize a situação da conta.",
     UNAUTHENTICATED: "Sua sessão expirou. Entre novamente."
   })[String(codigo || "")] || String(codigo || "Não foi possível concluir a ação.");
 }
@@ -322,9 +335,26 @@ async function confirmarAcaoSegurancaConta(event, { action, challengeId, reason 
   const code = (document.getElementById("securityActionCode")?.value || "").replace(/\D/g, "").slice(0, 6);
   if (code.length !== 6) return mostrarToast("Digite os 6 dígitos do código.", "aviso");
   const button = event.currentTarget?.querySelector('button[type="submit"]');
+  if (button?.disabled) return;
   if (button) button.disabled = true;
+  let persisted = false;
   try {
     const data = await accountSecurityRequest(action, { challenge_id: challengeId, code, reason }, context);
+    if (["confirm_account_deletion", "confirm_cancel_deletion"].includes(action)) {
+      const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const scheduled = data?.scheduled_for;
+      const validDate = typeof scheduled === "string"
+        && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/.test(scheduled)
+        && Date.parse(scheduled) > Date.now();
+      const validSession = data?.session === undefined || (data.session && typeof data.session.access_token === "string"
+        && !!data.session.access_token && typeof data.session.refresh_token === "string" && !!data.session.refresh_token);
+      if (data?.persisted !== true || data.action !== action || !uuid.test(String(data.company_id || ""))
+        || !uuid.test(String(data.request_id || "")) || !validSession
+        || (action === "confirm_account_deletion" ? !validDate : data.cancelled !== true)) {
+        throw new Error("ACCOUNT_DELETION_NOT_CONFIRMED");
+      }
+      persisted = true;
+    }
     if (data?.session) salvarSessaoSupabase(data.session, syncConfig.supabaseEmail || getUsuarioAtual()?.email || "");
     fecharPopup();
     await carregarSegurancaConta(true);
@@ -336,8 +366,12 @@ async function confirmarAcaoSegurancaConta(event, { action, challengeId, reason 
     };
     mostrarToast(messages[action] || "Confirmação concluída.", "sucesso", 6000);
   } catch (erro) {
-    mostrarToast(mensagemErroSegurancaConta(erro?.message, context), "erro", 6000);
-    if (button) button.disabled = false;
+    if (persisted) {
+      mostrarToast("Alteração confirmada no servidor, mas não foi possível atualizar a tela. Recarregue para conferir a situação da conta.", "aviso", 7000);
+    } else {
+      mostrarToast(mensagemErroSegurancaConta(erro?.message, context), "erro", 6000);
+      if (button) button.disabled = false;
+    }
   }
 }
 
