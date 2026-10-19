@@ -12,6 +12,7 @@ const html = read("android/bridge-validation/src/main/assets/public/index.html")
 const fixture = read("android/bridge-validation/src/main/assets/public/validation.js");
 const images = read("android/bridge-validation/src/main/assets/public/image-validation.js");
 const test = read("android/bridge-validation/src/androidTest/java/br/com/ne3d/erp/bridgevalidation/BridgeMediaDeviceTest.java");
+const picker = read("android/bridge-validation/src/androidTest/java/br/com/ne3d/erp/bridgevalidation/RealPickerCancelDeviceTest.java");
 
 assert.match(settings, /if \(providers\.gradleProperty\('simplificaBridgeValidation'\)\.orNull == 'true'\)\s*\{\s*include ':bridge-validation'\s*\}/);
 assert.match(gradle, /applicationId 'br\.com\.ne3d\.erp\.bridgevalidation'/);
@@ -78,6 +79,22 @@ assert.match(test, /assertEquals\(Lifecycle\.State\.DESTROYED, scenario\.getStat
 assert.match(test, /assertTrue\("Only the disposable host must be destroyed", activity\.isDestroyed\(\)\)/);
 assert.doesNotMatch(test, /performGlobalAction|GLOBAL_ACTION_|sendKey|pressBack|\.click\(/,
   "the harness must not act on any external system window");
+assert.equal((picker.match(/@Test\b/g) || []).length, 1);
+assert.equal((picker.match(/performGlobalAction\(/g) || []).length, 1);
+assert.match(picker, /requireExactActiveWindow\(pickerPackage\.get\(\), pickerWindow\);\s*assertEquals\(0, callbacks\.get\(\)\);\s*assertTrue\(automation\.performGlobalAction\(AccessibilityService\.GLOBAL_ACTION_BACK\)\)/);
+assert.match(picker, /assertEquals\(expectedPackage, String\.valueOf\(root\.getPackageName\(\)\)\)/);
+assert.match(picker, /assertEquals\(expectedWindow, root\.getWindowId\(\)\)/);
+assert.match(picker, /SYSTEM_PICKERS\.contains\(id\)/);
+assert.match(picker, /ApplicationInfo\.FLAG_SYSTEM \| ApplicationInfo\.FLAG_UPDATED_SYSTEM_APP/);
+assert.match(picker, /original instanceof BridgeWebChromeClient/);
+assert.match(picker, /original\.onShowFileChooser\(source, uris ->/);
+assert.match(picker, /assertNull\("Cancellation must not grant any file URI", returned\.get\(\)\)/);
+assert.match(picker, /assertSame\(sameHost, value\)/);
+assert.match(picker, /assertEquals\(1, callbacks\.get\(\)\)/);
+assert.match(picker, /setWebChromeClient\(original\)/);
+assert.match(picker, /assertEquals\(PACKAGE, view\.getContext\(\)\.getPackageName\(\)\)/);
+assert.match(picker, /view\.dispatchTouchEvent\(down\)/);
+assert.doesNotMatch(picker, /takeScreenshot|getText\(|getChild\(|getTitle\(|performAction\(|injectInputEvent|sendKey|pressBack|GLOBAL_ACTION_HOME|openInputStream|ContentResolver|startActivity\(|br\.com\.ne3d\.erp\.MainActivity|\.click\(/);
 for (const guard of ["created.containsKey(uri)", "MediaStore.MediaColumns.OWNER_PACKAGE_NAME",
   "assertEquals(DIRECTORY, cursor.getString(1))", "assertEquals(PACKAGE, cursor.getString(2))",
   "requireFixture(entry.getKey(), entry.getValue())", "discoverOnlyPlannedFixtureUris()"]) {

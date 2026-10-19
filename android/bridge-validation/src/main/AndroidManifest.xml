@@ -7,6 +7,14 @@
     <uses-permission android:name="android.permission.CAMERA" tools:node="remove" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" tools:node="remove" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="remove" />
+    <!-- Visibility only: resolve the real picker before the cancellation test launches it. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.GET_CONTENT" />
+            <category android:name="android.intent.category.OPENABLE" />
+            <data android:mimeType="*/*" />
+        </intent>
+    </queries>
     <application android:label="Simplifica Bridge Validation" android:allowBackup="false"
         android:usesCleartextTraffic="false" android:theme="@style/AppTheme.NoActionBar">
         <activity android:name=".ValidationBridgeActivity" android:exported="false"
