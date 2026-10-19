@@ -10,7 +10,7 @@ Play preenchido nem comprovação de práticas reais em servidor/aparelho.
 | Estado | Item | Evidência e limite |
 | --- | --- | --- |
 | FAIL local | Exclusão concluída somente como desativação | `supabase/migrations/20260630143000_account_security_email_2fa_and_deletion.sql`, função `process_due_account_deletions`: marca empresa inativa/completed e membros blocked. Não remove Auth, perfis, dados operacionais ou arquivos. Política em `app.js`, `getDocumentoLegal` e `renderExclusaoContaPublica`, anuncia processo de exclusão/anonimização após a carência. Não foi comprovado procedimento adicional manual/automático. |
-| PASS local; integração PENDENTE | Sucesso sem comprovar gravação | Corrigido em migration nova/RPC atômica, Edge e frontend; falha/zero linhas, resposta incompleta, repetição, autoridade e consistência cobertas em testes locais. 34 cenários frontend, 42 Edge simulada e 80 grupos PostgreSQL isolado PASS. Sem aplicação no Supabase completo/staging/produção e sem prova de concorrência entre conexões ou OTP real. [Correção, arquivos, rollout e limites](exclusao-conta-confirmacao-atomica-2026-10-18.md). |
+| PASS integração local; staging PENDENTE | Sucesso sem comprovar gravação | Correção de 18/10 e testes isolados preservados. Em 19/10, nova migration aplicada no esquema completo local e clone descartável: 7 grupos Auth/PostgREST/SMTP reais com handler em Node VM e 9 grupos concorrentes em conexões PostgreSQL independentes PASS. Sem Deno/Edge real, staging ou produção. [Homologação e limites](homologacao-exclusao-local-2026-10-19.md). |
 | PENDENTE | Processamento agendado | Migration cria cron apenas se o schema existir e transforma falhas em NOTICE. Existência da função não prova execução diária. Conferir exclusivamente em homologação isolada antes do rollout autorizado. |
 | PENDENTE | Escopo de conta vs empresa | `ensureAllowed` restringe exclusão/cancelamento ao proprietário. Definir fluxo para conta pessoal de membro sem apagar dados da empresa ou de outros usuários. Não ampliar autorização automaticamente. |
 | NÃO VERIFICADO | Estado realmente implantado | Nenhuma consulta ao ambiente remoto nesta rodada. Uma migration versionada não prova a definição/rotina atualmente em produção. |
@@ -67,8 +67,8 @@ acessível; não basta o texto estar no repositório.
 
 ## Sequência antes do webhook
 
-1. Homologar no Auth/API isolado a correção local de confirmação/cancelamento,
-   incluindo OTP real, esquema completo, concorrência e recuperação da conexão.
+1. Repetir em staging autorizado com Edge/Deno real e UI a confirmação/cancelamento
+   já homologada localmente com OTP, esquema completo e concorrência em 19/10.
 2. Aprovar e implementar/comprovar o procedimento real de exclusão/anonimização,
    retenções e recuperação, sem apagar dados reais durante testes.
 3. Conferir SDKs/backup/permissões e divulgar exatamente os dados tratados.
@@ -77,7 +77,8 @@ acessível; não basta o texto estar no repositório.
    correções de privacidade por dependerem de outra parte do backend.
 
 K09 segue **PENDENTE/FAIL local nos pontos restantes**, não concluído. O inventário
-inicial não realizou operações de banco. A continuação aplicou a nova migration
-somente no PostgreSQL PGlite em memória, com dados sintéticos; não é homologação
-Supabase remota ou exclusão real. As skills Supabase/PostgreSQL orientaram a
-separação entre código, autorização, transação e evidência de cada ambiente.
+inicial não realizou operações de banco; a correção de 18/10 usou PGlite em memória.
+Em 19/10, a homologação avançou ao esquema completo local, Auth/PostgREST/SMTP reais
+com handler em Node VM e concorrência SQL independente. Não é Edge/Deno, Supabase
+remoto ou exclusão definitiva. As skills Supabase/PostgreSQL orientaram a separação
+entre código, autorização, transação e evidência de cada ambiente.

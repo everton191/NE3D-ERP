@@ -1,5 +1,11 @@
 # K09 — confirmação e cancelamento de exclusão sem sucesso falso
 
+Atualização de 19/10: migration aplicada no Supabase local completo e clone
+descartável; Auth/PostgREST/SMTP reais (handler em Node VM) e nove grupos de
+concorrência PostgreSQL PASS. Não foi aplicada em staging/produção nem testada
+em Deno. [Evidências e limites da homologação](homologacao-exclusao-local-2026-10-19.md).
+O texto abaixo conserva o corte local isolado de 18/10.
+
 Data: 18/10/2026. Branch `codex/melhorias-setembro-2026`, base `d9153bb`.
 Checkpoint da implementação e testes: `d4b4997`.
 Correção local; **não aplicada no Supabase local completo, staging ou produção**.

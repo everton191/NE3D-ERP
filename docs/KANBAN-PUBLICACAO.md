@@ -1,6 +1,6 @@
 # Simplifica 3D — Kanban de preparação para publicação
 
-Atualizado em 18/10/2026. Branch: `codex/melhorias-setembro-2026`.
+Atualizado em 19/10/2026. Branch: `codex/melhorias-setembro-2026`.
 Base histórica do quadro: `6f20dae`. HEAD inicial da retomada Supabase de 18/10:
 `d5667bf`. **Liberação para publicar: NÃO.**
 Resultados anteriores: [fechamento inicial](fechamento-publicacao-2026-10-16.md).
@@ -31,7 +31,7 @@ antigos OAuth alinhados sem reativar Google. 24 suítes JS selecionadas e 74 JUn
 frescos PASS; build web `0.1.0-4718b10a8c334d08`. Sem APK novo/instalação,
 Supabase ou deploy nesta continuação. [Resultados e limites](correcoes-locais-webhook-adiado-2026-10-18.md).
 
-K09 avançou a partir de `d9153bb`, checkpoint `d4b4997`: confirmação/cancelamento sem sucesso falso,
+Checkpoint K09 de 18/10, base `d9153bb`, commit `d4b4997`: confirmação/cancelamento sem sucesso falso,
 RPC atômica, proteção dos campos de exclusão e bloqueio de duplo envio corrigidos
 localmente. 28 suítes JS/build web PASS; 34 cenários frontend, 42 Edge simulada e
 80 grupos PostgreSQL isolado. Sem nova migration/Edge implantadas, OTP real,
@@ -39,6 +39,12 @@ concorrência independente ou purga. [Correção e limites](exclusao-conta-confi
 O processador ainda só desativa a empresa/bloqueia membros, sem concluir sozinho
 a exclusão dos dados. Não executar purga de dados reais como teste.
 [Inventário e critérios restantes](privacidade-inventario-local-2026-10-18.md).
+
+Em 19/10, checkpoint de testes `803f5f5`, stack nativa recuperada sem Docker/upgrade: migration aplicada no
+esquema completo local e em clone descartável. 7 grupos Auth/PostgREST/SMTP reais
+com handler em Node VM e 9 grupos de concorrência SQL PASS. Licenças Auth/API
+reexecutadas PASS e dados anteriores preservados. Não certifica Edge/Deno,
+staging, cron diário, UI ou exclusão definitiva. [Homologação atual](homologacao-exclusao-local-2026-10-19.md).
 
 ## Retomada Supabase autorizada — 18/10/2026
 
@@ -116,7 +122,7 @@ no OptiCore. K08 e a liberação para publicar continuam incompletos.
 | — | — | K05 — Banco/Auth/API parcial PASS; webhook/sandbox por último | B01 — Flavor Play e API 36 no código |
 | K07 — Dois navegadores/aparelhos | — | K06 — Revisão de históricos | B02 — Proteções de cobrança: PASS local |
 | K08 — Android: fluxos completos pendentes | — | — | B03 — Licenças na UI/API: PASS parcial local |
-| — | K09 — Confirmação corrigida localmente; exclusão real pendente | Play Console e Auth/API: validação externa pendente | K00 — Quadro e sequência registrados |
+| — | K09 — Confirmação homologada localmente; exclusão definitiva pendente | Play Console e Edge/staging: validação externa pendente | K00 — Quadro e sequência registrados |
 | — | — | K10 — Implantação autorizada | K01 — Vencimento: PASS Auth/API local |
 | — | — | K11 — Assinatura, AAB e envio | K02 — Logout: PASS frontend e navegador local |
 | — | — | — | K03 — Editor e catálogo: PASS UI/API local |
@@ -135,7 +141,7 @@ no OptiCore. K08 e a liberação para publicar continuam incompletos.
 | K06 | P0 de implantação; K05 | Inventariar históricos sem origem/data/plano, contratos externos incertos e espelhos de vencimento divergentes; definir revisão/reconciliação comprovável sem inventar datas, crédito extra nem cancelamento automático. K01 corrige operações futuras, não reescreve cadastros anteriores. Inspeção de produção depende de autorização própria. |
 | K07 | P0 de validação; K04; K05 para cobrança | Dois navegadores ou aparelhos realmente distintos: licença/cards após recarregar, logout/login, bloqueio administrativo, falha e reconexão. Duas origens do mesmo navegador não são duas plataformas certificadas. |
 | K08 | P0; validação física parcial | Abertura, Downloads, Voltar, recursos PDF e cópia do extrato corrigidos nos cortes anteriores. Agora bindings PDF corrigidos (`1869012`); 32 suítes JS/74 JUnit reexecutados PASS, host isolado com 8/8 no roteiro revisado (`6e8f832`), PDF/JSON pela Bridge real e 16 navegações/85 assertions de caixa com estado sintético. Impressão: abre/cancela job próprio/destrói host; Voltar manual e impressão física não aprovados. APK atual `0.1.0-29e9c1b79666b110` instalado sem limpeza; codificação PDF canônica no runtime PASS (`4bb6739`), modelo preservado/rede restaurada. [Evidências e ressalva de processo após a segunda rodada](android-testes-bridge-pdf-2026-10-18.md). Supabase não foi administrado; ausência absoluta de tráfego naquele intervalo não certificada. Restam UI completa/segundo plano do ERP, impressão/partilha manuais, seleção de imagem/permissões, API 24–28/16 KB e Auth/API isolados. Não é aprovação de release. |
-| K09 | P0; confirmação PASS local, restante pendente | Confirmação/cancelamento agora atômicos, com prova de gravação, autorização, proteção contra escrita direta e duplo envio; 28 suítes/build web PASS. Migration nova apenas em PostgreSQL em memória, Edge/Auth simulados: falta Auth/API completo, OTP, concorrência/cron e staging. FAIL separado: rotina de exclusão somente lógica, sem prova de eliminação de dados; fluxo de membro/empresa a definir. Inventariados SDKs, contatos, diagnósticos, avisos de mensagens, biometria, arquivos e backup. Não inferir coleta ausente da flag Ads desligada. Confirmar política/canal públicos, procedimento real, retenções, formulário de dados/SDKs/permissões, Console e acesso de revisão. [Correção local e rollout coordenado](exclusao-conta-confirmacao-atomica-2026-10-18.md); ver inventário. Sem produção/Console/purga real. |
+| K09 | P0; confirmação PASS integração local, restante pendente | Correção `d4b4997` aplicada no esquema completo local e clone SQL. 7 grupos Auth/PostgREST/SMTP reais com handler em Node VM e 9 grupos concorrentes independentes PASS; regressão de licenças PASS, dados anteriores preservados. Falta Edge/Deno, staging/UI e cron diário. FAIL separado: rotina de exclusão somente lógica, sem prova de eliminação de dados; fluxo de membro/empresa a definir. Inventariados SDKs, contatos, diagnósticos, avisos de mensagens, biometria, arquivos e backup. Confirmar política/canal públicos, procedimento real, retenções, formulário de dados/SDKs/permissões, Console e acesso de revisão. [Homologação atual e limites](homologacao-exclusao-local-2026-10-19.md). Sem produção/Console/purga real. |
 | K10 | P0; K05–K07 e autorização expressa | Antes de implantar: backup, inventário do que está realmente instalado, ordem das migrations/handlers, rollback e plano de pós-validação. Só executar com autorização específica; homologação não autoriza produção. |
 | K11 | Final; K08–K10, Console apta e autorização | Confirmar chave de upload sem expor segredos, versão/código aceitos, gerar AAB atualizado assinado, inspecionar e validar faixa interna. Upload/publicação exigem autorização. APK de teste não substitui AAB final. |
 
@@ -202,6 +208,7 @@ credenciais sandbox e assinatura são dependências externas, não PASS presumid
 | 18/10/2026 | K05 | Staging recuperado e 14 migrations aplicadas somente nele; 95 versões. Duas suítes Auth/API remotas PASS, sete contas limpas e dados anteriores preservados. Novas RPCs financeiras e Edge/sandbox não homologados. Commit `95745db`; ver relatório remoto. |
 | 18/10/2026 | K08/K09 | Webhook adiado por decisão do usuário. Corrigidos callback de permissão e corrida de imagens; fingerprint reconhece o módulo alterado. Dois testes OAuth obsoletos corrigidos sem mudar produto. 24 suítes JS selecionadas/74 JUnit PASS; build web novo, sem APK/Supabase/deploy. Inventário K09 documenta bloqueadores reais de exclusão, SDKs/permissões e validações externas. |
 | 18/10/2026 | K09 | Corrigidos confirmação/cancelamento e falso sucesso com RPC transacional service-only, trigger dos campos sensíveis, validação de resposta e duplo envio (`d4b4997`). 28 suítes JS/build web PASS; testes novos: 34 frontend, 42 Edge simulada e 80 grupos SQL em memória. Nenhuma implantação ou exclusão real; Auth/API/concorrência e procedimento de eliminação continuam pendentes. [Relatório e arquivos](exclusao-conta-confirmacao-atomica-2026-10-18.md). |
+| 19/10/2026 | K09 | Stack nativa preservada recuperada; migration existente aplicada integralmente só no esquema completo local e clone descartável. 7 grupos Auth/PostgREST/SMTP reais em Node VM e 9 grupos SQL concorrentes PASS, incluindo corrida com processador sem ressuscitar empresa. Regressão de licenças e 31 suítes/build web PASS; fixtures limpas e hashes dos dados anteriores iguais. Testes `803f5f5`. Sem Edge/Deno publicado, staging/produção, APK/AAB ou eliminação definitiva. [Evidências](homologacao-exclusao-local-2026-10-19.md). |
 
 ### Falhas antigas dos testes — corrigidas
 
