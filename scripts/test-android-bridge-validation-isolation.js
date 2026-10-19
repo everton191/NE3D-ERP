@@ -10,6 +10,7 @@ const gradle = read("android/bridge-validation/build.gradle");
 const activity = read("android/bridge-validation/src/main/java/br/com/ne3d/erp/bridgevalidation/ValidationBridgeActivity.java");
 const html = read("android/bridge-validation/src/main/assets/public/index.html");
 const fixture = read("android/bridge-validation/src/main/assets/public/validation.js");
+const images = read("android/bridge-validation/src/main/assets/public/image-validation.js");
 const test = read("android/bridge-validation/src/androidTest/java/br/com/ne3d/erp/bridgevalidation/BridgeMediaDeviceTest.java");
 
 assert.match(settings, /if \(providers\.gradleProperty\('simplificaBridgeValidation'\)\.orNull == 'true'\)\s*\{\s*include ':bridge-validation'\s*\}/);
@@ -30,7 +31,14 @@ assert.doesNotMatch(gradle, /implementation project\(['"]:app['"]\)|admob|extern
 assert.match(gradle, /jniLibs\.excludes \+= \['\*\*\/\*\.so'\]/);
 assert.match(gradle, /from\('\.\.\/\.\.\/src\/features\/company'\) \{ include 'pdf-document-delivery\.js' \}/);
 assert.match(gradle, /from\('\.\.\/\.\.\/src\/features\/cash'\) \{ include 'cash-renderer\.js' \}/);
-assert.doesNotMatch(gradle, /from\([^\n]*(?:dist|assets|models|config)\b/);
+assert.match(gradle, /from\('\.\.\/\.\.\/src\/features\/config'\) \{ include 'config-appearance\.js' \}/);
+const canonicalCopies = Array.from(gradle.matchAll(/from\('([^']+)'\) \{ include '([^']+)' \}/g), (match) => [match[1], match[2]]);
+assert.deepEqual(canonicalCopies, [
+  ["../../src/features/company", "pdf-document-delivery.js"],
+  ["../../src/features/cash", "cash-renderer.js"],
+  ["../../src/features/config", "config-appearance.js"]
+]);
+assert.doesNotMatch(gradle, /from\([^\n]*(?:dist|assets|models)\b/);
 
 for (const kind of ["main", "androidTest"]) {
   const manifest = read(`android/bridge-validation/src/${kind}/AndroidManifest.xml`);
@@ -53,7 +61,16 @@ assert.doesNotMatch(fixture, /localStorage|sessionStorage|fetch\(|XMLHttpRequest
 assert.match(fixture, /simplifica-bridge-validation-/);
 assert.doesNotMatch(activity, /br\.com\.ne3d\.erp\.MainActivity|startActivity\(/);
 assert.deepEqual(JSON.parse(read("android/bridge-validation/src/main/assets/capacitor.plugins.json")), []);
-assert.equal((test.match(/@Test\b/g) || []).length, 8);
+assert.equal((test.match(/@Test\b/g) || []).length, 9);
+assert.match(test, /canonicalImageSelectionUsesRealWebViewDecodeCanvasAndFiles/);
+assert.match(html, /src="canonical\/config-appearance\.js"/);
+assert.match(html, /src="canonical-image-presets\.js"/);
+assert.match(html, /src="image-validation\.js"/);
+assert.doesNotMatch(images, /\blocalStorage\b|\bsessionStorage\b|\bfetch\s*\(|XMLHttpRequest|navigator\.|\.click\(|showPicker\(/);
+assert.match(images, /new DataTransfer\(\)/);
+assert.match(images, /api\.carregarImagemArquivo\(file, context\)/);
+assert.match(images, /api\.prepararPreviewImagemPersonalizacao\(target, type, context\)/);
+assert.match(images, /container\.remove\(\)/);
 assert.match(test, /assertNoPrintWindows\(\);[\s\S]*ActivityScenario\.launch/);
 assert.match(test, /printOpensSystemDialogThenCancelsOwnJobAndDestroysOnlyOwnHost/);
 assert.match(test, /printNames\.contains\(String\.valueOf\(job\.getInfo\(\)\.getLabel\(\)\)\)/);

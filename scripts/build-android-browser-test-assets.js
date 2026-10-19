@@ -44,6 +44,9 @@ function sources() {
   }).join("\n\n");
   const dependencies = app.match(/^function getPdfDocumentDeliveryDeps\([^\n]*\) \{[\s\S]*?^\}/m)?.[0];
   if (!dependencies) throw new Error("CANONICAL_PDF_DEPENDENCIES_MISSING");
+  const presets = app.match(/^const IMAGE_PERSONALIZATION_PRESETS = Object\.freeze\((\{[\s\S]*?^\})\);/m)?.[1];
+  if (!presets) throw new Error("CANONICAL_IMAGE_PRESETS_MISSING");
+  const imagePresets = `globalThis.ANDROID_IMAGE_PERSONALIZATION_PRESETS = Object.freeze(${presets});\n`;
   const cashTest = fs.readFileSync(path.join(root, "scripts/test-cash-renderer.js"), "utf8");
   const requires = [
     'const assert = require("node:assert/strict");',
@@ -103,7 +106,7 @@ function sources() {
       return context;
     };
   })();\n`;
-  return { compiler, behavior, pdfDependencies };
+  return { compiler, behavior, pdfDependencies, imagePresets };
 }
 
 function write(output) {
@@ -115,6 +118,7 @@ function write(output) {
   fs.writeFileSync(path.join(destination, "canonical-navigation.js"), generated.compiler);
   fs.writeFileSync(path.join(destination, "android-browser-behavior.js"), generated.behavior);
   fs.writeFileSync(path.join(destination, "canonical-pdf-dependencies.js"), generated.pdfDependencies);
+  fs.writeFileSync(path.join(destination, "canonical-image-presets.js"), generated.imagePresets);
   console.log("Canonical navigation/PDF dependencies and existing cash assertions adapted for isolated Android WebView.");
 }
 

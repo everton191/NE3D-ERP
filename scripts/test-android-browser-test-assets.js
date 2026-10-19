@@ -21,6 +21,11 @@ const root = path.resolve(__dirname, "..");
     vm.runInContext(fs.readFileSync(path.join(root, file), "utf8"), sandbox, { filename: file });
   }
   const generated = builder.sources();
+  vm.runInContext(generated.imagePresets, sandbox, { filename: "canonical-image-presets.js" });
+  assert.deepEqual(Object.keys(sandbox.ANDROID_IMAGE_PERSONALIZATION_PRESETS).sort(),
+    ["brand-logo", "company-logo", "login-background", "pdf-background", "profile-photo"]);
+  assert.equal(sandbox.ANDROID_IMAGE_PERSONALIZATION_PRESETS["profile-photo"].width, 512);
+  assert.equal(sandbox.ANDROID_IMAGE_PERSONALIZATION_PRESETS["login-background"].mode, "cover");
   new vm.Script(generated.pdfDependencies, { filename: "canonical-pdf-dependencies.js" });
   vm.runInContext(generated.compiler, sandbox, { filename: "canonical-navigation.js" });
   vm.runInContext(generated.behavior, sandbox, { filename: "android-browser-behavior.js" });

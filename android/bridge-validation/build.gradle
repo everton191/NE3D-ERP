@@ -7,6 +7,7 @@ def copyCanonicalDelivery = tasks.register('copyCanonicalDelivery', Sync) {
     into validationAssets.map { it.dir('public/canonical') }
     from('../../src/features/company') { include 'pdf-document-delivery.js' }
     from('../../src/features/cash') { include 'cash-renderer.js' }
+    from('../../src/features/config') { include 'config-appearance.js' }
 }
 def copyBrowserCases = tasks.register('copyBrowserCases', Copy) {
     from('../../scripts/fixtures/android-back-navigation-cases.js')
@@ -17,7 +18,8 @@ def generateBrowserContracts = tasks.register('generateBrowserContracts', Exec) 
         '../../scripts/test-cash-renderer.js', '../../app.js')
     outputs.files(validationAssets.map { it.file('public/canonical-navigation.js') },
         validationAssets.map { it.file('public/android-browser-behavior.js') },
-        validationAssets.map { it.file('public/canonical-pdf-dependencies.js') })
+        validationAssets.map { it.file('public/canonical-pdf-dependencies.js') },
+        validationAssets.map { it.file('public/canonical-image-presets.js') })
     commandLine 'node', file('../../scripts/build-android-browser-test-assets.js').absolutePath,
         validationAssets.get().dir('public').asFile.absolutePath
 }
