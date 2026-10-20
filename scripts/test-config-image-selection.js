@@ -5,6 +5,7 @@ function fixture() {
   const loads = new Map();
   const elements = new Map();
   const toasts = [];
+  let allowed = true;
   const hint = { hidden: true, textContent: "" };
   elements.set("personalizationImageHint", hint);
   for (const id of ["brandLogoPreview", "companyLogoPreview", "profilePhotoPreview"]) {
@@ -43,7 +44,7 @@ function fixture() {
     tamanhoDataUrlBytes: () => 1024,
     escaparAttr: (value) => value,
     mostrarToast: (...args) => toasts.push(args),
-    temAcessoCompleto: () => true
+    temAcessoCompleto: () => allowed
   };
   function choose(name, tag = name, lastModified = 123) {
     const file = { name, tag, lastModified, type: "image/png" };
@@ -56,6 +57,7 @@ function fixture() {
     resolve(file) { loads.get(file).resolve({ tag: file.tag, naturalWidth: 160, naturalHeight: 80 }); },
     reject(file) { loads.get(file).reject(new Error("Synthetic invalid image")); },
     cache: () => context.window.__personalizationImageCache?.[input.id],
+    access: (value) => { allowed = value; },
     read: (type = "brand-logo") => appearance.lerImagemConfiguracao(input.id, "old-logo", type, context)
   };
 }
@@ -174,6 +176,74 @@ async function main() {
     assert.equal(f.cache(), undefined);
     assert.equal(f.toasts.length, 1);
     assert.equal(f.toasts[0][1], "warning");
+  });
+  for (const completion of ["resolve", "reject"]) {
+    await test(`leitura antiga ${completion} nao substitui B nem devolve A para salvar`, async () => {
+      const f = fixture();
+      const a = f.choose("A.png");
+      const reading = f.read();
+      const rejected = assert.rejects(reading, { code: "PERSONALIZATION_IMAGE_SELECTION_CHANGED" });
+      const b = f.choose("B.png"); const preview = f.preview();
+      f.resolve(b); await preview;
+      f[completion](a);
+      await rejected;
+      assert.equal(f.cache().file, b);
+      assert.equal(f.elements.get("brandLogoPreview").src, "data:image/webp;base64,B.png");
+      assert.equal(await f.read(), "data:image/webp;base64,B.png");
+      assert.equal(f.toasts.length, 1);
+      assert.equal(f.toasts[0][1], "sucesso");
+    });
+  }
+  for (const invalidation of ["clear", "replace"]) {
+    await test(`leitura pendente aborta ao ${invalidation} o input sem criar cache`, async () => {
+      const f = fixture();
+      const file = f.choose("pending.png");
+      const reading = f.read();
+      const rejected = assert.rejects(reading, { code: "PERSONALIZATION_IMAGE_SELECTION_CHANGED" });
+      if (invalidation === "clear") f.input.files = [];
+      else f.elements.set(f.input.id, { id: f.input.id, files: [], dataset: {} });
+      f.resolve(file); await rejected;
+      assert.equal(f.cache(), undefined);
+      assert.equal(f.toasts.length, 0);
+    });
+  }
+  await test("leitura pendente aborta se o acesso mudar sem novo onchange", async () => {
+    const f = fixture();
+    const file = f.choose("pending.png");
+    const reading = f.read();
+    const rejected = assert.rejects(reading, { code: "PERSONALIZATION_IMAGE_SELECTION_CHANGED" });
+    f.access(false);
+    f.resolve(file); await rejected;
+    assert.equal(f.cache(), undefined);
+    assert.equal(f.toasts.length, 0);
+  });
+  await test("previa pendente nao publica sucesso se o acesso mudar sem onchange", async () => {
+    const f = fixture();
+    const file = f.choose("pending.png"); const preview = f.preview();
+    f.access(false);
+    f.resolve(file); await preview;
+    assert.equal(f.cache(), undefined);
+    assert.equal(f.input.dataset.optimizing, undefined);
+    assert.equal(f.elements.get("brandLogoPreview").src, "original");
+    assert.equal(f.toasts.length, 0);
+  });
+  await test("leitura sem previa continua preenchendo cache para o arquivo atual", async () => {
+    const f = fixture();
+    const file = f.choose("current.png"); const reading = f.read();
+    f.resolve(file);
+    assert.equal(await reading, "data:image/webp;base64,current.png");
+    assert.equal(f.cache().file, file);
+    assert.equal(await f.read(), "data:image/webp;base64,current.png");
+    assert.equal(f.toasts.length, 0);
+  });
+  await test("falha de leitura atual preserva valor anterior e informa erro", async () => {
+    const f = fixture();
+    const file = f.choose("invalid.png"); const reading = f.read();
+    f.reject(file);
+    assert.equal(await reading, "old-logo");
+    assert.equal(f.cache(), undefined);
+    assert.equal(f.toasts.length, 1);
+    assert.equal(f.toasts[0][1], "erro");
   });
   console.log(`PASS ${cases} cenarios locais de selecao de imagem; sem arquivos, rede ou Supabase.`);
 }

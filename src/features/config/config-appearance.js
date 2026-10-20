@@ -512,6 +512,11 @@ async function otimizarImagemPersonalizacao(arquivo, tipo = "brand-logo", contex
   };
 }
 
+function selecaoImagemAtual(input, arquivo, document) {
+  return input.files?.[0] === arquivo
+    && (!input.id || document.getElementById(input.id) === input);
+}
+
 async function prepararPreviewImagemPersonalizacao(input, tipo = "brand-logo", context = {}) {
   const { document, escaparAttr, mostrarToast, temAcessoCompleto, window } = context;
   if (!input) return;
@@ -519,8 +524,8 @@ async function prepararPreviewImagemPersonalizacao(input, tipo = "brand-logo", c
   previewsImagemPersonalizacao.set(input, request);
   const arquivo = input?.files?.[0];
   const selecaoAtual = () => previewsImagemPersonalizacao.get(input) === request
-    && input.files?.[0] === arquivo
-    && (!input.id || document.getElementById(input.id) === input);
+    && selecaoImagemAtual(input, arquivo, document)
+    && temAcessoCompleto();
   if (window.__personalizationImageCache) delete window.__personalizationImageCache[input.id];
   if (!arquivo) {
     delete input.dataset.optimizing;
@@ -584,15 +589,25 @@ async function lerImagemConfiguracao(idInput, valorAtual = "", tipo = "brand-log
   if (cache && cache.file === arquivo && cache.tipo === tipo) {
     return cache.dataUrl || valorAtual || "";
   }
+  const exigirSelecaoAtual = () => {
+    if (selecaoImagemAtual(input, arquivo, document) && temAcessoCompleto()) return;
+    const erro = new Error("Não foi possível concluir esta seleção de imagem. Confira a imagem e salve novamente.");
+    erro.code = "PERSONALIZATION_IMAGE_SELECTION_CHANGED";
+    throw erro;
+  };
+  let otimizada;
   try {
-    const otimizada = await otimizarImagemPersonalizacao(arquivo, tipo, context);
-    window.__personalizationImageCache = window.__personalizationImageCache || {};
-    window.__personalizationImageCache[idInput] = { file: arquivo, fileName: arquivo.name, lastModified: arquivo.lastModified, tipo, ...otimizada };
-    return otimizada.dataUrl || valorAtual || "";
+    otimizada = await otimizarImagemPersonalizacao(arquivo, tipo, context);
   } catch (erro) {
+    exigirSelecaoAtual();
     mostrarToast("Não foi possível usar esta imagem. Escolha outra foto ou arquivo.", "erro", 5200);
     return valorAtual || "";
   }
+  // A save caller must abort instead of persisting an obsolete file/fallback.
+  exigirSelecaoAtual();
+  window.__personalizationImageCache = window.__personalizationImageCache || {};
+  window.__personalizationImageCache[idInput] = { file: arquivo, fileName: arquivo.name, lastModified: arquivo.lastModified, tipo, ...otimizada };
+  return otimizada.dataUrl || valorAtual || "";
 }
   const api = Object.freeze({ normalizarPdfTheme, normalizarPreferenciaTemaInterface, getEffectiveThemeMode, getThemePalettes, getThemePaletteByColor, normalizarCorTemaControlado, getCurrentControlledPalette, getStorefrontControlledTheme, renderThemePaletteButtons, limitarCorPdf, salvarPersonalizacaoRemotaSilencioso, carregarPersonalizacaoRemotaSilencioso, sincronizarPersonalizacaoInicialSilencioso, salvarPreferenciasBasicasFree, removerLogoMarca, removerFundoPdf, lerPersonalizacaoCampos, canvasSuportaMime, tamanhoDataUrlBytes, gerarDataUrlOtimizado, carregarImagemArquivo, otimizarImagemPersonalizacao, prepararPreviewImagemPersonalizacao, lerImagemConfiguracao });
   global.SimplificaConfigAppearance = api;
