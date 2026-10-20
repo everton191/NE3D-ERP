@@ -440,13 +440,24 @@ function gerarDataUrlOtimizado(canvas, mime, qualidade = 0.82, maxBytes = 500 * 
     const q = Math.max(0.55, qualidade - tentativa * 0.05);
     atual = atualCanvas.toDataURL(mime, q);
     if (mime === "image/png" || tamanhoDataUrlBytes(atual, context) <= maxBytes) break;
-    if (tentativa >= 4) {
+    if (tentativa >= 4 && tentativa < 7) {
       const menor = document.createElement("canvas");
       menor.width = Math.max(1, Math.round(atualCanvas.width * 0.86));
       menor.height = Math.max(1, Math.round(atualCanvas.height * 0.86));
-      menor.getContext("2d")?.drawImage(atualCanvas, 0, 0, menor.width, menor.height);
+      const desenho = menor.getContext("2d");
+      if (!desenho) throw new Error("Não foi possível preparar a imagem neste aparelho.");
+      desenho.drawImage(atualCanvas, 0, 0, menor.width, menor.height);
       atualCanvas = menor;
     }
+  }
+  if (atualCanvas !== canvas) {
+    // Keep the public string result and the caller's canvas metadata aligned
+    // with the last encoded pixels, not an unused reduction after the last try.
+    canvas.width = atualCanvas.width;
+    canvas.height = atualCanvas.height;
+    const desenho = canvas.getContext("2d");
+    if (!desenho) throw new Error("Não foi possível preparar a imagem neste aparelho.");
+    desenho.drawImage(atualCanvas, 0, 0);
   }
   return atual;
 }
@@ -498,9 +509,9 @@ async function otimizarImagemPersonalizacao(arquivo, tipo = "brand-logo", contex
     ctx.drawImage(imagem, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
   }
 
-  const originalPng = String(arquivo.type || "").toLowerCase().includes("png");
+  const originalJpeg = /^image\/jpe?g$/i.test(String(arquivo.type || ""));
   const webpOk = canvasSuportaMime("image/webp");
-  const mime = webpOk ? "image/webp" : (preset.preserveAlpha && originalPng ? "image/png" : "image/jpeg");
+  const mime = webpOk ? "image/webp" : (preset.preserveAlpha && !originalJpeg ? "image/png" : "image/jpeg");
   const dataUrl = gerarDataUrlOtimizado(canvas, mime, preset.quality);
   return {
     dataUrl,
