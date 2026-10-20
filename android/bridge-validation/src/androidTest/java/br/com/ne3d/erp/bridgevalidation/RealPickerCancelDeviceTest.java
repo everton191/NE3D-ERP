@@ -193,7 +193,9 @@ public final class RealPickerCancelDeviceTest {
         assertTrue("Real native bridge must still respond after cancellation", storage instanceof JSONObject);
         assertTrue(((JSONObject) storage).getBoolean("granted"));
         assertTrue(((JSONObject) storage).getBoolean("scoped"));
-        JSONObject evidence = new JSONObject().put("run", token).put("picker", pickerComponent.get())
+        JSONObject evidence = new JSONObject().put("run", token)
+            .put("controllerRunId", InstrumentationRegistry.getArguments().getString("validationRunId", "unassigned"))
+            .put("picker", pickerComponent.get())
             .put("action", Intent.ACTION_GET_CONTENT).put("type", requestType.get())
             .put("requests", requests.get()).put("callbacks", callbacks.get()).put("returnedUri", false)
             .put("sameHost", true).put("bridgeResponsive", true).put("selection", "none");

@@ -11,6 +11,7 @@ const activity = read("android/bridge-validation/src/main/java/br/com/ne3d/erp/b
 const html = read("android/bridge-validation/src/main/assets/public/index.html");
 const fixture = read("android/bridge-validation/src/main/assets/public/validation.js");
 const images = read("android/bridge-validation/src/main/assets/public/image-validation.js");
+const corrections = read("android/bridge-validation/src/main/assets/public/image-corrections-validation.js");
 const test = read("android/bridge-validation/src/androidTest/java/br/com/ne3d/erp/bridgevalidation/BridgeMediaDeviceTest.java");
 const picker = read("android/bridge-validation/src/androidTest/java/br/com/ne3d/erp/bridgevalidation/RealPickerCancelDeviceTest.java");
 
@@ -62,16 +63,25 @@ assert.doesNotMatch(fixture, /localStorage|sessionStorage|fetch\(|XMLHttpRequest
 assert.match(fixture, /simplifica-bridge-validation-/);
 assert.doesNotMatch(activity, /br\.com\.ne3d\.erp\.MainActivity|startActivity\(/);
 assert.deepEqual(JSON.parse(read("android/bridge-validation/src/main/assets/capacitor.plugins.json")), []);
-assert.equal((test.match(/@Test\b/g) || []).length, 9);
+assert.equal((test.match(/@Test\b/g) || []).length, 10);
 assert.match(test, /canonicalImageSelectionUsesRealWebViewDecodeCanvasAndFiles/);
 assert.match(html, /src="canonical\/config-appearance\.js"/);
 assert.match(html, /src="canonical-image-presets\.js"/);
 assert.match(html, /src="image-validation\.js"/);
+assert.match(html, /src="image-corrections-validation\.js"/);
 assert.doesNotMatch(images, /\blocalStorage\b|\bsessionStorage\b|\bfetch\s*\(|XMLHttpRequest|navigator\.|\.click\(|showPicker\(/);
 assert.match(images, /new DataTransfer\(\)/);
 assert.match(images, /api\.carregarImagemArquivo\(file, context\)/);
 assert.match(images, /api\.prepararPreviewImagemPersonalizacao\(target, type, context\)/);
 assert.match(images, /container\.remove\(\)/);
+assert.match(test, /canonicalImageCorrectionsUseRealDecodeCanvasAndPendingReads/);
+assert.match(test, /getString\("validationRunId", "unassigned"\)/);
+assert.match(picker, /put\("controllerRunId", InstrumentationRegistry\.getArguments\(\)\.getString\("validationRunId", "unassigned"\)\)/);
+assert.doesNotMatch(corrections, /\blocalStorage\b|\bsessionStorage\b|\bfetch\s*\(|XMLHttpRequest|navigator\.|\.click\(|showPicker\(/);
+assert.match(corrections, /api\.gerarDataUrlOtimizado\(/);
+assert.match(corrections, /api\.lerImagemConfiguracao\(/);
+assert.match(corrections, /new DataTransfer\(\)/);
+assert.match(corrections, /container\.remove\(\)/);
 assert.match(test, /assertNoPrintWindows\(\);[\s\S]*ActivityScenario\.launch/);
 assert.match(test, /printOpensSystemDialogThenCancelsOwnJobAndDestroysOnlyOwnHost/);
 assert.match(test, /printNames\.contains\(String\.valueOf\(job\.getInfo\(\)\.getLabel\(\)\)\)/);

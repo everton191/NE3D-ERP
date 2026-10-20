@@ -5,6 +5,10 @@ pelo usuário. **Três defeitos locais corrigidos; homologação Android desta v
 e publicação continuam PENDENTES.** O celular não apareceu nas duas consultas
 USB da rodada. Nenhum aplicativo foi instalado, aberto ou modificado no aparelho.
 
+Atualização posterior no mesmo dia: aparelho reconectado e correções exercitadas
+no host físico isolado. [Resultados, falha inicial e limites](android-correcoes-imagens-fisico-2026-10-20.md).
+O restante deste documento registra o corte local anterior à reconexão.
+
 ## Causa, correção e prova
 
 | Estado | Defeito | Correção e evidência |

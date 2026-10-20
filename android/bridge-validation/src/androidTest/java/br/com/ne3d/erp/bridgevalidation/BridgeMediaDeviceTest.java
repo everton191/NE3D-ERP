@@ -220,16 +220,31 @@ public final class BridgeMediaDeviceTest {
 
     @Test public void canonicalImageSelectionUsesRealWebViewDecodeCanvasAndFiles() throws Exception {
         JSONObject result = call("runAndroidImageValidation()");
-        Log.i("S3DImageValidation", "run=" + UUID.randomUUID() + " " + result.toString());
+        String controllerRunId = InstrumentationRegistry.getArguments().getString("validationRunId", "unassigned");
+        Log.i("S3DImageValidation", "controllerRunId=" + controllerRunId + " " + result.toString());
+        assertEquals(result.getJSONArray("failures").toString(), 0, result.getJSONArray("failures").length());
         assertEquals("programmatic-real-File-DataTransfer", result.getString("selectionMode"));
         assertEquals("not-opened", result.getString("pickerMode"));
         assertEquals("fixture-memory-only", result.getString("persistenceMode"));
         assertEquals(13, result.getInt("total"));
         assertEquals(13, result.getJSONArray("results").length());
-        assertEquals(result.getJSONArray("failures").toString(), 0, result.getJSONArray("failures").length());
         assertTrue(result.getBoolean("passed"));
         assertEquals(8, result.getInt("decodedOutputs"));
         assertTrue(result.getInt("assertions") >= 200);
+    }
+
+    @Test public void canonicalImageCorrectionsUseRealDecodeCanvasAndPendingReads() throws Exception {
+        JSONObject result = call("runAndroidImageCorrectionsValidation()");
+        String controllerRunId = InstrumentationRegistry.getArguments().getString("validationRunId", "unassigned");
+        Log.i("S3DImageCorrections", "controllerRunId=" + controllerRunId + " " + result.toString());
+        assertEquals("programmatic-real-File-DataTransfer", result.getString("selectionMode"));
+        assertEquals("not-opened", result.getString("pickerMode"));
+        assertEquals("fixture-memory-only", result.getString("persistenceMode"));
+        assertEquals(8, result.getInt("total"));
+        assertEquals(8, result.getJSONArray("results").length());
+        assertEquals(result.getJSONArray("failures").toString(), 0, result.getJSONArray("failures").length());
+        assertTrue(result.getBoolean("passed"));
+        assertTrue(result.getInt("assertions") >= 40);
     }
 
     @Test public void printOpensSystemDialogThenCancelsOwnJobAndDestroysOnlyOwnHost() throws Exception {
