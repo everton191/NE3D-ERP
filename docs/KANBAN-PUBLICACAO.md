@@ -1,6 +1,6 @@
 # Simplifica 3D — Kanban de preparação para publicação
 
-Atualizado em 20/10/2026. Branch: `codex/melhorias-setembro-2026`.
+Atualizado em 24/10/2026. Branch: `codex/melhorias-setembro-2026`.
 Base histórica do quadro: `6f20dae`. HEAD inicial da retomada Supabase de 18/10:
 `d5667bf`. **Liberação para publicar: NÃO.**
 Resultados anteriores: [fechamento inicial](fechamento-publicacao-2026-10-16.md).
@@ -9,6 +9,12 @@ Continuação local: [editor, catálogo e evidências de persistência](homologa
 Este é o quadro de acompanhamento desta etapa. Atualizar o cartão e sua evidência
 ao terminar cada trabalho; não recriar itens já resolvidos. PASS local não significa
 staging, produção ou aparelho aprovados. Este documento não executa tarefas sozinho.
+
+Em 24/10, o proprietário autorizou preparar o primeiro AAB e criar chave de
+upload exclusiva. Pacote PlayRelease `1.0.39` / `67`, `br.com.ne3d.erp`, assinado
+e inspecionado PASS; **somente preparação para envio manual/teste interno**.
+K11 não concluído: nenhuma publicação ou aprovação Console. K05–K10 mantêm
+seus limites anteriores. [Artefato, testes e pendências](aab-primeiro-envio-2026-10-24.md).
 
 ## Ordem atual — webhook por último
 
@@ -204,7 +210,8 @@ abaixo registra a organização original; os limites de autorização continuam.
 
 Na rodada inicial de 16/10, não gerar APK/AAB. Em 17/10 houve autorização
 específica para gerar/instalar somente APK de teste em K08; AAB continua fora
-do escopo. Em 18/10, primeiro os APKs de validação com IDs próprios foram instalados
+do escopo daquela rodada; em 24/10 houve autorização específica de preparação
+do primeiro AAB, sem upload/publicação. Em 18/10, primeiro os APKs de validação com IDs próprios foram instalados
 e removidos; após reconexão houve atualização separada do ERP e smoke offline.
 Não fazer push, deploy, migrations em produção,
 tuning ou ativação de IA. Não alterar `apps/opticore`, Home, calculadora ou carrossel.
