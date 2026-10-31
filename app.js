@@ -2,15 +2,13 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.39";
-const APP_VERSION_CODE = 67;
+const APP_VERSION = "1.0.40";
+const APP_VERSION_CODE = 68;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
-  "A Assistente direciona Home, Pedidos, Estoque, Calculadora e Caixa pelas funções reais do Simplifica 3D.",
-  "Orçamentos abrem a calculadora mesmo sem peso e usam o preço de filamento já configurado.",
-  "Pedidos com vários itens aceitam ‘Sem peso’, pedem uma confirmação e abrem o pedido criado.",
-  "Vendas, Caixa, Home e gráficos usam a mesma projeção financeira, com sincronização idempotente.",
-  "O botão da IA é arrastável, respeita os limites da tela e mantém sua posição."
+  "Peso, horas e minutos da calculadora têm altura, fonte e unidades padronizadas.",
+  "Os campos da calculadora aproveitam melhor a largura no computador.",
+  "Os campos das configurações da calculadora usam a mesma altura."
 ]);
 const APP_RELEASE_NOTES_STORAGE_KEY = "simplifica3d:release-notes-seen";
 const APP_SHELL_VERSION = "2v";
