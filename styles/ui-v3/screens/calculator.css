@@ -3,6 +3,17 @@
 [data-ui-version="v3"].ui3-calculator .calc-modern-grid>:is(.calc-field-card.wide,.calc-option-block.wide){grid-column:span min(6,var(--ui3-grid-columns));min-width:0}
 [data-ui-version="v3"].ui3-calculator .calc-modern-grid>.calc-option-block:has(input:checked){grid-column:1/-1}
 [data-ui-version="v3"].ui3-calculator .calc-input-panel,[data-ui-version="v3"].ui3-calculator .calc-option-block{min-width:0}
+/* Peso e tempo compartilham a mesma escala; as regras legadas de Peso tinham
+   altura e fonte diferentes. O escopo direto preserva lote, taxas e rádios. */
+[data-ui-version="v3"].ui3-calculator .calc-input-panel .calc-modern-grid>:is(.calc-weight-card,.calc-time-card,.calc-minutes-card){display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto var(--ui3-control-height);gap:4px;box-sizing:border-box;min-width:0;min-height:94px!important;height:auto;padding:10px!important}
+[data-ui-version="v3"].ui3-calculator .calc-input-panel .calc-modern-grid>:is(.calc-weight-card,.calc-time-card,.calc-minutes-card)>span{grid-column:1;grid-row:1;align-self:start}
+[data-ui-version="v3"].ui3-calculator .calc-input-panel .calc-modern-grid>:is(.calc-weight-card,.calc-time-card,.calc-minutes-card)>input{grid-column:1;grid-row:2;align-self:end;box-sizing:border-box;width:100%;max-width:100%;min-width:0;height:var(--ui3-control-height)!important;min-height:var(--ui3-control-height)!important;margin:0;padding:0 32px 0 6px;font-size:20px!important;line-height:1.2}
+[data-ui-version="v3"].ui3-calculator .calc-input-panel .calc-modern-grid>:is(.calc-weight-card,.calc-time-card,.calc-minutes-card)>i{position:static;grid-column:1;grid-row:2;align-self:center;justify-self:end;min-width:0;width:auto;height:auto;margin-right:8px;padding:0;background:transparent;font-size:11px;line-height:1.2;pointer-events:none;z-index:1}
+/* O diálogo promovido mantém calc-settings-modal, mas perde modal-card. */
+[data-ui-version="v3"] .calc-settings-modal .calc-settings-grid>.field{min-width:0;justify-content:space-between}
+[data-ui-version="v3"] .calc-settings-modal .calc-settings-grid>.field>:is(input,select){box-sizing:border-box;width:100%;max-width:100%;min-width:0;min-height:var(--ui3-control-height);height:var(--ui3-control-height);padding:10px 12px}
+@media(min-width:768px){[data-ui-version="v3"].ui3-calculator .calc-modern-grid>:is(.calc-weight-card,.calc-time-card,.calc-minutes-card){grid-column:span 4}}
+@media(max-width:360px){[data-ui-version="v3"].ui3-calculator .calc-input-panel .calc-modern-grid>:is(.calc-weight-card,.calc-time-card,.calc-minutes-card)>input{font-size:18px!important}}
 [data-ui-version="v3"].ui3-calculator{color:var(--ui3-text);background:var(--ui3-bg)}
 [data-ui-version="v3"].ui3-calculator :where(.calc-modern-screen,.calc-input-panel,.calc-field-card,.calc-option-block,.calc-results-panel,.calc-summary-card){color:var(--ui3-text);background-color:var(--ui3-surface);border-color:var(--ui3-border)}
 [data-ui-version="v3"].ui3-calculator :where(h1,h2,h3,h4,strong,label,.calc-option-title,.calc-result-value){color:var(--ui3-text)}
