@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.40";
-const APP_VERSION_CODE = 68;
+const APP_VERSION = "1.0.41";
+const APP_VERSION_CODE = 69;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
   "Peso, horas e minutos da calculadora têm altura, fonte e unidades padronizadas.",
@@ -26393,10 +26393,10 @@ function renderPdfModeloPreview() {
   return window.SimplificaCompanyPdfPreview.renderPdfPreview({ appConfig, escaparAttr, escaparHtml, getCompanyPdfInfo: getEmpresaPdfInfo, getPdfThemeConfig, limitPdfColor: limitarCorPdf });
 }
 
-function renderAcoesSalvarConfiguracao(rotulo = "Salvar alterações") {
+function renderAcoesSalvarConfiguracao(rotulo = "Salvar alterações", acao = "salvarPersonalizacao") {
   return `
     <div class="actions ui3-action-row" ${renderUiLayoutAttributes("actionRow")}>
-      <button class="btn" type="button" onclick="salvarPersonalizacao()">${escaparHtml(rotulo)}</button>
+      <button class="btn" type="button" onclick="${acao}()">${escaparHtml(rotulo)}</button>
       <button class="btn ghost" type="button" onclick="voltarTela()">Voltar</button>
     </div>
     <p id="personalizationImageHint" class="muted" hidden>Imagem ajustada automaticamente para o melhor tamanho.</p>
@@ -26512,7 +26512,7 @@ function renderAparenciaConfig() {
 
 function renderCalculadoraConfigPage() {
   const materiais = normalizarEstoque();
-  const margemAtual = Number(appConfig.defaultMargin) || 100;
+  const margemAtual = Number(appConfig.defaultMargin ?? 100);
   return `
     <section class="ui3-real-screen ui3-settings-screen ui3-page ui3-stack ui3-gap-5" data-ui-version="v3" data-ui3-screen="preferencias">
       <div class="card-header">
@@ -26550,9 +26550,9 @@ function renderCalculadoraConfigPage() {
         ` })}
         ${renderUiSection({ id: "calc-custos", title: "Custos", subtitle: "Material, energia e hora de máquina", icon: "R$", group: "calc", content: `
           <div class="sync-grid">
-            <label class="field"><span>Preço por kg padrão (R$)</span><input id="defaultFilamentCostConfig" type="number" min="0" step="0.01" value="${Number(appConfig.defaultFilamentCost) || 150}"></label>
-            <label class="field"><span>Resina padrão R$/kg</span><input id="defaultResinCostConfig" type="number" min="0" step="0.01" value="${Number(appConfig.defaultResinCost) || 180}"></label>
-            <label class="field"><span>Custo kWh</span><input id="defaultEnergyConfig" type="number" min="0" step="0.01" value="${Number(appConfig.defaultEnergy) || 0.85}"></label>
+            <label class="field"><span>Preço por kg padrão (R$)</span><input id="defaultFilamentCostConfig" type="number" min="0" step="0.01" value="${Number(appConfig.defaultFilamentCost ?? 150)}"></label>
+            <label class="field"><span>Resina padrão R$/kg</span><input id="defaultResinCostConfig" type="number" min="0" step="0.01" value="${Number(appConfig.defaultResinCost ?? 180)}"></label>
+            <label class="field"><span>Custo kWh</span><input id="defaultEnergyConfig" type="number" min="0" step="0.01" value="${Number(appConfig.defaultEnergy ?? 0.85)}"></label>
           </div>
         ` })}
         ${renderUiSection({ id: "calc-margens", title: "Margens e regras", subtitle: "Margem, tempo mínimo e arredondamento", icon: "%", group: "calc", content: `
@@ -26565,7 +26565,7 @@ function renderCalculadoraConfigPage() {
           </div>
           <div class="sync-grid">
             <label class="field"><span>Margem padrão (%)</span><input id="defaultMarginConfig" type="number" min="0" step="1" value="${margemAtual}"></label>
-            <label class="field"><span>Margem mínima recomendada (%)</span><input id="minimumRecommendedMarginConfig" type="number" min="0" step="1" value="${Number(appConfig.minimumRecommendedMargin) || 60}"></label>
+            <label class="field"><span>Margem mínima recomendada (%)</span><input id="minimumRecommendedMarginConfig" type="number" min="0" step="1" value="${Number(appConfig.minimumRecommendedMargin ?? 60)}"></label>
             <label class="field"><span>Tempo mínimo cobrado (h)</span><input id="minimumChargedHoursConfig" type="number" min="0" step="0.1" value="${Number(appConfig.minimumChargedHours) || 0}"></label>
             <label class="field">
               <span>Arredondamento</span>
@@ -26576,7 +26576,7 @@ function renderCalculadoraConfigPage() {
           </div>
         ` })}
       </div>
-      ${renderAcoesSalvarConfiguracao("Salvar calculadora")}
+      ${renderAcoesSalvarConfiguracao("Salvar calculadora", "salvarPadroesTelaCalculadora")}
     </section>
   `;
 }
@@ -26939,16 +26939,16 @@ function renderPersonalizacao() {
       <div class="sync-grid">
         <label class="field">
           <span>Margem padrão da calculadora (%)</span>
-          <input id="defaultMarginConfig" type="number" min="0" step="1" value="${Number(appConfig.defaultMargin) || 100}">
+          <input id="defaultMarginConfig" type="number" min="0" step="1" value="${Number(appConfig.defaultMargin ?? 100)}">
         </label>
         <label class="field">
           <span>Energia padrão R$/kWh</span>
-          <input id="defaultEnergyConfig" type="number" min="0" step="0.01" value="${Number(appConfig.defaultEnergy) || 0.85}">
+          <input id="defaultEnergyConfig" type="number" min="0" step="0.01" value="${Number(appConfig.defaultEnergy ?? 0.85)}">
         </label>
       </div>
       <label class="field">
         <span>Filamento padrão R$/kg</span>
-        <input id="defaultFilamentCostConfig" type="number" min="0" step="0.01" value="${Number(appConfig.defaultFilamentCost) || 150}">
+        <input id="defaultFilamentCostConfig" type="number" min="0" step="0.01" value="${Number(appConfig.defaultFilamentCost ?? 150)}">
       </label>
         </div>
       </details>
@@ -29228,7 +29228,7 @@ async function restaurarPersonalizacaoPadrao() {
     defaultLayerHeight: "0.20mm",
     defaultNozzle: "0.4mm",
     defaultQualityPreset: "0.20mm padrão",
-    defaultResinCost: Number(appConfig.defaultResinCost) || 180,
+    defaultResinCost: Number(appConfig.defaultResinCost ?? 180),
     screenFit: "auto",
     uiScale: 100,
     desktopCardMinWidth: 320,
@@ -33747,17 +33747,34 @@ function valorCampoCalculadora(id, fallback = "") {
   return campo.value === undefined || campo.value === null ? fallback : String(campo.value);
 }
 
+function salvarPadroesTelaCalculadora() {
+  if (!canAccessScreen("preferencias")) return;
+  const {
+    defaultMargin, defaultEnergy, defaultFilamentCost, defaultPrinterType, defaultPrinterModel,
+    defaultMaterial, defaultResinCost, minimumRecommendedMargin, minimumChargedHours, priceRounding,
+    defaultLayerHeight, defaultNozzle, defaultQualityPreset, calculatorDefaults
+  } = lerPersonalizacaoCampos();
+  Object.assign(appConfig, {
+    defaultMargin, defaultEnergy, defaultFilamentCost, defaultPrinterType, defaultPrinterModel,
+    defaultMaterial, defaultResinCost, minimumRecommendedMargin, minimumChargedHours, priceRounding,
+    defaultLayerHeight, defaultNozzle, defaultQualityPreset, calculatorDefaults
+  });
+  salvarDados();
+  renderizarPreservandoScroll();
+  mostrarToast("Configurações da calculadora salvas neste aparelho.", "sucesso");
+}
+
 function getConfiguracaoCalculadora() {
   const salvo = appConfig.calculatorDefaults && typeof appConfig.calculatorDefaults === "object" ? appConfig.calculatorDefaults : {};
   const tipo = normalizarTipoImpressoraCalculadora(salvo.printerType || appConfig.defaultPrinterType || "FDM");
   const modeloFrequente = valorFrequenteUso("impressora_usada", "impressora", 40);
-  const modeloSalvo = modeloFrequente || salvo.printerModel || appConfig.defaultPrinterModel || "Ender 3";
+  const modeloSalvo = salvo.printerModel || appConfig.defaultPrinterModel || modeloFrequente || "Ender 3";
   const modeloValido = printers[modeloSalvo]?.tipo === tipo
     ? modeloSalvo
     : Object.keys(printers).find((nome) => printers[nome].tipo === tipo) || "Ender 3";
   const impressora = printers[modeloValido] || printers["Ender 3"];
   const materialFrequente = valorFrequenteUso("material_usado", "materialId", 40);
-  const materialSalvo = materialFrequente || salvo.materialId || appConfig.defaultMaterial || "";
+  const materialSalvo = salvo.materialId ?? (appConfig.defaultMaterial || materialFrequente || "");
   const materialIdValido = materialSalvo && getMaterialEstoque(materialSalvo) ? materialSalvo : "";
   return {
     printerType: tipo,
@@ -33787,7 +33804,7 @@ function salvarConfiguracaoCalculadora(persistir = true) {
   const proxima = {
     printerType: tipo,
     printerModel: printer,
-    materialId: "",
+    materialId: atual.materialId,
     peso: "",
     filamento: numeroCalculadora(valorCampoCalculadora("filamento", atual.filamento), atual.filamento),
     tempo: "",
@@ -36557,11 +36574,11 @@ function salvarConfiguracoesCalculadoraAvancadas(persistir = true) {
     printerType: impressora.tipo || "FDM",
     printerModel: printer,
     materialId,
-    filamento: numeroCalculadora(document.getElementById("calcSettingsFilament")?.value, appConfig.defaultFilamentCost || 150),
-    energia: numeroCalculadora(document.getElementById("calcSettingsEnergy")?.value, appConfig.defaultEnergy || 0.85),
+    filamento: numeroCalculadora(document.getElementById("calcSettingsFilament")?.value, appConfig.defaultFilamentCost ?? 150),
+    energia: numeroCalculadora(document.getElementById("calcSettingsEnergy")?.value, appConfig.defaultEnergy ?? 0.85),
     consumo: numeroCalculadora(document.getElementById("calcSettingsConsumption")?.value, impressora.consumo || 0),
     custoHora: numeroCalculadora(document.getElementById("calcSettingsHour")?.value, impressora.custo || 0),
-    margem: numeroCalculadora(document.getElementById("calcSettingsMargin")?.value, appConfig.defaultMargin || 100),
+    margem: numeroCalculadora(document.getElementById("calcSettingsMargin")?.value, appConfig.defaultMargin ?? 100),
     peso: "",
     tempo: "",
     taxaExtra: ""
@@ -36573,7 +36590,7 @@ function salvarConfiguracoesCalculadoraAvancadas(persistir = true) {
   appConfig.defaultFilamentCost = proxima.filamento;
   appConfig.defaultEnergy = proxima.energia;
   appConfig.defaultMargin = proxima.margem;
-  appConfig.minimumRecommendedMargin = numeroCalculadora(document.getElementById("calcSettingsMinMargin")?.value, appConfig.minimumRecommendedMargin || 60);
+  appConfig.minimumRecommendedMargin = numeroCalculadora(document.getElementById("calcSettingsMinMargin")?.value, appConfig.minimumRecommendedMargin ?? 60);
   appConfig.minimumChargedHours = numeroCalculadora(document.getElementById("calcSettingsMinTime")?.value, appConfig.minimumChargedHours || 0);
   appConfig.priceRounding = numeroCalculadora(document.getElementById("calcSettingsRounding")?.value, appConfig.priceRounding || 0);
   appConfig.defaultQualityPreset = document.getElementById("calcSettingsQuality")?.value || appConfig.defaultQualityPreset || "0.20mm padrão";

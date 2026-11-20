@@ -50989,3 +50989,14 @@ body.app-shell-ready :is(.context-menu,.dropdown-menu,.popover,.ui-context-menu-
 body.app-shell-ready :is(.modal-card,.popup-box,.dialog-card,.ui3-dialog,.bottom-sheet){
   border-radius:var(--ui3-radius-lg,18px) !important;
 }
+
+/* A navegação ativa permanece visível no escuro, inclusive sem ponteiro. */
+body.theme-dark.app-shell-ready :is(.side-nav-button,.mobile-bottom-nav-button).active{
+  color:#a5fff2 !important;
+  background-color:#163733 !important;
+  box-shadow:inset 0 0 0 1px rgba(94,242,220,.6), inset 0 0 12px rgba(94,242,220,.13) !important;
+}
+
+body.theme-dark.app-shell-ready :is(.side-nav-button,.mobile-bottom-nav-button).active :is(svg,small){
+  color:inherit;
+}
