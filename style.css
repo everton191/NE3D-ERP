@@ -50925,20 +50925,24 @@ body.mobile-mode.app-shell-ready .home-shell[data-home-layout="simple"] .dashboa
   gap:6px;
 }
 
-body.mobile-mode.app-shell-ready .home-shell[data-home-layout="simple"] :is(.dashboard-menu-trigger,.dashboard-header-actions > button,.home-global-search .search-action-button){
+body.mobile-mode.app-shell-ready .home-shell[data-home-layout="simple"] :is(.dashboard-menu-trigger,.dashboard-header-actions > button,.dashboard-profile-button .home-avatar){
   box-sizing:border-box;
-  inline-size:44px;
-  min-inline-size:44px;
-  block-size:44px;
-  min-block-size:44px;
+  inline-size:44px !important;
+  min-inline-size:44px !important;
+  block-size:44px !important;
+  min-block-size:44px !important;
 }
 
 body.mobile-mode.app-shell-ready .home-shell[data-home-layout="simple"] .dashboard-home-header:not(.is-global-search-open) .home-global-search{
   box-sizing:border-box;
-  inline-size:44px;
-  min-inline-size:44px;
-  block-size:44px;
-  min-block-size:44px;
+  inline-size:44px !important;
+  min-inline-size:44px !important;
+  block-size:44px !important;
+  min-block-size:44px !important;
+}
+
+body.mobile-mode.app-shell-ready .home-shell[data-home-layout="simple"] .dashboard-profile-button{
+  flex-basis:44px !important;
 }
 
 body.mobile-mode.app-shell-ready .home-shell[data-home-layout="simple"] .home-simple-quick-list{
