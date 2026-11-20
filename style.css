@@ -28794,7 +28794,7 @@ body.theme-light{
   --bg-tertiary:var(--background-tertiary);
   --surface-primary:#fcfdfc;
   --surface-secondary:#eef2f1;
-  --surface-elevated:#ffffff;
+  --surface-elevated:#f7f8f9;
   --surface-input:#f8faf9;
   --surface-hover:#f1f5f4;
   --sidebar-bg:#f8faf9;
@@ -34257,13 +34257,13 @@ body.keyboard-visible :where(.store-context-sheet,.store-product-action-sheet){
 
 /* Checkpoint tema claro 2026-06-06: superficies suaves, sem gradientes decorativos. */
 body.theme-light{
-  --bg-app:#f2f5f5;
-  --bg-page:#f5f7f7;
-  --bg-subtle:#eef2f2;
-  --surface-primary:#fafcfc;
-  --surface-secondary:#f1f4f4;
-  --surface-tertiary:#e9eeee;
-  --surface-elevated:#ffffff;
+  --bg-app:#e9edf0;
+  --bg-page:#edf0f2;
+  --bg-subtle:#e5eaed;
+  --surface-primary:#f3f5f6;
+  --surface-secondary:#e9eef1;
+  --surface-tertiary:#e2e8eb;
+  --surface-elevated:#f7f8f9;
   --border-soft:#dce4e4;
   --border-medium:#cdd8d8;
   --border-strong:#b9c8c9;
@@ -50660,8 +50660,8 @@ body .home-carousel-3d-host.dashboard-action-carousel .dashboard-carousel-card.c
 .home-layout-carousel-tools{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px}
 .home-layout-carousel-tools p{margin:0}
 
-body.theme-light .home-shell[data-home-layout="simple"] :is(.home-simple-intro,.home-simple-section){background:#fff;border-color:#dce6e7;box-shadow:0 7px 20px rgba(31,51,53,.055)}
-body.theme-light .home-shell[data-home-layout="simple"] :is(.home-date-card,.home-simple-quick-card,.home-simple-module-card,.home-simple-summary-card){background:#f8fbfb;border-color:#dce6e7;box-shadow:none}
+body.theme-light .home-shell[data-home-layout="simple"] :is(.home-simple-intro,.home-simple-section){background:var(--surface-primary);border-color:var(--border-medium);box-shadow:0 7px 20px rgba(31,51,53,.055)}
+body.theme-light .home-shell[data-home-layout="simple"] :is(.home-date-card,.home-simple-quick-card,.home-simple-module-card,.home-simple-summary-card){background:var(--surface-secondary);border-color:var(--border-medium);box-shadow:none}
 
 @media (max-width:900px){
   .home-simple-quick-list{display:flex;overflow-x:auto;scroll-snap-type:x proximity;padding:1px 1px 5px}
