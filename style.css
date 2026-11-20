@@ -50720,6 +50720,9 @@ body.viewport-desktop .desktop-sidebar.is-automatic-menu .side-brand-mark{
 }
 
 /* A coluna do menu acompanha a expansão para reservar espaço no painel. */
+body.viewport-desktop.app-shell-ready .desktop-shell.sidebar-collapsed:has(> .desktop-sidebar.is-collapsed){
+  transition-property:none !important;
+}
 body.viewport-desktop.app-shell-ready .desktop-shell.sidebar-collapsed:has(> .desktop-sidebar.is-collapsed:is(.is-keyboard-expanded,:hover:not(.ignore-menu-hover))){
   grid-template-columns:var(--sidebar-width) minmax(0,1fr) !important;
 }
