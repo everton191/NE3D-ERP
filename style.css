@@ -19113,7 +19113,7 @@ body.theme-light :where(
   [class*="-strip "],
   [class$="-card"],
   [class*="-card "]
-):not(.mobile-panel):not(.mobile-panel-content):not(.mobile-panel-spacer):not(.modal-backdrop):not(.side-drawer-backdrop):not(.profile-panel-backdrop):not(.bar-item):not(.order-item-actions):not(.order-item-inline-actions):not(.row-actions):not(.admin-action-grid):not(.compact-action-grid){
+):not(.mobile-panel):not(.mobile-panel-content):not(.mobile-panel-spacer):not(.modal-backdrop):not(.side-drawer-backdrop):not(.profile-panel-backdrop):not(.bar-item):not(.order-item-actions):not(.order-item-inline-actions):not(.row-actions):not(.admin-action-grid):not(.compact-action-grid):not(:where(.home-simple-quick-list,.home-simple-modules,.home-simple-summary,.home-simple-activities)){
   color:var(--color-text-primary);
   border-color:var(--glass-border);
   background:
@@ -50879,7 +50879,10 @@ body.app-shell-ready .home-shell[data-home-layout="simple"] .home-simple-section
 }
 
 body.app-shell-ready .home-shell[data-home-layout="simple"] :is(.home-simple-quick-card,.home-simple-module-card,.home-simple-summary-card,.home-simple-activities button){
+  background-image:none !important;
   box-shadow:none !important;
+  -webkit-backdrop-filter:none;
+  backdrop-filter:none;
 }
 
 body.app-shell-ready .home-shell[data-home-layout="simple"] .home-simple-activities button{
