@@ -34221,13 +34221,13 @@ body.keyboard-visible :where(.store-context-sheet,.store-product-action-sheet){
 
 /* Checkpoint tema claro 2026-06-06: superficies suaves, sem gradientes decorativos. */
 body.theme-light{
-  --bg-app:#e9edf0;
-  --bg-page:#edf0f2;
-  --bg-subtle:#e5eaed;
-  --surface-primary:#f3f5f6;
-  --surface-secondary:#e9eef1;
-  --surface-tertiary:#e2e8eb;
-  --surface-elevated:#f7f8f9;
+  --bg-app:#d5dce0;
+  --bg-page:#dce2e5;
+  --bg-subtle:#d1d9de;
+  --surface-primary:#e4e9ec;
+  --surface-secondary:#dbe2e6;
+  --surface-tertiary:#cfd8dd;
+  --surface-elevated:#e9edf0;
   --border-soft:#dce4e4;
   --border-medium:#cdd8d8;
   --border-strong:#b9c8c9;
@@ -50706,6 +50706,42 @@ body.viewport-desktop .desktop-sidebar.is-collapsed .side-nav-button{
   place-items:center !important;
   min-height:44px;
   padding:6px !important;
+}
+
+/* O menu compacto expande sobre o painel, mantendo fixa a coluna da grade. */
+body.viewport-desktop .desktop-shell .desktop-sidebar.is-collapsed:is(.is-keyboard-expanded,:hover:not(.ignore-menu-hover)){
+  width:var(--sidebar-width) !important;
+  max-width:var(--sidebar-width) !important;
+  z-index:200;
+  box-shadow:var(--shadow-popup);
+}
+
+body.viewport-desktop .desktop-sidebar.is-collapsed:is(.is-keyboard-expanded,:hover:not(.ignore-menu-hover)) .side-nav-button{
+  grid-template-columns:32px minmax(0,1fr) !important;
+  justify-items:start !important;
+}
+
+body.viewport-desktop .desktop-sidebar.is-collapsed:is(.is-keyboard-expanded,:hover:not(.ignore-menu-hover)) .side-nav-button strong{
+  display:block !important;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+body.viewport-desktop:not(.mobile-mode) .desktop-shell .dashboard-menu-trigger{
+  display:none !important;
+}
+
+body.viewport-desktop:not(.mobile-mode) .desktop-shell .home-shell[data-home-layout="simple"] .dashboard-home-header{
+  grid-template-columns:minmax(0,1fr) auto;
+}
+
+body.viewport-desktop:not(.mobile-mode) .desktop-shell .home-shell[data-home-layout="simple"] .dashboard-home-header.is-global-search-open{
+  grid-template-columns:minmax(0,1fr);
+}
+
+body.viewport-desktop:not(.mobile-mode) .desktop-shell .home-shell[data-home-layout="simple"] .dashboard-home-header.is-global-search-open .dashboard-header-actions{
+  grid-column:1;
 }
 
 /* Dashboard simples: os controles e os cartões usam a largura disponível no painel. */

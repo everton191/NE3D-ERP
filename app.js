@@ -11919,7 +11919,10 @@ function renderMenuLateral() {
   const grupos = getMenuGroups();
 
   return `
-    <aside class="side-menu app-sidebar desktop-sidebar ${recolhido ? "is-collapsed" : ""}" aria-label="Menu lateral">
+    <aside class="side-menu app-sidebar desktop-sidebar ${recolhido ? "is-collapsed" : ""}" aria-label="Menu lateral"
+      onkeydown="navegarMenuLateralComSetas(event)"
+      onpointerleave="this.classList.remove('ignore-menu-hover')"
+      onfocusout="if (!this.contains(event.relatedTarget)) this.classList.remove('is-keyboard-expanded')">
       ${renderCabecalhoMenuLateral({ recolhido })}
       ${grupos.map(renderGrupoMenuLateral).join("")}
     </aside>
@@ -12245,6 +12248,33 @@ function alternarMenuLateral() {
   salvarDados();
   fecharPopup();
   renderApp();
+}
+
+function navegarMenuLateralComSetas(event) {
+  if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+  const menu = event.currentTarget;
+  if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+    event.preventDefault();
+    const expandir = event.key === "ArrowRight";
+    if (!expandir && !menu.classList.contains("is-collapsed")) {
+      alternarMenuLateral();
+      const recolhido = document.querySelector(".desktop-sidebar.is-collapsed");
+      recolhido?.classList.add("ignore-menu-hover");
+      recolhido?.querySelector(".side-menu-toggle")?.focus();
+      return;
+    }
+    menu.classList.toggle("is-keyboard-expanded", expandir);
+    menu.classList.toggle("ignore-menu-hover", !expandir);
+    return;
+  }
+
+  if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+  const botoes = Array.from(menu.querySelectorAll("button")).filter((botao) => botao.getClientRects().length);
+  const indice = botoes.indexOf(event.target);
+  if (indice < 0) return;
+  event.preventDefault();
+  const passo = event.key === "ArrowDown" ? 1 : -1;
+  botoes[(indice + passo + botoes.length) % botoes.length]?.focus();
 }
 
 function abrirTelaMenuLateral(tela) {
