@@ -50864,7 +50864,6 @@ body.app-shell-ready .orders-pwa-list .order-list-card{
   background:transparent !important;
   border:0 !important;
   border-bottom:1px solid var(--border-soft) !important;
-  border-radius:0 !important;
   box-shadow:none !important;
 }
 
@@ -50887,7 +50886,6 @@ body.app-shell-ready .home-shell[data-home-layout="simple"] :is(.home-simple-qui
 
 body.app-shell-ready .home-shell[data-home-layout="simple"] .home-simple-activities button{
   background:transparent !important;
-  border-radius:0 !important;
 }
 
 body.theme-light.app-shell-ready .home-shell[data-home-layout="simple"] .dashboard-profile-button{
@@ -50976,4 +50974,18 @@ body.mobile-mode.app-shell-ready .mobile-panel-calculator :is(.calc-primary-acti
   min-block-size:44px;
   margin:0;
   white-space:normal;
+}
+
+/* Contornos do ERP: uma curva para cartões, outra para linhas e balões. */
+body.app-shell-ready :is(.app-content,.mobile-shell) :is(.card,.app-card,.metric-card,.reports-panel,.settings-group,.detail-panel,.stock-detail-card,.production-card,.calc-input-panel,.calc-summary-card,.home-simple-quick-card,.home-simple-module-card,.home-simple-summary-card){
+  border-radius:var(--ui3-system-radius,16px) !important;
+}
+
+body.app-shell-ready :is(.app-content,.mobile-shell) :is(.list-row,.app-list-row,.profile-list-row,.settings-row,.order-row,.order-list-card,.smart-stock-row,.cash-row,.home-simple-activities button),
+body.app-shell-ready :is(.context-menu,.dropdown-menu,.popover,.ui-context-menu-panel,.stock-item-menu-popover,.toast,.ui3-toast,.tooltip){
+  border-radius:var(--ui3-radius-md,12px) !important;
+}
+
+body.app-shell-ready :is(.modal-card,.popup-box,.dialog-card,.ui3-dialog,.bottom-sheet){
+  border-radius:var(--ui3-radius-lg,18px) !important;
 }
