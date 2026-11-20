@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.41";
-const APP_VERSION_CODE = 69;
+const APP_VERSION = "1.0.42";
+const APP_VERSION_CODE = 70;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
   "Peso, horas e minutos da calculadora têm altura, fonte e unidades padronizadas.",
