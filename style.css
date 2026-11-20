@@ -38065,6 +38065,11 @@ button.is-error,
   min-width:0;
 }
 
+body.theme-light .smart-skeleton-screen{
+  --card-bg:var(--surface-primary);
+  --bg-tertiary:var(--surface-tertiary);
+}
+
 .smart-skeleton-header,
 .smart-skeleton-card,
 .smart-skeleton-table{
