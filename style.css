@@ -18908,11 +18908,11 @@ body{
 }
 
 body.theme-light{
-  --bg:#f2f5f4;
-  --panel:#eef2f1;
-  --panel-2:#fcfdfc;
-  --chrome:#fcfdfc;
-  --line:#d7e1de;
+  --bg:var(--bg-app);
+  --panel:var(--surface-secondary);
+  --panel-2:var(--surface-primary);
+  --chrome:var(--surface-chrome);
+  --line:var(--border-soft);
   --text:#1f2d2b;
   --muted:#71817e;
   --primary:#00BFA6;
@@ -18922,30 +18922,30 @@ body.theme-light{
   --warning:#b45309;
   --danger:#DC2626;
   --info:#2563eb;
-  --surface:#fcfdfc;
-  --surface-2:#eef2f1;
-  --glass-bg:#fcfdfc;
-  --glass-bg-strong:#f8faf9;
+  --surface:var(--surface-primary);
+  --surface-2:var(--surface-secondary);
+  --glass-bg:var(--surface-primary);
+  --glass-bg-strong:var(--surface-elevated);
   --glass-border:rgba(196,210,205,.72);
   --glass-highlight:rgba(255,255,255,.84);
   --glass-blur:0px;
-  --card-gradient:#fcfdfc;
-  --card-gradient-strong:#f8faf9;
-  --card-border:#d7e1de;
+  --card-gradient:var(--surface-primary);
+  --card-gradient-strong:var(--surface-elevated);
+  --card-border:var(--border-soft);
   --shadow:0 14px 30px rgba(31,45,43,.10);
   --shadow-soft:0 8px 18px rgba(31,45,43,.08);
-  --input-bg:#f8faf9;
-  --app-body-background:#f2f5f4;
-  --color-background:#f2f5f4;
-  --color-background-secondary:#eef2f1;
-  --background-tertiary:#e7eeeb;
-  --color-surface:#fcfdfc;
-  --color-surface-soft:#eef2f1;
-  --color-card:#fcfdfc;
-  --color-card-glass:#fcfdfc;
-  --color-modal:#fcfdfc;
-  --color-input:#f8faf9;
-  --color-border:#D8E0E6;
+  --input-bg:var(--surface-input);
+  --app-body-background:var(--bg-app);
+  --color-background:var(--bg-app);
+  --color-background-secondary:var(--bg-page);
+  --background-tertiary:var(--bg-subtle);
+  --color-surface:var(--surface-primary);
+  --color-surface-soft:var(--surface-secondary);
+  --color-card:var(--surface-primary);
+  --color-card-glass:var(--surface-primary);
+  --color-modal:var(--surface-elevated);
+  --color-input:var(--surface-input);
+  --color-border:var(--border-soft);
   --color-divider:rgba(216,224,230,.86);
   --color-primary-hover:#009B87;
   --color-secondary:#2563eb;
@@ -18960,8 +18960,8 @@ body.theme-light{
   --color-text-disabled:rgba(75,85,99,.58);
   --color-icon-primary:#111827;
   --color-icon-secondary:#4B5563;
-  --color-navbar:#FFFFFF;
-  --color-bottom-navigation:#FFFFFF;
+  --color-navbar:var(--surface-chrome);
+  --color-bottom-navigation:var(--surface-chrome);
   --color-overlay:rgba(15,23,42,.32);
   --color-backdrop:rgba(15,23,42,.24);
   --bg-primary:var(--color-background);
@@ -34221,19 +34221,21 @@ body.keyboard-visible :where(.store-context-sheet,.store-product-action-sheet){
 
 /* Checkpoint tema claro 2026-06-06: superficies suaves, sem gradientes decorativos. */
 body.theme-light{
-  --bg-app:#d5dce0;
-  --bg-page:#dce2e5;
-  --bg-subtle:#d1d9de;
-  --surface-primary:#e4e9ec;
-  --surface-secondary:#dbe2e6;
-  --surface-tertiary:#cfd8dd;
-  --surface-elevated:#e9edf0;
-  --border-soft:#dce4e4;
-  --border-medium:#cdd8d8;
-  --border-strong:#b9c8c9;
+  --bg-app:#bbc4ca;
+  --bg-page:#c5cdd2;
+  --bg-subtle:#c4ccd1;
+  --surface-primary:#d7dee2;
+  --surface-secondary:#cdd5da;
+  --surface-tertiary:#c4ccd1;
+  --surface-elevated:#d7dee2;
+  --surface-chrome:#ccd4d9;
+  --surface-input:#d7dee2;
+  --border-soft:#aeb9c1;
+  --border-medium:#98a6b0;
+  --border-strong:#85949e;
   --text-primary:#263537;
   --text-secondary:#596b6d;
-  --text-muted:#7b8b8d;
+  --text-muted:#4c5c65;
   --text-disabled:#9ca9aa;
   --primary:#0f8f88;
   --color-primary:#0f8f88;
@@ -34328,7 +34330,7 @@ body.theme-light :where(.btn.secondary,.btn.ghost,.app-button.secondary,.app-but
 
 body.theme-light :where(input,select,textarea,.input-field,.form-control,.search-bar){
   color:var(--text-primary) !important;
-  background-color:#f6f9f9 !important;
+  background-color:var(--surface-input) !important;
   background-image:none !important;
   border-color:var(--border-medium) !important;
   box-shadow:none;
@@ -34344,7 +34346,7 @@ body.theme-light :where(button,a,[tabindex]):focus-visible{
 
 body.theme-light :where(.side-menu,.app-sidebar,.desktop-sidebar,.app-topbar,.topbar,.mobile-bottom-nav,.bottom-nav,.app-bottom-nav){
   color:var(--text-primary);
-  background-color:var(--surface-primary) !important;
+  background-color:var(--surface-chrome) !important;
   background-image:none !important;
   border-color:var(--border-soft) !important;
   box-shadow:var(--shadow-soft);
@@ -34376,7 +34378,7 @@ body.theme-light :where(.side-nav-button,.menu-item,.nav-item,.bottom-nav-item).
 }
 
 body.theme-light :where(.calc-modern-screen,.calc-input-panel,.calc-active-profile,.calc-smart-tip,.calc-summary-card,.calc-secondary-actions,.result-box,.stock-search-field,.smart-stock-row,.stock-detail-card,.cash-row,.dashboard-simplifica .card,.dashboard-simplifica-metric){
-  background-color:#ffffff !important;
+  background-color:var(--surface-primary) !important;
   background-image:none !important;
   border-color:#d8e3e4 !important;
   box-shadow:0 6px 18px rgba(31,51,53,.08) !important;
@@ -34386,7 +34388,7 @@ body.theme-light :where(.calc-modern-screen,.calc-input-panel,.calc-active-profi
 }
 
 body.theme-light :where(.calc-field-card,.calc-quick-fees button,.calc-secondary-actions .action-tile,.tab-button,.ui-tab){
-  background-color:#f8fbfb !important;
+  background-color:var(--surface-secondary) !important;
   background-image:none !important;
   border-color:#d8e3e4 !important;
   box-shadow:none !important;
@@ -47294,7 +47296,7 @@ body.theme-light .calc-smart-tip,
 body.theme-light .calc-input-panel,
 body.theme-light .calc-summary-card,
 body.theme-light .calc-secondary-actions{
-  background:#ffffff !important;
+  background:var(--surface-primary) !important;
   box-shadow:0 3px 10px rgba(17, 42, 49, .07) !important;
 }
 
@@ -47302,12 +47304,12 @@ body.theme-light .calc-printer-art{
   background:#edf7f6 !important;
 }
 
-/* Light calculator: one continuous white canvas, with separators instead of nested cards. */
+/* Light calculator: one continuous canvas, with separators instead of nested cards. */
 @media(max-width:767px){
   body.theme-light .mobile-panel-calculator,
   body.theme-light .mobile-panel-calculator .calculator-panel-content,
   body.theme-light .mobile-panel-calculator .calc-modern-screen{
-    background:#fff !important;
+    background:var(--bg-page) !important;
   }
 
   body.theme-light .mobile-panel-calculator :is(.calc-active-profile,.calc-smart-tip,.calc-input-panel,.calc-summary-card,.calc-secondary-actions){
@@ -47321,7 +47323,7 @@ body.theme-light .calc-printer-art{
   }
 
   body.theme-light .mobile-panel-calculator .calc-option-fields{
-    background:#f7faf9 !important;
+    background:var(--surface-secondary) !important;
     border-radius:10px !important;
   }
 }
@@ -47350,7 +47352,7 @@ body.theme-light .calc-printer-art{
   body.theme-light.mobile-mode .mobile-panel-calculator,
   body.theme-light.mobile-mode .mobile-panel-calculator .calculator-panel-content,
   body.theme-light.mobile-mode .mobile-panel-calculator .calc-modern-screen{
-    background:#fff !important;
+    background:var(--bg-page) !important;
     color:#14212b !important;
   }
 
@@ -50708,12 +50710,14 @@ body.viewport-desktop .desktop-sidebar.is-collapsed .side-nav-button{
   padding:6px !important;
 }
 
-/* O menu compacto expande sobre o painel, mantendo fixa a coluna da grade. */
+/* A coluna do menu acompanha a expansão para reservar espaço no painel. */
+body.viewport-desktop.app-shell-ready .desktop-shell.sidebar-collapsed:has(> .desktop-sidebar.is-collapsed:is(.is-keyboard-expanded,:hover:not(.ignore-menu-hover))){
+  grid-template-columns:var(--sidebar-width) minmax(0,1fr) !important;
+}
+
 body.viewport-desktop .desktop-shell .desktop-sidebar.is-collapsed:is(.is-keyboard-expanded,:hover:not(.ignore-menu-hover)){
   width:var(--sidebar-width) !important;
   max-width:var(--sidebar-width) !important;
-  z-index:200;
-  box-shadow:var(--shadow-popup);
 }
 
 body.viewport-desktop .desktop-sidebar.is-collapsed:is(.is-keyboard-expanded,:hover:not(.ignore-menu-hover)) .side-nav-button{
