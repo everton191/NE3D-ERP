@@ -6,7 +6,7 @@
 
 <title>Simplifica 3D</title>
 
-<meta name="theme-color" content="#071019">
+<meta name="theme-color" content="#bbc4ca">
 <!-- A base do ERP nunca e indexavel; a Function de loja substitui este bloco somente para paginas publicas validas. -->
 <meta name="robots" content="noindex,nofollow,noarchive">
 <meta name="description" content="Loja online e ERP Simplifica 3D para produtos personalizados, impressão 3D e pequenos negócios.">
@@ -39,8 +39,9 @@
     document.documentElement.setAttribute("data-erp-theme-preference", preference);
     document.documentElement.classList.add(theme === "dark" ? "theme-dark" : "theme-light");
     document.documentElement.style.colorScheme = theme;
-    document.documentElement.style.backgroundColor = theme === "dark" ? "#08131d" : "#ffffff";
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#08131d" : "#ffffff");
+    const background = theme === "dark" ? "#071018" : "#bbc4ca";
+    document.documentElement.style.backgroundColor = background;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", background);
   })();
 </script>
 
@@ -123,7 +124,7 @@
 <script src="/src/services/diagnosticsService.js?v=fase-7b-ui-ux-20260530"></script>
 <script src="/src/services/smartLoaderService.js?v=1.0.57-rc-plans-release-20260628"></script>
 <script src="/src/services/safeAreaManager.js?v=1.0.57-rc-plans-release-20260628"></script>
-  <script src="/src/services/themeAuthorityV3.js?v=theme-key-unified-20260715"></script>
+  <script src="/src/services/themeAuthorityV3.js?v=erp-boot-palette-20261120"></script>
 <script src="/src/navigation/screen-registry.js?v=structure-phase2"></script>
 <script src="/src/navigation/screen-v3-wrapper.js?v=app-js-finalization-routing-v3"></script>
 <script src="/src/navigation/screen-dispatcher.js?v=app-js-finalization-routing-dispatcher"></script>

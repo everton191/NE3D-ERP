@@ -50025,24 +50025,24 @@ body[data-ui-profile="android_apk"] .mobile-bottom-nav{
   gap:10px;
   padding:24px;
   text-align:center;
-  color:#e9f7f7;
-  background:#07131d;
+  color:var(--text-primary,#e9f7f7);
+  background:var(--app-body-background,var(--bg));
 }
 
-.app-boot-status small{color:#a9bcc6;}
+.app-boot-status small{color:var(--text-muted,#a9bcc6);}
 
 .app-boot-spinner{
   width:34px;
   height:34px;
-  border:3px solid rgba(50,225,211,.22);
-  border-top-color:#20d7c9;
+  border:3px solid color-mix(in srgb,var(--color-primary) 24%,transparent);
+  border-top-color:var(--color-primary);
   border-radius:50%;
   animation:app-boot-spin .8s linear infinite;
 }
 
 @keyframes app-boot-spin{to{transform:rotate(360deg);}}
 
-@media (prefers-reduced-motion:reduce){.app-boot-spinner{animation:none;border-top-color:#20d7c9;}}
+@media (prefers-reduced-motion:reduce){.app-boot-spinner{animation:none;}}
 
 /* Home compacta: a coluna de ações deve ocupar a largura real dos botões.
    Uma largura fixa de 88 px fazia busca, sino e avatar invadirem a saudação. */

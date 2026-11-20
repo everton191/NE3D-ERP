@@ -8489,8 +8489,7 @@ function aplicarPersonalizacao() {
   const themeMeta = document.querySelector("meta[name='theme-color']");
   const publicStorefrontActive = !!document.querySelector(".sfv3-host:not(.sfe-host) .sfv3");
   if (themeMeta && !publicStorefrontActive) {
-    window.SimplificaThemeAuthorityV3?.updateThemeColor?.(temaResolvido);
-    if (!window.SimplificaThemeAuthorityV3) themeMeta.setAttribute("content", temaResolvido === "dark" ? "#08131d" : "#ffffff");
+    if (!window.SimplificaThemeAuthorityV3) themeMeta.setAttribute("content", temaResolvido === "dark" ? "#071018" : "#bbc4ca");
   }
 }
 

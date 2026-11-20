@@ -7,7 +7,8 @@
   const LEGACY_STORE_THEME_KEY = "simplifica3d_store_theme";
   const ALLOWED_THEME_PREFERENCES = Object.freeze(["light", "system", "dark"]);
   const THEME_COLORS = Object.freeze({ light: "#ffffff", dark: "#08131d" });
-  const THEME_CONTRACT = Object.freeze({ allowed: ALLOWED_THEME_PREFERENCES, storageKey: ERP_THEME_KEY, legacyKeys: Object.freeze([LEGACY_ERP_THEME_KEY]), domAttributes: Object.freeze(["data-erp-theme", "data-erp-theme-preference"]), themeColors: THEME_COLORS });
+  const ERP_THEME_COLORS = Object.freeze({ light: "#bbc4ca", dark: "#071018" });
+  const THEME_CONTRACT = Object.freeze({ allowed: ALLOWED_THEME_PREFERENCES, storageKey: ERP_THEME_KEY, legacyKeys: Object.freeze([LEGACY_ERP_THEME_KEY]), domAttributes: Object.freeze(["data-erp-theme", "data-erp-theme-preference"]), themeColors: ERP_THEME_COLORS });
 
   function normalizePreference(value, fallback = "light") {
     const normalized = String(value || "").trim().toLowerCase();
@@ -49,10 +50,10 @@
     return normalizePreference(readStorage(STORE_THEME_KEY) || readStorage(LEGACY_STORE_THEME_KEY));
   }
 
-  function updateThemeColor(resolvedTheme = "light") {
+  function updateThemeColor(resolvedTheme = "light", colors = THEME_COLORS) {
     const normalized = resolveTheme(resolvedTheme);
     const meta = global.document?.querySelector?.("meta[name='theme-color']");
-    if (meta) meta.setAttribute("content", THEME_COLORS[normalized]);
+    if (meta) meta.setAttribute("content", colors[normalized]);
     return normalized;
   }
 
@@ -68,7 +69,7 @@
     root?.classList?.toggle("theme-dark", resolved === "dark");
     if (root?.style) {
       root.style.colorScheme = resolved;
-      root.style.backgroundColor = THEME_COLORS[resolved];
+      root.style.backgroundColor = ERP_THEME_COLORS[resolved];
     }
     body?.setAttribute("data-erp-theme", resolved);
     body?.setAttribute("data-erp-theme-preference", normalized);
@@ -80,7 +81,7 @@
     target?.setAttribute?.("data-erp-theme-preference", normalized);
     if (options.persist !== false) writeStorage(ERP_THEME_KEY, normalized);
     const publicStorefrontActive = !!global.document?.querySelector?.(".storefront-v3-host:not(.storefront-v3-host--admin) .storefront-v3");
-    if (options.updateThemeColor !== false && !publicStorefrontActive) updateThemeColor(resolved);
+    if (options.updateThemeColor !== false && !publicStorefrontActive) updateThemeColor(resolved, ERP_THEME_COLORS);
     return { preference: normalized, resolved };
   }
 
