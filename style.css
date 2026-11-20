@@ -18981,8 +18981,8 @@ body.theme-light{
   --accent-primary:var(--color-primary);
   --accent-secondary:var(--color-accent);
   --primary-soft:rgba(0,191,166,.14);
-  --effect-shadow-sm:0 6px 16px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.86);
-  --effect-shadow-md:0 10px 24px rgba(15,23,42,.10), inset 0 1px 0 rgba(255,255,255,.88);
+  --effect-shadow-sm:0 2px 6px rgba(15,23,42,.06);
+  --effect-shadow-md:0 4px 10px rgba(15,23,42,.08);
   --effect-shadow-lg:0 16px 38px rgba(15,23,42,.12), inset 0 1px 0 rgba(255,255,255,.9);
   --effect-shadow-xl:0 28px 70px rgba(15,23,42,.18), inset 0 1px 0 rgba(255,255,255,.92);
   --shadow-xs:0 3px 8px rgba(15,23,42,.06);
@@ -50870,4 +50870,103 @@ body.app-shell-ready .orders-pwa-list .order-list-card{
 
 body.app-shell-ready .orders-pwa-list .order-list-card:is(:hover,:focus-visible,.active,.is-active,[aria-selected="true"]){
   background:var(--surface-hover,var(--surface-secondary)) !important;
+}
+
+/* As caixas agrupadas compartilham apenas o contorno dos itens clicáveis. */
+body.app-shell-ready .home-shell[data-home-layout="simple"] .home-simple-section:has(> :is(.home-simple-quick-list,.home-simple-modules,.home-simple-summary)){
+  border:0 !important;
+  padding-inline:0;
+}
+
+body.app-shell-ready .home-shell[data-home-layout="simple"] :is(.home-simple-quick-card,.home-simple-module-card,.home-simple-summary-card,.home-simple-activities button){
+  box-shadow:none !important;
+}
+
+body.app-shell-ready .home-shell[data-home-layout="simple"] .home-simple-activities button{
+  background:transparent !important;
+  border-radius:0 !important;
+}
+
+body.theme-light.app-shell-ready .home-shell[data-home-layout="simple"] .dashboard-profile-button{
+  background:var(--surface-chrome) !important;
+  box-shadow:none !important;
+}
+
+@media (hover:hover) and (pointer:fine){
+  body.app-shell-ready :is(.desktop-sidebar .side-nav-button,.home-shell[data-home-layout="simple"] :is(.home-simple-quick-card,.home-simple-module-card,.home-simple-summary-card,.home-simple-activities button),.orders-pwa-list .order-list-card,.ui3-calculator :is(.calc-primary-actions button,.calc-secondary-actions button)):not(:disabled):hover{
+    box-shadow:0 3px 8px rgba(0,0,0,.21) !important;
+  }
+}
+
+body.mobile-mode.app-shell-ready .home-shell[data-home-layout="simple"] .dashboard-home-header{
+  grid-template-columns:44px minmax(0,1fr);
+  align-items:start;
+  gap:8px;
+}
+
+body.mobile-mode.app-shell-ready .home-shell[data-home-layout="simple"] .dashboard-menu-trigger{
+  grid-column:1;
+  grid-row:1;
+}
+
+body.mobile-mode.app-shell-ready .home-shell[data-home-layout="simple"] .dashboard-greeting{
+  grid-column:1 / -1;
+  grid-row:2;
+}
+
+body.mobile-mode.app-shell-ready .home-shell[data-home-layout="simple"] .dashboard-header-actions{
+  grid-column:2;
+  grid-row:1;
+  width:100%;
+  min-width:0;
+  justify-self:stretch;
+  justify-content:flex-end;
+  align-items:center;
+  gap:6px;
+}
+
+body.mobile-mode.app-shell-ready .home-shell[data-home-layout="simple"] :is(.dashboard-menu-trigger,.dashboard-header-actions > button,.home-global-search .search-action-button){
+  box-sizing:border-box;
+  inline-size:44px;
+  min-inline-size:44px;
+  block-size:44px;
+  min-block-size:44px;
+}
+
+body.mobile-mode.app-shell-ready .home-shell[data-home-layout="simple"] .dashboard-home-header:not(.is-global-search-open) .home-global-search{
+  box-sizing:border-box;
+  inline-size:44px;
+  min-inline-size:44px;
+  block-size:44px;
+  min-block-size:44px;
+}
+
+body.mobile-mode.app-shell-ready .home-shell[data-home-layout="simple"] .home-simple-quick-list{
+  grid-auto-rows:1fr;
+}
+
+body.mobile-mode.app-shell-ready .mobile-panel-calculator :is(.calc-primary-actions,.calc-secondary-actions){
+  display:grid;
+  gap:8px;
+  align-items:stretch;
+}
+
+body.mobile-mode.app-shell-ready .mobile-panel-calculator .calc-primary-actions{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+}
+
+body.mobile-mode.app-shell-ready .mobile-panel-calculator .calc-secondary-actions{
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  background:transparent !important;
+  border:0 !important;
+  box-shadow:none !important;
+}
+
+body.mobile-mode.app-shell-ready .mobile-panel-calculator :is(.calc-primary-actions,.calc-secondary-actions) > button{
+  box-sizing:border-box;
+  inline-size:100%;
+  min-inline-size:0;
+  min-block-size:44px;
+  margin:0;
+  white-space:normal;
 }
