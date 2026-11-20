@@ -10488,10 +10488,12 @@ function renderDesktop() {
   if (telaAtual === "superadmin" && isSuperAdmin()) {
     return `<main class="superadmin-only-main app-content">${renderTela("superadmin")}</main>`;
   }
-  const classeMenu = appConfig.sidebarCollapsed ? " sidebar-collapsed" : "";
+  const menuAutomatico = isDesktop() && window.matchMedia("(any-hover: hover)").matches;
+  const menuRecolhido = menuAutomatico || !!appConfig.sidebarCollapsed;
+  const classeMenu = menuRecolhido ? " sidebar-collapsed" : "";
   return `
     <div class="desktop-shell${classeMenu}">
-      ${renderMenuLateral()}
+      ${renderMenuLateral({ recolhido: menuRecolhido, automatico: menuAutomatico })}
       <main class="desktop-main app-content">
         ${renderTopbar(telaAtual === "dashboard" && getHomeLayout() === "simple")}
         ${renderSuperAdminMaintenanceBanner()}
@@ -11914,17 +11916,16 @@ function restaurarLayoutDashboard() {
   renderApp();
 }
 
-function renderMenuLateral() {
-  const recolhido = !!appConfig.sidebarCollapsed;
+function renderMenuLateral({ recolhido, automatico }) {
   const grupos = getMenuGroups();
 
   return `
-    <aside class="side-menu app-sidebar desktop-sidebar ${recolhido ? "is-collapsed" : ""}" aria-label="Menu lateral"
+    <aside class="side-menu app-sidebar desktop-sidebar ${recolhido ? "is-collapsed" : ""}${automatico ? " is-automatic-menu" : ""}" aria-label="Menu lateral"
       onkeydown="navegarMenuLateralComSetas(event)"
       onpointerleave="this.classList.remove('ignore-menu-hover')"
       onfocusout="if (!this.contains(event.relatedTarget)) this.classList.remove('is-keyboard-expanded')">
-      ${renderCabecalhoMenuLateral({ recolhido })}
-      ${grupos.map(renderGrupoMenuLateral).join("")}
+      ${renderCabecalhoMenuLateral({ recolhido, automatico })}
+      ${grupos.map((grupo) => renderGrupoMenuLateral(grupo, recolhido)).join("")}
     </aside>
   `;
 }
@@ -11946,9 +11947,9 @@ function alternarGrupoMenuLateral(id) {
   renderApp();
 }
 
-function renderGrupoMenuLateral(grupo) {
+function renderGrupoMenuLateral(grupo, recolhido) {
   const id = getSidebarGroupId(grupo.titulo);
-  const aberto = isSidebarGroupOpen(id);
+  const aberto = recolhido || isSidebarGroupOpen(id);
   return `
     <div class="side-section ${aberto ? "is-open" : "is-closed"}" data-menu-group="${escaparAttr(id)}">
       <button class="side-section-header" type="button" onclick="alternarGrupoMenuLateral('${escaparAttr(id)}')" aria-expanded="${aberto}">
@@ -11962,14 +11963,14 @@ function renderGrupoMenuLateral(grupo) {
   `;
 }
 
-function renderCabecalhoMenuLateral({ recolhido = false, drawer = false } = {}) {
+function renderCabecalhoMenuLateral({ recolhido = false, drawer = false, automatico = false } = {}) {
   const tituloBotao = drawer ? "Fechar menu" : (recolhido ? "Mostrar menu" : "Esconder menu");
   const acaoBotao = drawer ? "fecharDrawerLateral()" : "alternarMenuLateral()";
   const iconeBotao = drawer ? "✕" : renderMenuHandleIcon();
 
   return `
     <div class="side-brand side-brand-official ${drawer ? "drawer-brand" : ""}">
-      <button class="icon-button side-menu-toggle" onclick="${acaoBotao}" title="${tituloBotao}" aria-label="${escaparAttr(tituloBotao)}">${iconeBotao}</button>
+      ${automatico ? "" : `<button class="icon-button side-menu-toggle" onclick="${acaoBotao}" title="${tituloBotao}" aria-label="${escaparAttr(tituloBotao)}">${iconeBotao}</button>`}
       ${renderMarcaOficialProjeto("side-brand-mark", "Simplifica 3D", "icon")}
       <span class="side-brand-copy">
         <strong>SIMPLIFICA 3D</strong>

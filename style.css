@@ -34235,7 +34235,7 @@ body.theme-light{
   --border-strong:#85949e;
   --text-primary:#263537;
   --text-secondary:#596b6d;
-  --text-muted:#4c5c65;
+  --text-muted:#42515a;
   --text-disabled:#9ca9aa;
   --primary:#0f8f88;
   --color-primary:#0f8f88;
@@ -47288,7 +47288,7 @@ body.mobile-mode .mobile-panel-calculator .calc-modern-screen{
 /* Light theme uses solid surfaces so screens stay clean and legible. */
 body.theme-light .mobile-panel-calculator,
 body.theme-light .mobile-panel-calculator .calc-modern-screen{
-  background:#f5f8f9 !important;
+  background:var(--bg-page) !important;
 }
 
 body.theme-light .calc-active-profile,
@@ -50708,6 +50708,10 @@ body.viewport-desktop .desktop-sidebar.is-collapsed .side-nav-button{
   place-items:center !important;
   min-height:44px;
   padding:6px !important;
+}
+
+body.viewport-desktop .desktop-sidebar.is-automatic-menu .side-brand-mark{
+  display:block;
 }
 
 /* A coluna do menu acompanha a expansão para reservar espaço no painel. */
