@@ -10493,7 +10493,7 @@ function renderDesktop() {
     <div class="desktop-shell${classeMenu}">
       ${renderMenuLateral()}
       <main class="desktop-main app-content">
-        ${renderTopbar()}
+        ${renderTopbar(telaAtual === "dashboard" && getHomeLayout() === "simple")}
         ${renderSuperAdminMaintenanceBanner()}
         ${renderAccountDeletionBanner()}
         ${renderDesktopConteudo()}
@@ -10521,30 +10521,30 @@ function renderDesktopConteudo() {
   return `${atualizacaoAndroid}${renderDashboard()}`;
 }
 
-function renderTopbar() {
+function renderTopbar(simpleDashboard = false) {
   const usuario = getUsuarioAtual();
   const plano = getPlanoAtual(usuario);
   const nomeUsuario = usuario?.nome || (adminLogado ? "Admin local" : "Visitante");
   const titulo = getTituloTelaDesktop(telaAtual);
   const subtitulo = getSubtituloTelaDesktop(telaAtual);
   return `
-    <section class="topbar app-topbar">
-      <div>
+    <section class="topbar app-topbar${simpleDashboard ? " dashboard-topbar-context" : ""}">
+      ${simpleDashboard ? "" : `<div>
         <strong>${escaparHtml(titulo)}</strong>
         <span class="muted">${escaparHtml(subtitulo)}</span>
       </div>
       <label class="topbar-search search-compact" onclick="expandirBuscaGlobal(this)">
         <button class="search-action-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app" aria-label="Abrir pesquisa"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
-        <input data-search-context="global" placeholder="Buscar pedidos, clientes, materiais ou valores..." oninput="atualizarAutocompletePesquisa(this)" onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this); agendarFechamentoAutocompletePesquisa(this)">
-      </label>
+        <input data-search-context="global" aria-label="Buscar no app" placeholder="Buscar pedidos, clientes, materiais ou valores..." oninput="atualizarAutocompletePesquisa(this)" onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this); agendarFechamentoAutocompletePesquisa(this)">
+      </label>`}
       <div class="topbar-user">
         ${isModoManutencaoSuperadminAtivo() ? `<button class="btn secondary superadmin-return-button" type="button" onclick="sairManutencaoSuperadmin()">${renderUiIcon("superadmin")} Encerrar manutenção</button>` : ""}
         ${isModoErpSuperadminAtivo() ? `<button class="btn secondary superadmin-return-button" type="button" onclick="voltarModoSuperadmin()">${renderUiIcon("superadmin")} Voltar ao Superadmin</button>` : ""}
         <span class="status-badge ${classeStatusPlano(plano.status)}">${escaparHtml(plano.nome)}</span>
-        <button class="topbar-avatar-button" type="button" data-action="open-user-menu" onclick="abrirMenuUsuarioTopo(event)" title="Perfil" style="pointer-events:auto;">
+        ${simpleDashboard ? "" : `<button class="topbar-avatar-button" type="button" data-action="open-user-menu" onclick="abrirMenuUsuarioTopo(event)" title="Perfil" style="pointer-events:auto;">
           ${renderUsuarioAvatar(usuario, "topbar-avatar")}
           <span>${escaparHtml(nomeUsuario)}</span>
-        </button>
+        </button>`}
       </div>
     </section>
   `;
@@ -13487,7 +13487,7 @@ function renderDashboardHomeHeader() {
         ${renderDashboardInterfaceModeButton()}
         <label class="dashboard-search search-compact home-global-search" onclick="this.closest('.dashboard-home-header').classList.add('is-global-search-open');expandirBuscaGlobal(this)">
           <button class="search-action-button" type="button" tabindex="-1" onpointerdown="event.preventDefault()" onclick="event.preventDefault();event.stopPropagation();this.closest('.dashboard-home-header').classList.add('is-global-search-open');expandirBuscaGlobal(this)" title="Buscar no app" aria-label="Abrir pesquisa"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
-          <input data-search-context="global" placeholder="Buscar no app..." oninput="atualizarAutocompletePesquisa(this)" onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this); agendarFechamentoAutocompletePesquisa(this)">
+          <input data-search-context="global" aria-label="Buscar no app" placeholder="Buscar no app..." oninput="atualizarAutocompletePesquisa(this)" onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this); agendarFechamentoAutocompletePesquisa(this)">
         </label>
         ${renderDashboardCommunicationActions()}
         ${renderDashboardProfileButton(usuario)}
@@ -17797,7 +17797,7 @@ function renderDashboardSearch() {
       <button class="icon-button dashboard-menu-trigger" type="button" onclick="abrirMenuPopup()" title="Abrir menu" aria-label="Abrir menu">${renderMenuHandleIcon()}</button>
       <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
         <button class="search-action-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app" aria-label="Abrir pesquisa"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
-        <input data-search-context="global" placeholder="Buscar pedidos, clientes, materiais ou valores..." oninput="atualizarAutocompletePesquisa(this)" onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this); agendarFechamentoAutocompletePesquisa(this)">
+        <input data-search-context="global" aria-label="Buscar no app" placeholder="Buscar pedidos, clientes, materiais ou valores..." oninput="atualizarAutocompletePesquisa(this)" onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this); agendarFechamentoAutocompletePesquisa(this)">
       </label>
     </div>
   `;
@@ -18256,7 +18256,7 @@ function renderDashboardDesktopHeader(plano, analytics) {
       <div class="desktop-dashboard-hero-actions">
         <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
           <button class="search-action-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app" aria-label="Abrir pesquisa"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
-          <input data-search-context="global" placeholder="Buscar..." oninput="atualizarAutocompletePesquisa(this)" onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this); agendarFechamentoAutocompletePesquisa(this)">
+          <input data-search-context="global" aria-label="Buscar no app" placeholder="Buscar..." oninput="atualizarAutocompletePesquisa(this)" onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this); agendarFechamentoAutocompletePesquisa(this)">
         </label>
         ${renderDashboardCommunicationActions()}
         ${renderDashboardProfileButton(usuario)}
@@ -18777,14 +18777,12 @@ function renderDashboardSimplifica({ stats }) {
     { label: "Calculadora", icon: "calculadora", action: "trocarTela('calculadora')", screen: "calculadora" },
     { label: "Adicionar material", icon: "estoque", action: "abrirCadastroItemEstoque()", screen: "estoque" },
     { label: "Iniciar produção", icon: "producao", action: "trocarTela('producao')", screen: "producao" },
-    { label: "Novo cliente", icon: "clientes", action: "abrirPedidoRapidoOperacional({reset:true})", screen: "pedido" },
-    { label: "Nova venda", icon: "caixa", action: "trocarTela('pedido')", screen: "pedido" }
+    { label: "Novo cliente", icon: "clientes", action: "abrirPedidoRapidoOperacional({reset:true})", screen: "pedido" }
   ].filter((item) => canAccessScreen(item.screen));
   const modules = [
     { label: "Estoque", detail: "Materiais e insumos", icon: "estoque", screen: "estoque" },
     { label: "Vendas", detail: "Resultados comerciais", icon: "relatorios", screen: "relatorios" },
     { label: "Clientes", detail: "Contatos e histórico", icon: "clientes", screen: "clientes" },
-    { label: "Calculadora", detail: "Tempo e material", icon: "calculadora", screen: "calculadora" },
     { label: "Loja Online", detail: "Produtos e pedidos", icon: "lojaOnline", screen: "lojaOnline" }
   ].filter((item) => canAccessScreen(item.screen));
   const summary = [

@@ -53,7 +53,7 @@ test("Home simples preserva o cabeçalho real e não cria outro menu inferior", 
 });
 
 test("Home simples usa ações, módulos e indicadores operacionais reais", () => {
-  ["Novo pedido", "Calculadora", "Adicionar material", "Iniciar produção", "Novo cliente", "Nova venda"].forEach((label) => assert(appSource.includes(label)));
+  ["Novo pedido", "Calculadora", "Adicionar material", "Iniciar produção", "Novo cliente"].forEach((label) => assert(appSource.includes(label)));
   ["Pedidos abertos", "Em produção", "Vendas hoje", "Estoque baixo"].forEach((label) => assert(appSource.includes(label)));
   assert(appSource.includes("getPedidoRecenteDashboard().slice(0, 4)"));
   assert(appSource.includes("canAccessScreen(item.screen)"));
@@ -63,8 +63,8 @@ test("módulos não repetem destinos fixos do menu inferior", () => {
   const start = appSource.indexOf("const modules = [", appSource.indexOf("function renderDashboardSimplifica"));
   const end = appSource.indexOf("].filter((item) => canAccessScreen(item.screen));", start);
   const modulesSource = appSource.slice(start, end);
-  ["Pedidos", "Produção", "Caixa"].forEach((label) => assert(!modulesSource.includes(`label: "${label}"`)));
-  ["Estoque", "Vendas", "Clientes", "Calculadora", "Loja Online"].forEach((label) => assert(modulesSource.includes(`label: "${label}"`)));
+  ["Pedidos", "Produção", "Caixa", "Calculadora"].forEach((label) => assert(!modulesSource.includes(`label: "${label}"`)));
+  ["Estoque", "Vendas", "Clientes", "Loja Online"].forEach((label) => assert(modulesSource.includes(`label: "${label}"`)));
 });
 
 test("Aparência oferece escolha imediata entre os dois layouts", () => {
