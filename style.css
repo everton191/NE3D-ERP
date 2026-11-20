@@ -50901,7 +50901,7 @@ body.theme-light.app-shell-ready .home-shell[data-home-layout="simple"] .dashboa
 body.mobile-mode.app-shell-ready .home-shell[data-home-layout="simple"] .dashboard-home-header{
   grid-template-columns:44px minmax(0,1fr);
   align-items:start;
-  gap:8px;
+  gap:8px 4px;
 }
 
 body.mobile-mode.app-shell-ready .home-shell[data-home-layout="simple"] .dashboard-menu-trigger{
@@ -50922,7 +50922,7 @@ body.mobile-mode.app-shell-ready .home-shell[data-home-layout="simple"] .dashboa
   justify-self:stretch;
   justify-content:flex-end;
   align-items:center;
-  gap:6px;
+  gap:4px;
 }
 
 body.mobile-mode.app-shell-ready .home-shell[data-home-layout="simple"] :is(.dashboard-menu-trigger,.dashboard-header-actions > button,.dashboard-profile-button .home-avatar){
