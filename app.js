@@ -12514,6 +12514,7 @@ function navegarPwaPorDirecional(delta = 1) {
 }
 
 function gerenciarDirecionaisPwa(event, { editavel = false } = {}) {
+  if (event.target?.closest?.('.desktop-sidebar')) return false;
   if (!isWebPwaProfile() || isMobile() || editavel || event.altKey || event.ctrlKey || event.metaKey) return false;
   if (document.querySelector(".modal-backdrop, .drawer-backdrop, .side-drawer, .quick-order-drawer, .ui-context-menu[open]")) return false;
   const key = String(event.key || "");
