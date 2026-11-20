@@ -43800,7 +43800,7 @@ body.mobile-mode :where(
 }
 
 .stock-summary-card > i{
-  position:absolute;
+  position:absolute !important;
   right:14px;
   top:50%;
   width:34px;
