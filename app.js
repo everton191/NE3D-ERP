@@ -12231,8 +12231,8 @@ function renderBotaoLateral(item) {
   const iconKey = relacao?.icon || item.icone || item.tela;
   const badge = item.tela === "promocoes" ? getNovidadesPromocoes3dCount() : Number(item.badge) || 0;
   return `
-    <button class="side-nav-button" data-tela="${item.tela}" onclick="abrirTelaMenuLateral('${item.tela}')" title="${escaparAttr(item.texto)}">
-      <span>${renderUiIcon(iconKey, item.tela)}</span>
+    <button class="side-nav-button" data-tela="${item.tela}" onclick="abrirTelaMenuLateral('${item.tela}')" title="${escaparAttr(item.texto)}" aria-label="${escaparAttr(item.texto)}">
+      <span aria-hidden="true">${renderUiIcon(iconKey, item.tela)}</span>
       <strong>${item.texto}</strong>
       ${item.tela === "promocoes" ? `<em class="promotion-nav-badge" data-promo-badge ${badge ? "" : "hidden"}>${Math.min(99, badge)}</em>` : ""}
     </button>
