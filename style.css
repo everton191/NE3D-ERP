@@ -50845,3 +50845,26 @@ body.app-shell-ready .topbar.dashboard-topbar-context{
     white-space:normal;
   }
 }
+
+/* A mesma área ou opção deve ter apenas um contorno principal. */
+body.app-shell-ready .home-shell[data-home-layout="simple"] .home-simple-section:has(> :is(.home-simple-quick-list,.home-simple-modules,.home-simple-summary)),
+body.app-shell-ready .home-simple-intro .home-date-card,
+body.app-shell-ready .ui3-calculator .calc-input-panel .calc-field-card,
+body.app-shell-ready .reports-overview-panel .reports-period-tabs,
+body.app-shell-ready .cash-section.cash-quick-actions-section{
+  background:transparent !important;
+  border-color:transparent !important;
+  box-shadow:none !important;
+}
+
+body.app-shell-ready .orders-pwa-list .order-list-card{
+  background:transparent !important;
+  border:0 !important;
+  border-bottom:1px solid var(--border-soft) !important;
+  border-radius:0 !important;
+  box-shadow:none !important;
+}
+
+body.app-shell-ready .orders-pwa-list .order-list-card:is(:hover,:focus-visible,.active,.is-active,[aria-selected="true"]){
+  background:var(--surface-hover,var(--surface-secondary)) !important;
+}
