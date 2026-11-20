@@ -33891,6 +33891,16 @@ function valorExibidoTaxaExtraCalculadora(estado = getEstadoTaxaExtraCalculadora
   return CalculatorDomain.getDisplayedExtraFee({ mode: estado.modo, percent: estado.percent, value: estado.value });
 }
 
+function formatarEntradaTaxaExtraCalculadora(estado) {
+  const valor = valorExibidoTaxaExtraCalculadora(estado);
+  if (!valor) return "";
+  return valor.toLocaleString("pt-BR", {
+    useGrouping: false,
+    minimumFractionDigits: estado.modo === "manual" ? 2 : 0,
+    maximumFractionDigits: 2
+  });
+}
+
 function atualizarVisualTaxaExtraCalculadora(opcoes = {}) {
   const estado = getEstadoTaxaExtraCalculadora();
   const campo = document.getElementById("taxaExtra");
@@ -33900,12 +33910,13 @@ function atualizarVisualTaxaExtraCalculadora(opcoes = {}) {
   if (campo) {
     const preservarDigitacao = opcoes.preservarDigitacao === true || (estado.modo === "manual" && document.activeElement === campo);
     if (!preservarDigitacao) {
-      campo.value = valorExibidoTaxaExtraCalculadora(estado) ? Number(valorExibidoTaxaExtraCalculadora(estado)).toFixed(2).replace(".", ",") : "";
+      campo.value = formatarEntradaTaxaExtraCalculadora(estado);
     }
     campo.readOnly = false;
     campo.max = estado.modo === "manual" ? "" : "100";
     campo.step = estado.modo === "manual" ? "0.01" : "1";
     campo.classList.toggle("is-manual-fee", estado.modo === "manual");
+    campo.setAttribute("aria-label", estado.modo === "manual" ? "Taxa extra em reais" : "Taxa extra em percentual");
   }
   if (unidade) unidade.textContent = estado.modo === "manual" ? "R$" : "%";
   if (slider) {
@@ -34012,9 +34023,10 @@ function renderResumoCalculo(calculo = ultimoCalculo) {
         <span>Base do produto</span><strong>${formatarMoeda(baseProduto)}</strong>
         <span>Margem de lucro (${margem}%)</span><strong>${formatarMoeda(lucroProduto)}</strong>
         <span>Valor do produto</span><strong>${formatarMoeda(valorProduto)}</strong>
-        ${taxaExtra > 0 ? `<span>Taxa extra${calculo.taxaExtraRotulo ? ` (${escaparHtml(calculo.taxaExtraRotulo)})` : ""}</span><strong>${formatarMoeda(taxaExtra)}</strong>` : ""}
+        ${taxaExtra > 0 && calculo.taxaExtraMode === "percent" && calculo.taxaExtraRotulo ? `<span>Percentual da taxa extra</span><strong>${escaparHtml(calculo.taxaExtraRotulo)}</strong>` : ""}
+        ${taxaExtra > 0 ? `<span>Acréscimo da taxa extra</span><strong>${formatarMoeda(taxaExtra)}</strong>` : ""}
         ${ajusteArredondamento > 0 ? `<span>Arredondamento</span><strong>${formatarMoeda(ajusteArredondamento)}</strong>` : ""}
-        ${calculo.impressaoLote ? `<span>Quantidade no lote</span><strong>${quantidadeLote} un.</strong><span>Valor unitário calculado</span><strong>${formatarMoeda(valorUnitario)}</strong>` : ""}
+        ${calculo.impressaoLote ? `<span>Valor unitário calculado</span><strong>${formatarMoeda(valorUnitario)}</strong>` : ""}
       </div>
       <label class="field inline-result-field">
         <span>${calculo.impressaoLote ? "Valor unitário ajustável" : "Preço final ajustável"}</span>
@@ -34217,7 +34229,7 @@ function estabilizarViewportCalculadora() {
   requestAnimationFrame(resetar);
 }
 
-function atualizarTaxaExtraControle(valor = 0) {
+function atualizarTaxaExtraControle(valor = 0, preservarDigitacao = false) {
   const estado = getEstadoTaxaExtraCalculadora();
   const numero = Math.max(0, numeroCalculadora(valor, 0, 0));
   if (estado.modo === "manual") {
@@ -34226,8 +34238,13 @@ function atualizarTaxaExtraControle(valor = 0) {
     appConfig.calcExtraFeePercent = Math.min(100, numero);
   }
   salvarDados();
-  atualizarVisualTaxaExtraCalculadora({ preservarDigitacao: true });
+  atualizarVisualTaxaExtraCalculadora({ preservarDigitacao });
   agendarCalculoTempoReal();
+}
+
+function ajustarTaxaExtraCalculadora(delta) {
+  const valor = valorExibidoTaxaExtraCalculadora();
+  atualizarTaxaExtraControle(Math.max(0, valor + delta));
 }
 
 function atualizarTaxaExtraPeloSlider(valor = 0) {
@@ -34295,7 +34312,7 @@ function renderCalculadoraConteudo() {
             <span><strong>Calcular várias peças</strong><small>Define quantidade e consumo total do lote.</small></span>
           </label>
           <div class="calc-option-fields" id="calcBatchFields" ${calculatorDraftState.batchActive ? "" : "hidden"}>
-            <div class="calc-stepper-row"><span>Quantidade</span><div><button type="button" onclick="ajustarQuantidadeLoteCalculadora(-1)" aria-label="Diminuir quantidade">−</button><input id="quantidade" type="number" inputmode="numeric" min="2" max="999" step="1" placeholder="5" value="${escaparAttr(Number(calculatorDraftState.quantity) >= 2 ? calculatorDraftState.quantity : "")}" onfocus="prepararEdicaoCalculadora(this)" oninput="calculatorDraftState.quantity=this.value;atualizarResumoLoteCalculadora();agendarCalculoTempoReal()"><small>unidades</small><button type="button" onclick="ajustarQuantidadeLoteCalculadora(1)" aria-label="Aumentar quantidade">+</button></div></div>
+            <div class="calc-stepper-row"><span>Quantidade</span><div><button type="button" onclick="ajustarQuantidadeLoteCalculadora(-1)" aria-label="Diminuir quantidade">−</button><input id="quantidade" type="number" inputmode="numeric" aria-label="Quantidade de peças em unidades" min="2" max="999" step="1" placeholder="5" value="${escaparAttr(Number(calculatorDraftState.quantity) >= 2 ? calculatorDraftState.quantity : "")}" onfocus="prepararEdicaoCalculadora(this)" oninput="calculatorDraftState.quantity=this.value;atualizarResumoLoteCalculadora();agendarCalculoTempoReal()"><small>unidades</small><button type="button" onclick="ajustarQuantidadeLoteCalculadora(1)" aria-label="Aumentar quantidade">+</button></div></div>
             <div class="calc-segmented" role="radiogroup" aria-label="Interpretação dos dados do lote">
               <label><input type="radio" name="calcBatchMode" value="per_piece" ${calculatorDraftState.batchMode !== "whole_batch" ? "checked" : ""} onchange="calculatorDraftState.batchMode='per_piece';atualizarResumoLoteCalculadora();agendarCalculoTempoReal()"><span>Dados por peça</span></label>
               <label><input type="radio" name="calcBatchMode" value="whole_batch" ${calculatorDraftState.batchMode === "whole_batch" ? "checked" : ""} onchange="calculatorDraftState.batchMode='whole_batch';atualizarResumoLoteCalculadora();agendarCalculoTempoReal()"><span>Lote inteiro</span></label>
@@ -34313,7 +34330,7 @@ function renderCalculadoraConteudo() {
               <label><input type="radio" name="calcExtraFeeType" value="percent" ${taxaEstado.modo === "percent" ? "checked" : ""} onchange="selecionarTipoTaxaExtraCalculadora('percent')"><span>Percentual (%)</span></label>
               <label><input type="radio" name="calcExtraFeeType" value="fixed" ${taxaEstado.modo === "manual" ? "checked" : ""} onchange="selecionarTipoTaxaExtraCalculadora('fixed')"><span>Valor fixo (R$)</span></label>
             </div>
-            <div class="calc-fee-stepper"><button type="button" onclick="atualizarTaxaExtraControle(Math.max(0, numeroMonetarioPedido(document.getElementById('taxaExtra').value, 0) - 1))" aria-label="Diminuir taxa">−</button><label><i id="taxaExtraUnit">${taxaEstado.modo === "manual" ? "R$" : "%"}</i><input id="taxaExtra" type="text" inputmode="decimal" placeholder="10" value="${escaparAttr(String(valorExibidoTaxaExtraCalculadora(taxaEstado) || "").replace('.', ','))}" onfocus="prepararEdicaoCalculadora(this)" oninput="atualizarTaxaExtraControle(this.value)"></label><button type="button" onclick="atualizarTaxaExtraControle(numeroMonetarioPedido(document.getElementById('taxaExtra').value, 0) + 1)" aria-label="Aumentar taxa">+</button></div>
+            <div class="calc-fee-stepper"><button type="button" onclick="ajustarTaxaExtraCalculadora(-1)" aria-label="Diminuir taxa">−</button><label><i id="taxaExtraUnit">${taxaEstado.modo === "manual" ? "R$" : "%"}</i><input id="taxaExtra" type="text" inputmode="decimal" placeholder="10" value="${escaparAttr(formatarEntradaTaxaExtraCalculadora(taxaEstado))}" aria-label="${taxaEstado.modo === "manual" ? "Taxa extra em reais" : "Taxa extra em percentual"}" onfocus="prepararEdicaoCalculadora(this)" oninput="atualizarTaxaExtraControle(this.value, true)" onblur="atualizarVisualTaxaExtraCalculadora()"></label><button type="button" onclick="ajustarTaxaExtraCalculadora(1)" aria-label="Aumentar taxa">+</button></div>
           </div>
         </section>
       </div>
