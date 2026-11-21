@@ -28,11 +28,10 @@
         }
       }
       if (falhas.length) {
-        deps.registrarDiagnostico("Supabase/RLS", "Verificação RLS pós-login", falhas.join(" | "));
+        deps.registrarDiagnostico("Supabase/RLS", "Verificação RLS pós-login", falhas.join(" | "), { silent: true });
         deps.registrarErroAplicacaoSilencioso("SUPABASE_RLS_DENIED", new Error(falhas.join(" | ")), "Verificação RLS pós-login", { falhas });
         return { ok: false, falhas };
       }
-      deps.registrarDiagnostico("Supabase/RLS", "Verificação RLS pós-login", "OK");
       return { ok: true, falhas: [] };
   }
 

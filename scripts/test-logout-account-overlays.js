@@ -137,7 +137,7 @@ function fixture(v3, withPopup = true) {
   const incidental = () => Promise.resolve();
   const loginDeps = new Proxy({
     window: context.window, document, syncConfig: context.syncConfig, billingConfig: {}, sessionStorage,
-    AuthService: { hydrateAuthenticatedUser: async (user) => user },
+    AuthService: { hydrateAuthenticatedUser: async (user) => user, verifyRlsHealth: incidental },
     usuarioEstaBloqueado: () => false, isSuperAdmin: () => false,
     registrarDispositivoLicenca: () => true, registrarSessaoSaasLocal: () => true,
     setUsuarioAtualEmail: (email) => { context.usuarioAtualEmail = email; },

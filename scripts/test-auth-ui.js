@@ -73,7 +73,9 @@ assert.match(index, /style\.css\?v=auth-status-dock-20261008/, "o CSS do login d
 assert.match(index, /src\/app\/bootstrap\.js\?v=quiet-session-startup-20261017/, "o bootstrap deve invalidar a versão que sempre desenhava as etapas");
 assert.match(index, /src\/features\/app-ui\/app-ui-renderers\.js\?v=quiet-session-startup-20261017/, "o renderizador deve invalidar a versão que sempre mostrava o login durante a restauração");
 assert.match(index, /app\.js\?v=1\.0\.41-pdf-browser-bindings-20261018/, "o app principal deve invalidar a versão anterior à correção de bindings PDF");
-assert.match(serviceWorker, /simplifica-3d-v1042-auth-status-build-__SIMPLIFICA_BUILD_ID__/, "o cache deve ser renovado para a nova tela de login");
+const appVersion = app.match(/const APP_VERSION = "(\d+\.\d+\.\d+)"/)?.[1];
+assert.ok(appVersion, "a versão do app deve estar definida");
+assert.ok(serviceWorker.includes(`simplifica-3d-v${appVersion.replaceAll(".", "")}-auth-status-build-__SIMPLIFICA_BUILD_ID__`), "o cache deve acompanhar a versão do app e do build");
 assert(index.indexOf('id="app-shell"') < index.indexOf('/assets/vendor/jspdf.umd.min.js'), "o shell inicial deve ser montado antes das bibliotecas de PDF e QR");
 assert(index.indexOf('/assets/vendor/jspdf.umd.min.js') < index.indexOf('/app.js?'), "a biblioteca de PDF deve continuar disponível antes do app principal");
 assert(index.indexOf('/assets/vendor/qrcode.min.js') < index.indexOf('/app.js?'), "a biblioteca de QR deve continuar disponível antes do app principal");

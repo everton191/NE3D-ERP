@@ -21,6 +21,7 @@ const serviceSource = read(servicePath);
 const app = read("app.js");
 const storefrontRemote = read("src/features/storefront/storefront-admin-remote.js");
 const pdfComposer = read("src/features/company/pdf-order-composer.js");
+const authCommands = read("src/features/account/auth-commands.js");
 const uxHaystack = app + "\n" + storefrontRemote + "\n" + pdfComposer;
 const index = read("index.html");
 const sw = read("sw.js");
@@ -50,6 +51,8 @@ assert(skeleton.includes('aria-busy="true"'), "skeleton informa carregamento à 
 assert(serviceSource.includes("2000") && serviceSource.includes("5000") && serviceSource.includes("10000"), "limites de 2s, 5s e 10s estão configurados");
 assert(!/\bawait\s+new\s+Promise\s*\([^)]*setTimeout/i.test(serviceSource), "serviço não cria espera artificial");
 assert(index.indexOf("smartLoaderService.js") < index.indexOf("app.js"), "SmartLoader carrega antes do app.js");
+const startupScripts = [...index.replace(/<!--[\s\S]*?-->/g, "").matchAll(/<script src="([^"]+)"([^>]*)>/g)];
+assert(new Set(startupScripts.map(([, src]) => src.split("?")[0])).size === startupScripts.length, "scripts iniciais não têm duplicatas");
 assert(index.includes('id="smart-loader-layer"'), "camada global do SmartLoader existe");
 assert(prepareWeb.includes(servicePath), "build copia o SmartLoader para dist");
 assert(sw.includes("./src/services/smartLoaderService.js"), "PWA pré-carrega o SmartLoader");
@@ -68,7 +71,7 @@ assert(/const CACHE_NAME = "simplifica-3d-v\d+-[^"]+";/.test(sw), "cache PWA pos
   "loginUsuario"
 ].forEach((functionName) => {
   let found = false;
-  for (const source of [storefrontRemote, pdfComposer, app]) {
+  for (const source of [storefrontRemote, pdfComposer, authCommands, app]) {
     for (const prefix of ["async function ", "function "]) {
       const position = source.indexOf(prefix + functionName);
       if (position < 0) continue;

@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.42";
-const APP_VERSION_CODE = 70;
+const APP_VERSION = "1.0.43";
+const APP_VERSION_CODE = 71;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
   "Peso, horas e minutos da calculadora têm altura, fonte e unidades padronizadas.",
@@ -2577,15 +2577,10 @@ const AuthService = {
         });
       }
       debugInfo("[Auth][login]", { email, auth_uid: syncConfig.supabaseUserId, source: "supabase" });
-      Promise.resolve()
-        .then(() => this.hydrateAuthenticatedUser(usuario, { source: "supabase" }))
-        .then(() => hidratarHistoricoContaSupabase("login"))
-        .then(() => sincronizarFilaOfflinePendente("login"))
-        .catch((erro) => registrarDiagnostico("sync", "Preparação assíncrona pós-login falhou", erro.message || erro));
       return { usuario, source: "supabase" };
     } catch (erro) {
       registrarFalhaLogin(email, erro?.message || "Falha online");
-      throw ErrorService.capture(erro, { area: "Autenticação", action: "Login", errorKey: "LOGIN_FAILED" });
+      throw ErrorService.capture(erro, { area: "Autenticação", action: "Login", errorKey: "LOGIN_FAILED", silent: true });
     }
   },
   async loginWithSupabase(email, senha, options = {}) {
@@ -2632,11 +2627,10 @@ const AuthService = {
         marcarUsuarioSupabaseSincronizado(hidratado);
         await garantirCadastroSaasOnlineAposLogin(hidratado);
         await consultarLicencaSupabaseSilencioso({ motivo: "login-hydrate" });
-        await this.verifyRlsHealth();
       }
       return StateStore.hydrateAuthenticatedUser(hidratado);
     } catch (erro) {
-      throw ErrorService.capture(erro, { area: "Autenticação", action: "Carregar perfil pós-login", errorKey: "LOAD_PROFILE_FAILED", detail: contexto.source || "" });
+      throw ErrorService.capture(erro, { area: "Autenticação", action: "Carregar perfil pós-login", errorKey: "LOAD_PROFILE_FAILED", detail: contexto.source || "", silent: true });
     }
   },
   async verifyRlsHealth() {
@@ -30558,7 +30552,7 @@ async function garantirCadastroSaasOnlineAposLogin(usuario = getUsuarioAtual()) 
   } catch (erro) {
     marcarUsuarioSupabasePendente(usuario, erro.message);
     salvarDados();
-    registrarDiagnostico("Supabase", "Cadastro SaaS online não sincronizado após login", erro.message);
+    registrarDiagnostico("Supabase", "Cadastro SaaS online não sincronizado após login", erro.message, { silent: true });
     return null;
   }
 }
@@ -36904,6 +36898,8 @@ function getAccountProfileModalsDeps() {
 function getDiagnosticsAdminDeps() {
   return {
     requisicaoSupabase,
+    JSON,
+    String,
     getUsuarioAtual,
     normalizarEmail,
     getPlanAccessState,
@@ -37297,6 +37293,8 @@ function getAuthCommandsDeps() {
     getPlanoSaas,
     normalizarAssinaturaSaas,
     garantirCadastroSaasOnlineAposLogin,
+    hidratarHistoricoContaSupabase,
+    sincronizarFilaOfflinePendente,
     tocarAcessoClienteSupabaseSilencioso,
     carregarSaasSupabaseSilencioso,
     carregarProducaoManualSupabaseSilencioso,

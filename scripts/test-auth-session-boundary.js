@@ -18,7 +18,13 @@ async function run() {
   const deps = new Proxy({
     window: { SimplificaAppBootstrap: { startAuthenticated() {} } },
     syncConfig: { supabaseUserId: "fixture" }, billingConfig: {},
-    AuthService: { hydrateAuthenticatedUser: () => new Promise((resolve) => { releaseProfile = () => resolve(user); }) },
+    AuthService: {
+      hydrateAuthenticatedUser: () => new Promise((resolve) => { releaseProfile = () => resolve(user); }),
+      verifyRlsHealth: () => {
+        assert.equal(navigated, true, "diagnostic checks must start after navigation");
+        return new Promise(() => {});
+      }
+    },
     usuarioEstaBloqueado: () => false,
     isSuperAdmin: () => true,
     registrarSessaoSaasLocal: () => true,

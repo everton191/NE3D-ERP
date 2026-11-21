@@ -1,5 +1,5 @@
 const BUILD_ID = "__SIMPLIFICA_BUILD_ID__";
-const CACHE_NAME = "simplifica-3d-v1042-auth-status-build-__SIMPLIFICA_BUILD_ID__";
+const CACHE_NAME = "simplifica-3d-v1043-auth-status-build-__SIMPLIFICA_BUILD_ID__";
 const CACHE_PREFIX = "simplifica-3d-";
 const APP_FILES = [
   "./",

@@ -173,7 +173,13 @@
   } catch (erro) {
     traceLoginFailure(erro);
     deps.falharOperacaoUX(operacaoUX, erro, "Erro ao entrar");
-    deps.ErrorService.notify(erro, { area: "Autenticação", action: "Login", userMessage: "Não foi possível preparar seu acesso. Tente novamente." });
+    const falha = deps.ErrorService.capture(erro, {
+      area: "Autenticação",
+      action: "Login",
+      userMessage: "Não foi possível preparar seu acesso. Tente novamente.",
+      silent: true
+    });
+    deps.mostrarToast(falha.userMessage, "erro", 6500);
   } finally {
     deps.setBotaoLoading("loginUsuarioBtn", false);
   }
@@ -641,7 +647,7 @@
     });
     perfil = Array.isArray(linhas) ? linhas[0] : null;
   } catch (erro) {
-    deps.registrarDiagnostico("Supabase", "Perfil online não carregado", erro.message);
+    deps.registrarDiagnostico("Supabase", "Perfil online não carregado", erro.message, { silent: true });
   }
 
   if (!perfil) {
@@ -682,7 +688,7 @@
     });
     identidadePerfil = Array.isArray(linhasIdentidade) ? linhasIdentidade[0] : null;
   } catch (erro) {
-    deps.registrarDiagnostico("Supabase", "Identidade do perfil online não carregada", erro.message);
+    deps.registrarDiagnostico("Supabase", "Identidade do perfil online não carregada", erro.message, { silent: true });
   }
 
   if (identidadePerfil) {
@@ -745,7 +751,7 @@
   }
 
   await deps.consultarLicencaSupabaseSilencioso().catch((erro) => {
-    deps.registrarDiagnostico("Supabase", "Licença efetiva não carregada após perfil", erro.message || erro);
+    deps.registrarDiagnostico("Supabase", "Licença efetiva não carregada após perfil", erro.message || erro, { silent: true });
   });
   deps.salvarDados();
   return usuario;
@@ -830,6 +836,11 @@
 
   const tarefas = [
     ["Cadastro SaaS pós-login", () => deps.garantirCadastroSaasOnlineAposLogin(usuario)],
+    ["Verificação de acesso pós-login", () => deps.AuthService.verifyRlsHealth()],
+    ["Histórico da conta pós-login", async () => {
+      await deps.hidratarHistoricoContaSupabase("login");
+      await deps.sincronizarFilaOfflinePendente("login");
+    }],
     ["Segurança da conta", () => deps.carregarSegurancaConta(true).then(() => deps.renderApp())],
     ["Toque de acesso Supabase", () => deps.tocarAcessoClienteSupabaseSilencioso()],
     ["Licença Supabase", () => deps.consultarLicencaSupabaseSilencioso()],
@@ -852,25 +863,25 @@
   if (deps.syncConfig.supabaseAccessToken && deps.syncConfig.supabaseUserId) {
     deps.syncConfig.supabaseEnabled = true;
     deps.syncConfig.autoBackupTarget = "supabase";
-    deps.sincronizarAlteracoesLocaisSilencioso("login").catch((erro) => deps.registrarDiagnostico("sync", "Sync Supabase pós-login falhou", erro.message));
+    deps.sincronizarAlteracoesLocaisSilencioso("login").catch((erro) => deps.registrarDiagnostico("sync", "Sync Supabase pós-login falhou", erro.message, { silent: true }));
     return;
   }
   if (deps.isPlanoPagoSlug(plano.slug)) {
     deps.syncConfig.supabaseEnabled = true;
     deps.syncConfig.autoBackupTarget = "supabase";
-    deps.sincronizarSupabaseSilencioso().catch((erro) => deps.registrarDiagnostico("sync", "Sync de plano pós-login falhou", erro.message));
+    deps.sincronizarSupabaseSilencioso().catch((erro) => deps.registrarDiagnostico("sync", "Sync de plano pós-login falhou", erro.message, { silent: true }));
     return;
   }
   if (deps.syncConfig.autoBackupTarget === "supabase" && deps.syncConfig.supabaseEnabled) {
-    deps.sincronizarSupabaseSilencioso().catch((erro) => deps.registrarDiagnostico("sync", "Sync Supabase pós-login falhou", erro.message));
+    deps.sincronizarSupabaseSilencioso().catch((erro) => deps.registrarDiagnostico("sync", "Sync Supabase pós-login falhou", erro.message, { silent: true }));
     return;
   }
   if (deps.syncConfig.autoBackupTarget === "url" && deps.syncConfig.cloudUrl) {
-    deps.sincronizarUrlSilencioso().catch((erro) => deps.registrarDiagnostico("sync", "Sync pós-login falhou", erro.message));
+    deps.sincronizarUrlSilencioso().catch((erro) => deps.registrarDiagnostico("sync", "Sync pós-login falhou", erro.message, { silent: true }));
     return;
   }
   if (deps.ENABLE_GOOGLE_DRIVE_BACKUP && deps.driveFolderHandle) {
-    deps.sincronizarGoogleDriveSilencioso().catch((erro) => deps.registrarDiagnostico("sync", "Sync Drive pós-login falhou", erro.message));
+    deps.sincronizarGoogleDriveSilencioso().catch((erro) => deps.registrarDiagnostico("sync", "Sync Drive pós-login falhou", erro.message, { silent: true }));
   }
 
   }

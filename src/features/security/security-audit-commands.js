@@ -183,7 +183,7 @@
       return resultado;
     } catch (erro) {
       deps.logFalhaSyncSaas("sync_saas_user_after_login", erro);
-      deps.registrarDiagnostico("Supabase", "Sincronização pós-login falhou", erro.message);
+      deps.registrarDiagnostico("Supabase", "Sincronização pós-login falhou", erro.message, { silent: true });
       throw erro;
     }
   }
@@ -208,7 +208,7 @@
         if (options.aplicar !== false) deps.aplicarLicencaSaasOnline(licencaLegada, { stale: false, source: "backend-rpc-legacy" });
         return licencaLegada;
       } catch (erro) {
-        deps.registrarDiagnostico("Supabase", "Licença online não carregada", erro.message);
+        deps.registrarDiagnostico("Supabase", "Licença online não carregada", erro.message, { silent: true });
         deps.registrarErroAplicacaoSilencioso("LOAD_SUBSCRIPTION_FAILED", erro, "Carregar licença SaaS", { newRpcError: erroNovo.message || deps.String(erroNovo) });
         const cache = deps.getLicencaEfetivaSnapshotLocal();
         if (cache && options.aplicar !== false) {
